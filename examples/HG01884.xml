@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<Session genome="hg38" locus="chr5:70917099-70961220" nextAutoscaleGroup="3" version="8">
+    <Resources>
+        <Resource path="data/HG01884.bed.gz" type="bed"/>
+        <Resource path="data/HG01884.bam" type="bam"/>
+    </Resources>
+    <Panel height="559" name="DataPanel" width="1903">
+        <Track attributeKey="HG01884.bed.gz" clazz="org.broad.igv.track.FeatureTrack" featureVisibilityWindow="0" fontSize="14" groupByStrand="false" id="HG01884.bed.gz" name="Variants used in phasing" visible="true"/>
+        <Track attributeKey="HG01884.bam" clazz="org.broad.igv.sam.AlignmentTrack" color="185,185,185" displayMode="SQUISHED" experimentType="THIRD_GEN" fontSize="20" id="HG01884.bam" name="HG01884" visible="true">
+            <RenderOptions groupByOption="TAG" groupByTag="HP" quickConsensusMode="false" shadeBasesOption="false" showInsertionMarkers="false" smallIndelThreshold="4"/>
+        </Track>
+    </Panel>
+    <Panel height="378" name="FeaturePanel" width="1903">
+        <Track attributeKey="Reference sequence" clazz="org.broad.igv.track.SequenceTrack" fontSize="20" id="Reference sequence" name="Reference sequence" sequenceTranslationStrandValue="POSITIVE" shouldShowTranslation="false" visible="true"/>
+        <Track attributeKey="Refseq Genes" clazz="org.broad.igv.track.FeatureTrack" fontSize="20" groupByStrand="false" id="https://s3.amazonaws.com/igv.org.genomes/hg38/ncbiRefSeq.sorted.txt.gz" name="Refseq Genes" visible="true"/>
+    </Panel>
+    <PanelLayout dividerFractions="0.5942796610169492"/>
+    <HiddenAttributes>
+        <Attribute name="DATA FILE"/>
+        <Attribute name="DATA TYPE"/>
+        <Attribute name="NAME"/>
+    </HiddenAttributes>
+</Session>
