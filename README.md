@@ -61,7 +61,7 @@ Note that currently only GRCh38 is supported. We will support GRCh37 in the futu
 ## Interpreting the output
 
 Paraphase produces a few output files in the directory specified by `-o`, with the sample ID as the prefix.
-- `_realigned_tagged.bam`: This BAM file can be loaded into IGV for visualization of haplotypes, see [haplotype visualization](docs/visualizaton.md).  
+- `_realigned_tagged.bam`: This BAM file can be loaded into IGV for visualization of haplotypes, see [haplotype visualization](docs/visualization.md).  
 - If `-v` is specified, Paraphase will generate VCF files produced by DeepVariant. A VCF file is written for each haplotype, and there is also a `_variants.vcf` file containing merged variants from all haplotypes. This is a nonstandard scenario with variable ploidy, and we will continue to improve the variant filtering and merging steps. Any suggestions are welcome.
 - `.json`: Main output file, summerizes haplotypes and variant calls for each sample. Details of the fields are explained below:
   - `smn1_cn`: copy number of SMN1, a `null` call indicates that Paraphase finds only one haplotype but depth does not unambiguously support a copy number of one or two.
