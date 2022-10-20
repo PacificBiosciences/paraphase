@@ -61,7 +61,7 @@ Note that currently only GRCh38 is supported. We will support GRCh37 in the futu
 ## Interpreting the output
 
 Paraphase produces a few output files in the directory specified by `-o`, with the sample ID as the prefix.
-- `_realigned_tagged.bam`: This BAM file can be loaded into IGV for visualization of haplotypes, see the next [section](#visualizing-the-output).  
+- `_realigned_tagged.bam`: This BAM file can be loaded into IGV for visualization of haplotypes, see [haplotype visualization](docs/visualizaton.md).  
 - If `-v` is specified, Paraphase will generate VCF files produced by DeepVariant. A VCF file is written for each haplotype, and there is also a `_variants.vcf` file containing merged variants from all haplotypes. This is a nonstandard scenario with variable ploidy, and we will continue to improve the variant filtering and merging steps. Any suggestions are welcome.
 - `.json`: Main output file, summerizes haplotypes and variant calls for each sample. Details of the fields are explained below:
   - `smn1_cn`: copy number of SMN1, a `null` call indicates that Paraphase finds only one haplotype but depth does not unambiguously support a copy number of one or two.
@@ -78,17 +78,4 @@ Paraphase produces a few output files in the directory specified by `-o`, with t
     - `variants`: The variants contained in the haplotype. The variants listed here could be a subset of those called by DeepVariant, as we use a simple pileup method to call variants and we exclude homopolymer regions. For most accurate variant calls, please use the `-v` option.
     - `boundary`: The boundary of the region that is resolved on the haplotype. This is useful when a haplotype is only partially assembled.
     - `haplogroup`: The haplogroup that the haplotype is assigned to
-
-## Visualizing the output
-We can visualize the haplotypes by loading the output file `_realigned_tagged.bam` into IGV and grouping reads by the `HP` tag.
-
-![example1](docs/figures/example_HG02300.png)
-
-In this example, there are three copies of SMN1 and one copy of SMN2. All reads are aligned to SMN1. Reads in blue are uniquely assigned to a haplotype. Reads in gray are consistent with more than one possible haplotype (this happens when those haplotypes are identical over a region - here `smn1hap1`, `smn1hap3` and `smn2hap1` are identical from the region upstream of SMN1 all the way to halfway into Intron 1). When there are several possible haplotypes consisent with a read, the read is randomly assigned to a haplotype and colored in gray. The `Unassigned` category contains reads that carry bases that do not agree with any haplotypes (this could be due to sequencing errors or short haplotypes).
-
-![example2](docs/figures/example_HG00673.png)
-
-In this second example, Paraphase assembles one SMN1 haplotype and two SMN2 haplotypes. The depth of `smn1hap1` suggests that it is present in two copies, so Paraphase infers that there are two copies of SMN1 (their haplotype sequences are identical).
-
-The `examples` folders contains IGV sessions showing a few more examples.
 
