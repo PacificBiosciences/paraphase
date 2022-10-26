@@ -26,13 +26,15 @@ class Phaser:
         if os.path.exists(self.bam) is False:
             raise Exception(f"File {self.bam} not found.")
         self._bamh = pysam.AlignmentFile(self.bam, "rb")
-        self.homopolymer_file = config["data"]["homopolymer"]
         self.homopolymer_sites = {}
         self.het_sites = []  # for phasing
         self.het_no_phasing = []
         self.homo_sites = []
         self.candidate_pos = set()
         self.mdepth = wgs_depth
+
+    def set_parameter(self, config):
+        self.homopolymer_file = config["data"]["homopolymer"]
         self.nchr = config["coordinates"]["hg38"]["nchr"]
         self.ref = config["data"]["reference"]
         self._refh = pysam.FastaFile(self.ref)
@@ -381,7 +383,7 @@ class Phaser:
             nend_next_pos = int(self.het_sites[nend_next].split("_")[0]) - 1
         return nstart_previous_pos, nend_next_pos
 
-    def output_variants_in_haplotypes(self, haps, reads, nonunique):
+    def output_variants_in_haplotypes(self, haps, reads, nonunique, two_cp_haps=[]):
         """
         Summarize all variants in each haplotype.
         Output all variants and their genotypes.
@@ -389,10 +391,10 @@ class Phaser:
         """
         het_sites = self.het_sites
         haplotype_variants = {}
+        haplotype_info = {}
         dvar = {}
         var_no_phasing = copy.deepcopy(self.het_no_phasing)
-        for hap_index, hap in enumerate(haps):
-            hap_name = f"hap{hap_index}"
+        for hap, hap_name in haps.items():
             haplotype_variants.setdefault(hap_name, [])
         # het sites not used in phasing
         if reads != {}:
@@ -400,8 +402,7 @@ class Phaser:
                 genotypes = []
                 var_reads = self.check_variants_in_haplotypes(var)
                 haps_with_variant = []
-                for hap_index, hap in enumerate(haps):
-                    hap_name = f"hap{hap_index}"
+                for hap, hap_name in haps.items():
                     hap_reads = reads[hap]
                     hap_reads_nonunique = [a for a in nonunique if hap in nonunique[a]]
                     genotype = self.get_genotype_in_hap(
@@ -417,8 +418,7 @@ class Phaser:
                         haplotype_variants[hap_name].append(var)
                     dvar.setdefault(var, genotypes)
         # het sites and homo sites
-        for hap_index, hap in enumerate(haps):
-            hap_name = f"hap{hap_index}"
+        for hap, hap_name in haps.items():
             for i in range(len(hap)):
                 if hap[i] == "2":
                     haplotype_variants[hap_name].append(het_sites[i])
@@ -431,11 +431,10 @@ class Phaser:
                 a for a in var_tmp if var_nstart <= int(a.split("_")[0]) <= var_nend
             ]
             var_tmp1 = list(set(var_tmp1))
-            haplotype_variants[hap_name] = sorted(
-                var_tmp1,
-                key=lambda x: int(x.split("_")[0]),
+            var_tmp2 = sorted(var_tmp1, key=lambda x: int(x.split("_")[0]))
+            haplotype_info.setdefault(
+                hap_name, {"variants": var_tmp2, "boundary": [var_nstart, var_nend]}
             )
-            haplotype_variants[hap_name].append((var_nstart, var_nend))
 
         # summary per variant
         all_haps = haps
@@ -443,15 +442,18 @@ class Phaser:
         for var in self.homo_sites:
             dvar.setdefault(var, ["1"] * nhap)
         for i, var in enumerate(het_sites):
-            dvar.setdefault(var, ["."] * nhap)
-            for hap_index in range(len(all_haps)):
-                hap = all_haps[hap_index]
+            dvar.setdefault(var, [])
+            for hap, hap_name in haps.items():
+                base_call = "."
                 if hap[i] == "2":
-                    dvar[var][hap_index] = "1"
+                    base_call = "1"
                 elif hap[i] == "1":
-                    dvar[var][hap_index] = "0"
+                    base_call = "0"
+                dvar[var].append(base_call)
+                if hap_name in two_cp_haps:
+                    dvar[var].append(base_call)
 
-        return haplotype_variants, {
+        return haplotype_info, {
             var: "|".join(dvar[var]) for var in dict(sorted(dvar.items()))
         }
 

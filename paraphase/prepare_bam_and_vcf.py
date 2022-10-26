@@ -7,6 +7,7 @@ import pysam
 import subprocess
 import random
 import gzip
+from .haplotype_assembler import VariantGraph
 
 
 class BamRealigner:
@@ -29,6 +30,9 @@ class BamRealigner:
         self.extract_region2 = config["coordinates"]["hg38"]["extract_region2"]
         self.samtools = config["tools"]["samtools"]
         self.minimap2 = config["tools"]["minimap2"]
+        self.use_supplementary = False
+        if "use_supplementary" in config:
+            self.use_supplementary = config["use_supplementary"]
         self._bamh = pysam.AlignmentFile(bam, "rb")
         self.sample_id = bam.split("/")[-1].split(".")[0]
         self.realign_bam = os.path.join(
@@ -64,6 +68,8 @@ class BamRealigner:
             if (
                 read.mapping_quality >= self.min_mapq
                 and read.query_alignment_length >= self.min_aln
+                # and read.get_tag("NM") < read.reference_length * 0.1
+                and (self.use_supplementary is True or read.is_supplementary is False)
             ):
                 read.reference_start += self.offset
                 ltags = read.tags
@@ -102,6 +108,8 @@ class BamTagger:
     """
 
     read_color = "166,206,227"
+    read_color_allele1 = "178,223,138"
+    read_color_allele2 = "177,156,217"
 
     def __init__(self, sample_id, outdir, config, call_sum):
         self.sample_id = sample_id
@@ -114,6 +122,9 @@ class BamTagger:
         self.tagged_realigned_bam = os.path.join(
             self.outdir, self.sample_id + "_realigned_tagged.bam"
         )
+        self.use_supplementary = False
+        if "use_supplementary" in config:
+            self.use_supplementary = config["use_supplementary"]
 
     def add_tag_to_read(
         self,
@@ -121,6 +132,8 @@ class BamTagger:
         hp_keys,
         reads_to_tag,
         nonunique,
+        read_details,
+        alleles=[],
         random_assign=False,
     ):
         """
@@ -130,18 +143,48 @@ class BamTagger:
         while unique reads are in blue.
         """
         hp_found = False
+        read_name = read.qname
+        if read.is_supplementary and self.use_supplementary:
+            read_name = (
+                read_name + f"_sup_{read.reference_start}_{read.reference_length}"
+            )
         for hap, hap_name in hp_keys.items():
-            if read.qname in reads_to_tag[hap]:
+            if read_name in reads_to_tag[hap]:
                 read.set_tag("HP", hap_name, "Z")
                 if random_assign:
                     read.set_tag("YC", self.read_color, "Z")
+                if alleles != []:
+                    if hap in alleles[0]:
+                        read.set_tag("YC", self.read_color_allele1, "Z")
+                    elif len(alleles) > 1 and hap in alleles[1]:
+                        read.set_tag("YC", self.read_color_allele2, "Z")
                 hp_found = True
+        if hp_found is False:
+            # find closest match
+            if read_name in read_details:
+                read_seq = read_details[read_name]
+                keys = []
+                mismatches = []
+                for ass_hap in hp_keys.keys():
+                    match, mismatch, extend = VariantGraph.compare_two_haps(
+                        read_seq, ass_hap
+                    )
+                    keys.append(ass_hap)
+                    mismatches.append(mismatch)
+                mismatches_sorted = sorted(mismatches)
+                if (
+                    0 < mismatches_sorted[0] <= 2
+                    and mismatches_sorted[1] >= 5 * mismatches_sorted[0]
+                ):
+                    best_match = keys[mismatches.index(mismatches_sorted[0])]
+                    read.set_tag("HP", hp_keys[best_match], "Z")
+                    hp_found = True
         if hp_found is False:
             if random_assign is False:
                 read.set_tag("HP", "Unassigned", "Z")
             else:
-                if read.qname in nonunique:
-                    possible_haps = nonunique[read.qname]
+                if read_name in nonunique:
+                    possible_haps = nonunique[read_name]
                     random_hap = possible_haps[
                         random.randint(0, len(possible_haps) - 1)
                     ]
@@ -162,14 +205,22 @@ class BamTagger:
         if nonunique_reads is None:
             nonunique_reads = {}
         hp_keys = call_sum.get("final_haplotypes")
+        read_details = call_sum.get("read_details")
+        alleles = call_sum.get("alleles")
+        if alleles is None:
+            alleles = []
 
         for read in self._bamh.fetch(self.nchr):
-            if read.is_secondary is False:  # and read.is_supplementary is False:
+            if read.is_secondary is False and (
+                self.use_supplementary or read.is_supplementary is False
+            ):
                 read = self.add_tag_to_read(
                     read,
                     hp_keys,
                     unique_reads,
                     nonunique_reads,
+                    read_details,
+                    alleles,
                     random_assign=random_assign,
                 )
                 out_bamh.write(read)
@@ -199,7 +250,7 @@ class VcfGenerater:
         nstart = int(self.nchr_old.split("_")[1])
         nend = int(self.nchr_old.split("_")[2])
         self.offset = nstart - 1
-        self.vcf_region = f"1-{nstart - nend}"
+        self.vcf_region = f"1-{nend - nstart}"
         if "vcf_region" in config["coordinates"]["hg38"]:
             self.vcf_region = config["coordinates"]["hg38"]["vcf_region"]
         self.nchr_length = config["coordinates"]["hg38"]["nchr_length"]
@@ -397,7 +448,7 @@ class VcfGenerater:
                 vars.setdefault(var_name, [None] * nhap)
                 vars[var_name][i] = [ad, qual]
         # insert info for two-copy haplotype
-        if two_cp_haplotypes != []:
+        if two_cp_haplotypes is not None and two_cp_haplotypes != []:
             for i, hap_name in enumerate(final_haps.values()):
                 if hap_name in two_cp_haplotypes:
                     for var in vars:

@@ -15,9 +15,13 @@ from paraphase.genome_depth import GenomeDepth
 from paraphase.prepare_bam_and_vcf import (
     BamRealigner,
     BamTagger,
+    VcfGenerater,
     TwoGeneVcfGenerater,
 )
 from paraphase.smn_phaser import SmnPhaser
+from paraphase.pms_phaser import PmsPhaser
+from paraphase.strc_phaser import StrcPhaser
+from paraphase.cyp21_phaser import Cyp21Phaser
 
 
 def process_sample(bamlist, outdir, config, dcov={}, vcf=False):
@@ -29,7 +33,8 @@ def process_sample(bamlist, outdir, config, dcov={}, vcf=False):
         gdepth = None
         if sample_id in dcov:
             gdepth = dcov[sample_id]
-        if gdepth is None:
+
+        if 0:  # gdepth is None:
             depth = GenomeDepth(bam, config)
             gdepth, gmad = depth.call()
             if gdepth < 10 or gmad > 0.25:
@@ -43,21 +48,29 @@ def process_sample(bamlist, outdir, config, dcov={}, vcf=False):
         bam_realigner.write_realign_bam()
 
         logging.info(f"Phasing haplotypes at {datetime.datetime.now()}...")
-        smn_phaser = SmnPhaser(sample_id, outdir, config, gdepth)
-        smn_phaser_call = smn_phaser.call()._asdict()
+
+        phasers = {
+            "smn1": SmnPhaser(sample_id, outdir, gdepth),
+            "cyp21": Cyp21Phaser(sample_id, outdir, gdepth),
+            "pms2": PmsPhaser(sample_id, outdir, gdepth),
+            "strc": StrcPhaser(sample_id, outdir, gdepth),
+        }
+        phaser = phasers.get(config.get("gene"))
+        phaser.set_parameter(config)
+
+        phaser_call = phaser.call()._asdict()
 
         logging.info(f"Tagging reads at {datetime.datetime.now()}...")
-        bam_tagger = BamTagger(sample_id, outdir, config, smn_phaser_call)
+        bam_tagger = BamTagger(sample_id, outdir, config, phaser_call)
         bam_tagger.write_bam(random_assign=True)
 
         if vcf:
             logging.info(f"Generating VCFs at {datetime.datetime.now()}...")
-            vcf_generater = TwoGeneVcfGenerater(
-                sample_id, outdir, config, smn_phaser_call
-            )
+            # vcf_generater = TwoGeneVcfGenerater(
+            vcf_generater = VcfGenerater(sample_id, outdir, config, phaser_call)
             vcf_generater.run()
 
-        sample_out = smn_phaser_call
+        sample_out = phaser_call
         logging.info(f"Writing to json at {datetime.datetime.now()}...")
         out_json = os.path.join(outdir, sample_id + ".json")
         with open(out_json, "w") as json_output:

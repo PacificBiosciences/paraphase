@@ -1,8 +1,8 @@
 # thirdparty tools
 tools:
-  samtools: path_to_samtools
-  minimap2: path_to_minimap2
-  singularity: path_to_singularity
+  samtools: /home/xchen/bin/samtools
+  minimap2: /mnt/software/m/minimap2/2.15/bin/minimap2
+  singularity: /usr/bin/singularity
 
 gene: smn1
 
