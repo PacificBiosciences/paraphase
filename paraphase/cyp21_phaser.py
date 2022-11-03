@@ -39,6 +39,7 @@ class Cyp21Phaser(Phaser):
         self.del1_5p_pos1 = config["coordinates"]["hg38"]["del1_5p_pos1"]
         self.del1_5p_pos2 = config["coordinates"]["hg38"]["del1_5p_pos2"]
 
+    """
     def get_long_del_reads(
         self,
         p3_pos1,
@@ -49,13 +50,6 @@ class Cyp21Phaser(Phaser):
         min_clip_len=300,
         min_extend=1000,
     ):
-        """
-        Find reads having the 6.3kb deletion on SMN2 or the 3.6kb deletin on SMN1.
-        Could be softclipped at either side or have the deletion in cigar.
-        Parameters:
-            min_clip_len (int): minimum length for the soft-clip
-        Returns: fully-spanning reads (set), partially spanning reads (set)
-        """
         bamh = self._bamh
         p5_reads = set()
         p3_reads = set()
@@ -106,15 +100,6 @@ class Cyp21Phaser(Phaser):
         return set(), set()
 
     def get_haplotypes_from_reads(self, het_sites, exclude_reads=[], min_mapq=5):
-        """
-        Go through reads and get bases at sites of interest
-        Paramters:
-            dsnp (dict of int:str): differentiating site info, mapping pos to bases
-            min_mapq (int): mapq cutoff
-        Returns:
-            read_haps (dict of str:list): collapse each read into just the positions
-            of interest. 1 corresponds to gene1 base, 2 corresponds to gene2 base
-        """
         read_haps = {}
         nvar = len(het_sites)
         for dsnp_index, allele_site in enumerate(het_sites):
@@ -162,6 +147,7 @@ class Cyp21Phaser(Phaser):
                                 elif hap.upper() == allele2.upper():
                                     read_haps[read_name][dsnp_index] = "2"
         return read_haps
+    """
 
     def allow_del_bases(self, pos):
         """
@@ -203,26 +189,35 @@ class Cyp21Phaser(Phaser):
                     read_overlap = r1.intersection(r2)
                     # print(hap1, hap2, read_overlap)
                     if len(read_overlap) >= 2:
-                        d.setdefault(hap1, hap2)
+                        d.setdefault(hap1, []).append(hap2)
+                        d.setdefault(hap2, []).append(hap1)
+        d = dict(sorted(d.items(), key=lambda item: len(item[1]), reverse=True))
+        # print(d)
         alleles = []
-        for hap1 in d:
-            hap2 = d[hap1]
-            hap1_in = sum([hap1 in a for a in alleles])
-            hap2_in = sum([hap2 in a for a in alleles])
-            if hap1_in == 0 and hap2_in == 0:
-                alleles.append([hap1, hap2])
-            elif hap1_in == 0:
-                for a in alleles:
-                    if hap2 in a:
-                        a_index = alleles.index(a)
-                        alleles[a_index].append(hap1)
-                        alleles[a_index].append(hap2)
-            else:
-                for a in alleles:
-                    if hap1 in a:
-                        a_index = alleles.index(a)
-                        alleles[a_index].append(hap2)
-                        alleles[a_index].append(hap1)
+        if d != {}:
+            alleles = [[list(d.keys())[0]] + list(d.values())[0]]
+            for hap1 in d:
+                for hap2 in d[hap1]:
+                    hap1_in = sum([hap1 in a for a in alleles])
+                    hap2_in = sum([hap2 in a for a in alleles])
+                    if hap1_in == 0 and hap2_in == 0:
+                        alleles.append([hap1, hap2])
+                    elif hap1_in == 0:
+                        for a in alleles:
+                            if hap2 in a:
+                                a_index = alleles.index(a)
+                                if hap1 not in alleles[a_index]:
+                                    alleles[a_index].append(hap1)
+                                if hap2 not in alleles[a_index]:
+                                    alleles[a_index].append(hap2)
+                    else:
+                        for a in alleles:
+                            if hap1 in a:
+                                a_index = alleles.index(a)
+                                if hap2 not in alleles[a_index]:
+                                    alleles[a_index].append(hap2)
+                                if hap1 not in alleles[a_index]:
+                                    alleles[a_index].append(hap1)
         return alleles
 
     def check_gene_presence(self):
@@ -284,8 +279,18 @@ class Cyp21Phaser(Phaser):
         # always add splice site
         if self.candidate_pos != set():
             self.candidate_pos.add("32039816_T_A")
+
         # last snp outside of repeat
-        if self.candidate_pos != set():
+        # if self.candidate_pos != set():
+        #    self.candidate_pos.add("32046300_G_A")
+
+        var_found = False
+        for var in self.candidate_pos:
+            pos = int(var.split("_")[0])
+            if pos > self.clip_3p_positions[0]:
+                var_found = True
+                break
+        if var_found is False:
             self.candidate_pos.add("32046300_G_A")
 
         het_sites = sorted(list(self.candidate_pos))
@@ -294,7 +299,9 @@ class Cyp21Phaser(Phaser):
         if "32022483_G_A" in het_sites:
             het_sites.remove("32022483_G_A")
 
-        raw_read_haps = self.get_haplotypes_from_reads(het_sites)
+        raw_read_haps = self.get_haplotypes_from_reads(
+            het_sites, check_clip=True, partial_deletion_reads=self.del1_reads_partial
+        )
         if self.del2_reads_partial != set():
             raw_read_haps, het_sites = self.update_reads_for_deletions(
                 raw_read_haps,
@@ -330,6 +337,8 @@ class Cyp21Phaser(Phaser):
 
         # pprint(read_counts)
         # get haps that extend into tnxb
+        last_genes = [a for a in ass_haps if a[-1] != "0"]
+        """
         last_genes = []
         ending_haps = {}
         for hap in uniquely_supporting_reads:
@@ -353,6 +362,7 @@ class Cyp21Phaser(Phaser):
             for hap in ending_haps:
                 if len(ending_haps[hap]) >= 2 and hap not in last_genes:
                     last_genes.append(hap)
+        """
 
         total_cn = None
         if ass_haps == [] and self.het_sites == []:

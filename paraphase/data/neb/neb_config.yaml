@@ -4,7 +4,8 @@ tools:
   minimap2: /mnt/software/m/minimap2/2.15/bin/minimap2
   singularity: /usr/bin/singularity
 
-gene: strc
+gene: neb
+use_supplementary: True
 
 # data files
 data:
@@ -14,15 +15,15 @@ data:
 # coordinates
 coordinates:
   hg38:
-    nchr: "chr15"
-    nchr_old: "chr15_43599000_43620000"
-    nchr_length: 101991189
-    extract_region1: "chr15:43599000-43620000"
-    extract_region2: "chr15:43698814-43719466"
+    nchr: "chr2"
+    nchr_old: "chr2_151578750_151588780"
+    nchr_length: 242193529
+    extract_region1: "chr2:151578700-151609700"
+    extract_region2: ""
     
-    pivot_site: 70951946
+    pivot_site: 154563600
 
-    left_boundary: 43599700
-    right_boundary: 43619600
+    left_boundary: 151578900
+    right_boundary: 151588000
 
 

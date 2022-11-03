@@ -603,6 +603,9 @@ class SmnPhaser(Phaser):
                 two_cp_haps,
             )
 
+        # tt = self.compare_depth(haplotypes)
+        # print(tt)
+
         self.close_handle()
 
         return self.SmnCall(

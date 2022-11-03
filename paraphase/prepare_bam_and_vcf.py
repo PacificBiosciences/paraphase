@@ -173,8 +173,9 @@ class BamTagger:
                     mismatches.append(mismatch)
                 mismatches_sorted = sorted(mismatches)
                 if (
-                    0 < mismatches_sorted[0] <= 2
-                    and mismatches_sorted[1] >= 5 * mismatches_sorted[0]
+                    len(mismatches_sorted) > 1
+                    and 0 < mismatches_sorted[0] <= 2
+                    and mismatches_sorted[1] >= mismatches_sorted[0] + 2
                 ):
                     best_match = keys[mismatches.index(mismatches_sorted[0])]
                     read.set_tag("HP", hp_keys[best_match], "Z")

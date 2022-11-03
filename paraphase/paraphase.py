@@ -22,6 +22,10 @@ from paraphase.smn_phaser import SmnPhaser
 from paraphase.pms_phaser import PmsPhaser
 from paraphase.strc_phaser import StrcPhaser
 from paraphase.cyp21_phaser import Cyp21Phaser
+from paraphase.ikbkg_phaser import IkbkgPhaser
+from paraphase.f8_phaser import F8Phaser
+from paraphase.ncf_phaser import NcfPhaser
+from paraphase.neb_phaser import NebPhaser
 
 
 def process_sample(bamlist, outdir, config, dcov={}, vcf=False):
@@ -54,6 +58,11 @@ def process_sample(bamlist, outdir, config, dcov={}, vcf=False):
             "cyp21": Cyp21Phaser(sample_id, outdir, gdepth),
             "pms2": PmsPhaser(sample_id, outdir, gdepth),
             "strc": StrcPhaser(sample_id, outdir, gdepth),
+            "ikbkg": IkbkgPhaser(sample_id, outdir, gdepth),
+            "f8": F8Phaser(sample_id, outdir, gdepth),
+            "ncf1": NcfPhaser(sample_id, outdir, gdepth),
+            "cfc1": StrcPhaser(sample_id, outdir, gdepth),
+            "neb": NebPhaser(sample_id, outdir, gdepth),
         }
         phaser = phasers.get(config.get("gene"))
         phaser.set_parameter(config)

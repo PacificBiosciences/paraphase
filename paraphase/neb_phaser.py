@@ -1,13 +1,14 @@
 from pprint import pprint
 import numpy as np
+import pysam
 from collections import namedtuple
-from .phaser import Phaser
+from .cyp21_phaser import Cyp21Phaser
 
 
-class StrcPhaser(Phaser):
+class NebPhaser(Cyp21Phaser):
     GeneCall = namedtuple(
         "GeneCall",
-        "total_cn final_haplotypes two_copy_haplotypes \
+        "total_cn final_haplotypes two_copy_haplotypes alleles alleles2 \
         highest_total_cn assembled_haplotypes het_sites \
         unique_supporting_reads het_sites_not_used_in_phasing homozygous_sites \
         haplotype_details variant_genotypes nonunique_supporting_reads \
@@ -15,14 +16,32 @@ class StrcPhaser(Phaser):
     )
 
     def __init__(self, sample_id, outdir, wgs_depth=None):
-        Phaser.__init__(self, sample_id, outdir, wgs_depth)
+        Cyp21Phaser.__init__(self, sample_id, outdir, wgs_depth)
+
+    def set_parameter(self, config):
+        self.homopolymer_file = config["data"]["homopolymer"]
+        self.nchr = config["coordinates"]["hg38"]["nchr"]
+        self.ref = config["data"]["reference"]
+        self._refh = pysam.FastaFile(self.ref)
+        self.left_boundary = config["coordinates"]["hg38"]["left_boundary"]
+        self.right_boundary = config["coordinates"]["hg38"]["right_boundary"]
+        self.pivot_site = config["coordinates"]["hg38"]["pivot_site"]
+        self.nchr_old = config["coordinates"]["hg38"]["nchr_old"]
+        self.offset = int(self.nchr_old.split("_")[1]) - 1
 
     def call(self):
         """
         Main function that calls SMN1/SMN2 copy number and variants
         """
         self.get_homopolymer()
+
+        ## get deletion ##
+
         self.get_candidate_pos()
+        # last snp outside of repeat
+        # if self.candidate_pos != set():
+        #    self.candidate_pos.add("154555882_C_G")
+
         self.het_sites = sorted(list(self.candidate_pos))
         problematic_sites = []
         # for site in self.het_sites:
@@ -58,14 +77,22 @@ class StrcPhaser(Phaser):
                 nonuniquely_supporting_reads,
             )
 
-        two_cp_haps = self.compare_depth(haplotypes)
+        alleles = self.get_alleles(uniquely_supporting_reads)
+        new_alleles = []
+        for allele in alleles:
+            new_allele = []
+            for hap in allele:
+                new_allele.append(ass_haps[hap])
+            new_alleles.append(new_allele)
 
         self.close_handle()
 
         return self.GeneCall(
             total_cn,
             ass_haps,
-            two_cp_haps,
+            [],
+            alleles,
+            new_alleles,
             hcn,
             original_haps,
             self.het_sites,

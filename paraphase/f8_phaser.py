@@ -1,10 +1,11 @@
 from pprint import pprint
 import numpy as np
 from collections import namedtuple
+import re
 from .phaser import Phaser
 
 
-class StrcPhaser(Phaser):
+class F8Phaser(Phaser):
     GeneCall = namedtuple(
         "GeneCall",
         "total_cn final_haplotypes two_copy_haplotypes \
@@ -23,6 +24,25 @@ class StrcPhaser(Phaser):
         """
         self.get_homopolymer()
         self.get_candidate_pos()
+
+        var_found = False
+        for var in self.candidate_pos:
+            pos = int(var.split("_")[0])
+            if self.clip_3p_positions[0] < pos < self.clip_3p_positions[1]:
+                var_found = True
+                break
+        if var_found is False:
+            self.candidate_pos.add("155386300_A_C")
+
+        var_found = False
+        for var in self.candidate_pos:
+            pos = int(var.split("_")[0])
+            if pos > self.clip_3p_positions[1]:
+                var_found = True
+                break
+        if var_found is False:
+            self.candidate_pos.add("155386860_C_G")
+
         self.het_sites = sorted(list(self.candidate_pos))
         problematic_sites = []
         # for site in self.het_sites:
@@ -31,7 +51,7 @@ class StrcPhaser(Phaser):
         for site in problematic_sites:
             self.het_sites.remove(site)
 
-        raw_read_haps = self.get_haplotypes_from_reads(self.het_sites)
+        raw_read_haps = self.get_haplotypes_from_reads(self.het_sites, check_clip=True)
 
         (
             ass_haps,
@@ -58,14 +78,12 @@ class StrcPhaser(Phaser):
                 nonuniquely_supporting_reads,
             )
 
-        two_cp_haps = self.compare_depth(haplotypes)
-
         self.close_handle()
 
         return self.GeneCall(
             total_cn,
             ass_haps,
-            two_cp_haps,
+            [],
             hcn,
             original_haps,
             self.het_sites,

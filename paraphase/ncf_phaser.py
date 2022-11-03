@@ -4,7 +4,7 @@ from collections import namedtuple
 from .phaser import Phaser
 
 
-class StrcPhaser(Phaser):
+class NcfPhaser(Phaser):
     GeneCall = namedtuple(
         "GeneCall",
         "total_cn final_haplotypes two_copy_haplotypes \
@@ -21,10 +21,17 @@ class StrcPhaser(Phaser):
         """
         Main function that calls SMN1/SMN2 copy number and variants
         """
+
+        # main variant is 74777266_GGT_G
+
         self.get_homopolymer()
         self.get_candidate_pos()
+        if "74777266_G_A" not in self.candidate_pos:
+            self.candidate_pos.add("74777266_G_A")
         self.het_sites = sorted(list(self.candidate_pos))
         problematic_sites = []
+        # "74783765_A_T" mutli-alleleic site
+
         # for site in self.het_sites:
         #    if 5980880 < int(site.split("_")[0]) < 5980980:
         #        problematic_sites.append(site)
@@ -58,14 +65,12 @@ class StrcPhaser(Phaser):
                 nonuniquely_supporting_reads,
             )
 
-        two_cp_haps = self.compare_depth(haplotypes)
-
         self.close_handle()
 
         return self.GeneCall(
             total_cn,
             ass_haps,
-            two_cp_haps,
+            [],
             hcn,
             original_haps,
             self.het_sites,
