@@ -16,7 +16,7 @@ class BamRealigner:
     """
 
     min_mapq = 50
-    min_aln = 400
+    min_aln = 800#400
 
     def __init__(self, bam, outdir, config):
         self.bam = bam
@@ -69,7 +69,7 @@ class BamRealigner:
                 read.mapping_quality >= self.min_mapq
                 and read.query_alignment_length >= self.min_aln
                 # and read.get_tag("NM") < read.reference_length * 0.1
-                and (self.use_supplementary is True or read.is_supplementary is False)
+                #and (self.use_supplementary is True or read.is_supplementary is False)
             ):
                 read.reference_start += self.offset
                 ltags = read.tags
@@ -212,9 +212,9 @@ class BamTagger:
             alleles = []
 
         for read in self._bamh.fetch(self.nchr):
-            if read.is_secondary is False and (
-                self.use_supplementary or read.is_supplementary is False
-            ):
+            if read.is_secondary is False:# and (
+            #    self.use_supplementary or read.is_supplementary is False
+            #):
                 read = self.add_tag_to_read(
                     read,
                     hp_keys,

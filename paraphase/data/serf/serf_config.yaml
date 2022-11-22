@@ -1,0 +1,28 @@
+# thirdparty tools
+tools:
+  samtools: /home/xchen/bin/samtools
+  minimap2: /mnt/software/m/minimap2/2.15/bin/minimap2
+  singularity: /usr/bin/singularity
+
+gene: serf
+
+# data files
+data:
+  reference: ref.fa
+  homopolymer: homopolymer_sites.txt
+
+# coordinates
+coordinates:
+  hg38:
+    nchr: "chr5"
+    nchr_old: "chr5_70863900_70919000"
+    nchr_length: 181538259
+    extract_region1: "chr5:70863940-70918530"
+    extract_region2: "chr5:69988854-70043113"
+    
+    pivot_site: 70918000
+
+    left_boundary: 70863945
+    right_boundary: 70918520
+
+    noisy_region: [[70886628, 70886628], [70912013, 70912087]]

@@ -403,6 +403,12 @@ class Cyp21Phaser(Phaser):
         if wrong_allele:
             alleles = []
 
+        # the case of two on one allele and one on the other allele
+        if len(ass_haps) == 3 and len(alleles) == 1:
+            second_allele = [a for a in ass_haps if a not in alleles[0]]
+            assert len(second_allele) == 1
+            alleles.append(second_allele)
+
         two_cp_haplotypes = []
         # 2 cp, one allele, one haplotype extends to tnxb -> each haplotype has cn 2
         # call deepvariant in diploid mode

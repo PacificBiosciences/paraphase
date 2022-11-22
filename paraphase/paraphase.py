@@ -26,6 +26,7 @@ from paraphase.ikbkg_phaser import IkbkgPhaser
 from paraphase.f8_phaser import F8Phaser
 from paraphase.ncf_phaser import NcfPhaser
 from paraphase.neb_phaser import NebPhaser
+from paraphase.naip_phaser import NaipPhaser
 
 
 def process_sample(bamlist, outdir, config, dcov={}, vcf=False):
@@ -63,6 +64,10 @@ def process_sample(bamlist, outdir, config, dcov={}, vcf=False):
             "ncf1": NcfPhaser(sample_id, outdir, gdepth),
             "cfc1": StrcPhaser(sample_id, outdir, gdepth),
             "neb": NebPhaser(sample_id, outdir, gdepth),
+            "serf": StrcPhaser(sample_id, outdir, gdepth),
+            "naip": NaipPhaser(sample_id, outdir, gdepth),
+            "naip_small": NaipPhaser(sample_id, outdir, gdepth),
+            "naip_big": NaipPhaser(sample_id, outdir, gdepth),
         }
         phaser = phasers.get(config.get("gene"))
         phaser.set_parameter(config)

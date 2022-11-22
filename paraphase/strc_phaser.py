@@ -25,9 +25,10 @@ class StrcPhaser(Phaser):
         self.get_candidate_pos()
         self.het_sites = sorted(list(self.candidate_pos))
         problematic_sites = []
-        # for site in self.het_sites:
-        #    if 5980880 < int(site.split("_")[0]) < 5980980:
-        #        problematic_sites.append(site)
+        for site in self.het_sites:
+            for region in self.noisy_region:
+                if region[0] <= int(site.split("_")[0]) <= region[1]:
+                    problematic_sites.append(site)
         for site in problematic_sites:
             self.het_sites.remove(site)
 
