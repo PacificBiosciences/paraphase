@@ -15,14 +15,14 @@ data:
 coordinates:
   hg38:
     nchr: "chr5"
-    nchr_old: "chr5_70958000_71025339"
+    nchr_old: "chr5_70937000_71025339"
     nchr_length: 181538259
-    extract_region1: "chr5:70958000-71025339"
-    extract_region2: "chr5:69602535-69629576 chr5:70082546-70129877 chr5:70457679-70485215 chr5:71094000-71130196"
+    extract_region1: "chr5:70951500-71025339"
+    extract_region2: "chr5:69602535-69629576 chr5:70076080-70129877 chr5:70457679-70485215 chr5:71094000-71130196"
     
-    pivot_site: 70962000
+    pivot_site: 70951946
 
-    left_boundary: 70958001
+    left_boundary: 70951500
     right_boundary: 71025300
 
     deletion1_size: 7116
@@ -40,4 +40,4 @@ coordinates:
     clip_5p_positions: [70961221, 70962600, 70992100]
     clip_3p_positions: [71005298, 70990664]
 
-    noisy_region: [[70979572, 70979615], [70978097, 70978170]]
+    noisy_region: [[70979572, 70979615], [70978097, 70978170], [70886628, 70886628], [70912013, 70912087]]

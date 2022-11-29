@@ -77,6 +77,7 @@ def process_sample(bamlist, outdir, config, dcov={}, vcf=False):
         logging.info(f"Tagging reads at {datetime.datetime.now()}...")
         bam_tagger = BamTagger(sample_id, outdir, config, phaser_call)
         bam_tagger.write_bam(random_assign=True)
+        # bam_tagger.write_bam(random_assign=False)
 
         if vcf:
             logging.info(f"Generating VCFs at {datetime.datetime.now()}...")

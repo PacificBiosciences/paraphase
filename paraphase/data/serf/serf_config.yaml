@@ -15,7 +15,7 @@ data:
 coordinates:
   hg38:
     nchr: "chr5"
-    nchr_old: "chr5_70863900_70919000"
+    nchr_old: "chr5_70863900_70934000"
     nchr_length: 181538259
     extract_region1: "chr5:70863940-70918530"
     extract_region2: "chr5:69988854-70043113"
