@@ -88,7 +88,7 @@ def main():
     parser.add_argument(
         "-v",
         "--vcf",
-        help="Optional. If specified, paraphase will run DeepVariant and produce vcf for each haplotype",
+        help="Optional. If specified, paraphase will produce vcf for each haplotype",
         required=False,
         action="store_true",
     )

@@ -186,7 +186,7 @@ class BamTagger:
 
 class VcfGenerater:
     """
-    Run DeepVariant for each haplotype and generate individual/merged vcfs
+    Call variants and generate individual/merged vcfs
     """
 
     search_range = 200
