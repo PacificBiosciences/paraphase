@@ -88,7 +88,7 @@ def main():
     parser.add_argument(
         "-v",
         "--vcf",
-        help="Optional. If specified, paraphase will run DeepVariant and produce vcf for each haplotype",
+        help="Optional. If specified, paraphase will produce vcf for each haplotype",
         required=False,
         action="store_true",
     )
@@ -120,11 +120,6 @@ def main():
     parser.add_argument(
         "--minimap2",
         help="Optional path to minimap2",
-        required=False,
-    )
-    parser.add_argument(
-        "--singularity",
-        help="Optional path to singularity",
         required=False,
     )
 
@@ -167,22 +162,6 @@ def main():
         raise Exception("minimap2 is not found")
     else:
         config["tools"]["minimap2"] = minimap2_check2[0]
-
-    if args.vcf:
-        singularity_check = [
-            a
-            for a in [
-                tools.get("singularity"),
-                args.singularity,
-                shutil.which("singularity"),
-            ]
-            if a is not None
-        ]
-        singularity_check2 = [a for a in singularity_check if os.path.exists(a)]
-        if singularity_check2 == []:
-            raise Exception("singularity is not found")
-        else:
-            config["tools"]["singularity"] = singularity_check2[0]
 
     # update paths
     gene = config.get("gene")

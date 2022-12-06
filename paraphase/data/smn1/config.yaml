@@ -2,7 +2,6 @@
 tools:
   samtools: path_to_samtools
   minimap2: path_to_minimap2
-  singularity: path_to_singularity
 
 gene: smn1
 

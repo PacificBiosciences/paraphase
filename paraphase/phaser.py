@@ -457,11 +457,11 @@ class Phaser:
 
     def get_genotype_in_hap(self, var_reads, hap_reads, hap_reads_nonunique):
         """For a given variant, return its status in a haplotype"""
-        hap_reads_contain_var = [
-            var_reads[a] for a in hap_reads_nonunique if a in var_reads
-        ]
+        hap_reads_contain_var = [var_reads[a] for a in hap_reads if a in var_reads]
         if len(hap_reads_contain_var) < 3:
-            hap_reads_contain_var += [var_reads[a] for a in hap_reads if a in var_reads]
+            hap_reads_contain_var += [
+                var_reads[a] for a in hap_reads_nonunique if a in var_reads
+            ]
         if len(hap_reads_contain_var) >= 3:
             hap_reads_contain_var_counter = Counter(hap_reads_contain_var).most_common(
                 2
