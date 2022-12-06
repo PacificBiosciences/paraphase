@@ -51,7 +51,6 @@ Optional parameters:
 - `-d`: File listing average genome depth per sample, with two columns, sample ID and depth values, separated by tab or space. This saves run time by skipping the step to calculate genome depth.
 - `--samtools`
 - `--minimap2`
-- `--singularity`
 
 The paths to samtools and minimap2 can be provided through the `--samtools` and `--minimap2` parameters or by modifying the `tools` section of the [config](paraphase/data/smn1/config.yaml) file.
 

@@ -122,11 +122,6 @@ def main():
         help="Optional path to minimap2",
         required=False,
     )
-    parser.add_argument(
-        "--singularity",
-        help="Optional path to singularity",
-        required=False,
-    )
 
     args = parser.parse_args()
     outdir = args.out
@@ -167,22 +162,6 @@ def main():
         raise Exception("minimap2 is not found")
     else:
         config["tools"]["minimap2"] = minimap2_check2[0]
-
-    if args.vcf:
-        singularity_check = [
-            a
-            for a in [
-                tools.get("singularity"),
-                args.singularity,
-                shutil.which("singularity"),
-            ]
-            if a is not None
-        ]
-        singularity_check2 = [a for a in singularity_check if os.path.exists(a)]
-        if singularity_check2 == []:
-            raise Exception("singularity is not found")
-        else:
-            config["tools"]["singularity"] = singularity_check2[0]
 
     # update paths
     gene = config.get("gene")
