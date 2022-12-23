@@ -6,7 +6,8 @@ import os
 import pysam
 import subprocess
 import random
-import gzip
+import re
+from collections import Counter
 from .haplotype_assembler import VariantGraph
 
 
@@ -125,6 +126,7 @@ class BamTagger:
         self.use_supplementary = False
         if "use_supplementary" in config:
             self.use_supplementary = config["use_supplementary"]
+        random.seed(0)
 
     def add_tag_to_read(
         self,
@@ -236,7 +238,7 @@ class BamTagger:
 
 class VcfGenerater:
     """
-    Run DeepVariant for each haplotype and generate individual/merged vcfs
+    Call variants and generate individual/merged vcfs
     """
 
     search_range = 200
@@ -248,17 +250,11 @@ class VcfGenerater:
         self.bam = os.path.join(outdir, self.sample_id + "_realigned_tagged.bam")
         self.nchr = config["coordinates"]["hg38"]["nchr"]
         self.nchr_old = config["coordinates"]["hg38"]["nchr_old"]
-        nstart = int(self.nchr_old.split("_")[1])
-        nend = int(self.nchr_old.split("_")[2])
-        self.offset = nstart - 1
-        self.vcf_region = f"1-{nend - nstart}"
-        if "vcf_region" in config["coordinates"]["hg38"]:
-            self.vcf_region = config["coordinates"]["hg38"]["vcf_region"]
+        self.offset = int(self.nchr_old.split("_")[1]) - 1
         self.nchr_length = config["coordinates"]["hg38"]["nchr_length"]
         self.ref = config["data"]["reference"]
         self.samtools = config["tools"]["samtools"]
         self.minimap2 = config["tools"]["minimap2"]
-        self.singularity = config["tools"]["singularity"]
         self.match = {}
 
     def get_range_in_other_gene(self, pos):
@@ -273,151 +269,239 @@ class VcfGenerater:
                 return self.match[new_pos]
         return None
 
-    def filter_gt12(self, at):
-        """
-        Filter variants in the scenario of GT 1/2
-        """
-        alt = at[4].split(",")
-        info = at[-1].split(":")
-        vaf = info[4].split(",")
-        vaf_float = [float(a) for a in vaf]
-        variant_picked_index = vaf_float.index(max(vaf_float))
-        new_alt = alt[variant_picked_index]
-        new_info = [
-            "1/1",
-            info[1],
-            info[2],
-            ",".join(["0", info[3].split(",")[variant_picked_index + 1]]),
-            vaf[variant_picked_index],
-            ",".join(info[-1].split(",")[:2] + ["0"]),
+    def write_header(self, fout):
+        """Write VCF header"""
+        fout.write("##fileformat=VCFv4.2\n")
+        fout.write('##FILTER=<ID=PASS,Description="All filters passed">\n')
+        fout.write('##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">\n')
+        fout.write('##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read depth">\n')
+        fout.write(
+            '##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Read depth for each allele">\n'
+        )
+        fout.write(f"##contig=<ID={self.nchr},length={self.nchr_length}>\n")
+        header = [
+            "#CHROM",
+            "POS",
+            "ID",
+            "REF",
+            "ALT",
+            "QUAL",
+            "FILTER",
+            "INFO",
+            "FORMAT",
+            "default",
         ]
-        at[4] = new_alt
-        at[-1] = ":".join(new_info)
-        return at
+        fout.write("\t".join(header) + "\n")
 
-    def filter_vcf(self, hap_vcf, hap_vcf_out, hap_range, offset):
+    def merge_vcf(self, vars_list):
         """
-        Filter vcf and return to standard coordinate
-        """
-        variants = []
-        with gzip.open(hap_vcf) as f, open(hap_vcf_out, "w") as fout:
-            for line in f:
-                line = line.decode("utf8")
-                if line[0] == "#":
-                    if line.startswith("##contig="):
-                        fout.write(
-                            f"##contig=<ID={self.nchr},length={self.nchr_length}>\n"
-                        )
-                    else:
-                        fout.write(line)
-                else:
-                    at = line.split()
-                    gt = at[-1].split(":")[0]
-                    pos = int(at[1]) + offset
-                    if (
-                        at[6] == "PASS"
-                        and hap_range[0] < pos < hap_range[1]
-                        and "0" not in gt
-                    ):
-                        if gt != "1/1":
-                            at = self.filter_gt12(at)
-                        at[0] = self.nchr
-                        at[1] = str(pos)
-                        fout.write("\t".join(at) + "\n")
-
-                        ad = at[-1].split(":")[3].split(",")[1]
-                        qual = float(at[5])
-                        var_name = f"{pos}_{at[3]}_{at[4]}"
-                        variants.append([var_name, ad, qual])
-        return variants
-
-    def merge_vcf(self, vars_ranges):
-        """
-        Merge vcfs from multiple haplotypes. Very rough merging.
+        Merge vcfs from multiple haplotypes.
         """
         merged_vcf = os.path.join(self.outdir, self.sample_id + f"_variants.vcf")
         with open(merged_vcf, "w") as fout:
-            fout.write("##fileformat=VCFv4.2\n")
-            fout.write('##FILTER=<ID=PASS,Description="All filters passed">\n')
-            fout.write('##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">\n')
-            fout.write(
-                '##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Read depth for each allele">\n'
-            )
-            fout.write(f"##contig=<ID={self.nchr},length={self.nchr_length}>\n")
-            header = [
-                "#CHROM",
-                "POS",
-                "ID",
-                "REF",
-                "ALT",
-                "QUAL",
-                "FILTER",
-                "INFO",
-                "FORMAT",
-                "default",
-            ]
-            fout.write("\t".join(header) + "\n")
-            for vars, ranges in vars_ranges:
+            self.write_header(fout)
+            for vars in vars_list:
                 vars = dict(sorted(vars.items()))
-                for var in vars:
-                    pos, ref, alt = var.split("_")
-                    pos = int(pos)
-                    call_info = vars[var]
-                    merge_gt = []
-                    merge_ad = []
-                    merge_qual = []
-                    for i, each_call in enumerate(call_info):
-                        hap_range = ranges[i]
-                        if each_call is None:
-                            if hap_range[0] < pos < hap_range[1] or None in hap_range:
-                                merge_gt.append("0")
-                                merge_ad.append("0")
-                            else:
+                for pos in vars:
+                    call_info = vars[pos]
+                    variant_observed = set([a[0] for a in call_info if a is not None])
+                    for variant in variant_observed:
+                        _, ref, alt = variant.split("_")
+                        merge_gt = []
+                        merge_ad = []
+                        merge_dp = []
+                        for each_call in call_info:
+                            if each_call is None:
                                 merge_gt.append(".")
                                 merge_ad.append(".")
-                        else:
-                            merge_gt.append("1")
-                            merge_ad.append(str(each_call[0]))
-                            merge_qual.append(each_call[1])
+                                merge_dp.append(".")
+                            else:
+                                var_name, dp, ad, qual, gt = each_call
+                                merge_dp.append(str(dp))
+                                if gt == "0":
+                                    merge_gt.append(gt)
+                                    merge_ad.append(str(dp - ad))
+                                elif var_name == variant:
+                                    merge_gt.append(gt)
+                                    merge_ad.append(str(ad))
+                                else:
+                                    merge_gt.append(".")
+                                    if gt == ".":
+                                        merge_ad.append(str(ad))
+                                    else:
+                                        merge_ad.append(".")
+                        final_qual = "."
+                        if "1" in merge_gt:
+                            merged_entry = [
+                                self.nchr,
+                                str(pos),
+                                ".",
+                                ref,
+                                alt,
+                                final_qual,
+                                "PASS",
+                                ".",
+                                "GT:DP:AD",
+                                "/".join(merge_gt)
+                                + ":"
+                                + ",".join(merge_dp)
+                                + ":"
+                                + ",".join(merge_ad),
+                            ]
+                            fout.write("\t".join(merged_entry) + "\n")
 
-                    merged_entry = [
+    @staticmethod
+    def refine_indels(ref_seq, var_seq, pos, refh, ref_name):
+        """process indels"""
+        if "+" in var_seq:
+            ins_base = var_seq.split(re.findall(r"\+\d+", var_seq)[0])[1]
+            var_seq = ref_seq + ins_base
+        elif "-" in var_seq:
+            del_len = int(re.findall(r"\-\d+", var_seq)[0][1:])
+            var_seq = ref_seq
+            ref_seq = refh.fetch(
+                ref_name,
+                pos - 1,
+                pos + del_len,
+            )
+        return ref_seq, var_seq
+
+    @staticmethod
+    def get_var(all_bases, ref_seq):
+        """Get most supported base as variant"""
+        dp = len(all_bases)
+        gt = "."
+        ad = len([a for a in all_bases if a != ref_seq])
+        var_seq = ref_seq
+        if all_bases != []:
+            counter = Counter(all_bases)
+            most_common_base = counter.most_common(2)
+            var_seq = most_common_base[0][0]
+            ad = most_common_base[0][1]
+            if (
+                dp >= 3
+                and ad >= 2
+                and (len(most_common_base) == 1 or ad > most_common_base[1][1])
+            ):
+                if var_seq == ref_seq or var_seq == "*":
+                    gt = "0"
+                else:
+                    gt = "1"
+        return [var_seq, dp, ad, gt]
+
+    def read_pileup(self, hap_bam, hap_vcf_out, hap_bound, offset, ref, uniq_reads):
+        """
+        Call variants from bam. Take the most supported base at each position.
+        """
+        bamh = pysam.AlignmentFile(hap_bam, "rb")
+        refh = pysam.FastaFile(ref)
+        ref_name = refh.references[0]
+        vcf_out = open(hap_vcf_out, "w")
+        self.write_header(vcf_out)
+        pileups_raw = {}
+        read_names = {}
+        variants = []
+        for pileupcolumn in bamh.pileup(
+            ref_name,
+            truncate=True,
+            min_base_quality=30,
+        ):
+            pos = pileupcolumn.pos + 1
+            pileups_raw.setdefault(
+                pos,
+                [a.upper() for a in pileupcolumn.get_query_sequences(add_indels=True)],
+            )
+            read_names.setdefault(
+                pos,
+                pileupcolumn.get_query_names(),
+            )
+        for pos in pileups_raw:
+            all_bases = pileups_raw[pos]
+            true_pos = pos + offset
+            ref_seq = refh.fetch(ref_name, pos - 1, pos)
+            alt_all_reads = self.get_var(all_bases, ref_seq)
+            if None not in hap_bound and hap_bound[0] < true_pos < hap_bound[1]:
+                # use only unique reads for positions at the edge
+                if true_pos < hap_bound[2] or true_pos > hap_bound[3]:
+                    bases_uniq_reads = []
+                    for i, read_base in enumerate(all_bases):
+                        if read_names[pos][i] in uniq_reads:
+                            bases_uniq_reads.append(read_base)
+                    alt_uniq_reads = self.get_var(bases_uniq_reads, ref_seq)
+                    if alt_uniq_reads[-1] != ".":
+                        var_seq, dp, ad, gt = alt_uniq_reads
+                    else:
+                        var_seq, dp, ad, gt = alt_all_reads
+                        gt = "."
+                else:
+                    var_seq, dp, ad, gt = alt_all_reads
+
+                ref_seq, var_seq = self.refine_indels(
+                    ref_seq, var_seq, pos, refh, ref_name
+                )
+                var = f"{true_pos}_{ref_seq}_{var_seq}"
+                qual = "."
+                variants.append([true_pos, var, dp, ad, qual, gt])
+                if gt == "1":
+                    vcf_out_line = [
                         self.nchr,
-                        str(pos),
+                        str(true_pos),
                         ".",
-                        ref,
-                        alt,
-                        str(min(merge_qual)),
+                        ref_seq,
+                        var_seq,
+                        str(qual),
                         "PASS",
                         ".",
-                        "GT:AD",
-                        "/".join(merge_gt) + ":" + ",".join(merge_ad),
+                        "GT:DP:AD",
+                        f"1:{dp}:{ad}",
                     ]
-                    fout.write("\t".join(merged_entry) + "\n")
+                    vcf_out.write("\t".join(vcf_out_line) + "\n")
+        vcf_out.close()
+        bamh.close()
+        refh.close()
+        return variants
 
     def run_step(
         self,
         final_haps,
         haplotype_details,
         ref_seq,
-        ref_name,
         offset,
         match_range=False,
     ):
         """
-        Process one haplotype
+        Process haplotypes
         """
+        uniq_reads = []
+        for read_set in self.call_sum["unique_supporting_reads"].values():
+            uniq_reads += read_set
         vars = {}
-        ranges = []
         two_cp_haplotypes = self.call_sum.get("two_copy_haplotypes")
-        nhap = len(final_haps)
-        for i, hap_name in enumerate(final_haps.values()):
-            hap_range = haplotype_details[hap_name]["boundary"]
+        nhap = len(final_haps) + len(
+            [a for a in two_cp_haplotypes if a in final_haps.values()]
+        )
+        i = 0
+        for hap_name in final_haps.values():
+            hap_bound = list(haplotype_details[hap_name]["boundary"])
+            # find the positions next to the existing boundaries
+            for var in self.call_sum["sites_for_phasing"]:
+                confident_position = int(var.split("_")[0])
+                if confident_position > hap_bound[0]:
+                    break
+            hap_bound.append(confident_position)
+            for var in reversed(self.call_sum["sites_for_phasing"]):
+                confident_position = int(var.split("_")[0])
+                if confident_position < hap_bound[1]:
+                    break
+            hap_bound.append(confident_position)
+            # convert to positions in the other gene
             if match_range:
-                hap_range = [
-                    self.get_range_in_other_gene(hap_range[0]),
-                    self.get_range_in_other_gene(hap_range[1]),
+                hap_bound = [
+                    self.get_range_in_other_gene(hap_bound[0]),
+                    self.get_range_in_other_gene(hap_bound[1]),
+                    self.get_range_in_other_gene(hap_bound[2]),
+                    self.get_range_in_other_gene(hap_bound[3]),
                 ]
-            ranges.append(hap_range)
             hap_bam = os.path.join(self.outdir, self.sample_id + f"_{hap_name}.bam")
             realign_cmd = (
                 f"{self.samtools} view -d HP:{hap_name} {self.bam} |"
@@ -430,46 +514,34 @@ class VcfGenerater:
             result.check_returncode()
             pysam.index(hap_bam)
 
-            hap_vcf = os.path.join(
-                self.outdir, self.sample_id + f"_{hap_name}_prefilter.vcf.gz"
-            )
-            vcf_cmd = (
-                f"{self.singularity} exec --bind /usr/lib/locale/ docker://google/deepvariant:1.3.0 "
-                + f"/opt/deepvariant/bin/run_deepvariant --model_type PACBIO --ref {ref_seq}  --reads {hap_bam} "
-                + f"--output_vcf {hap_vcf} --num_shards 1 --regions {ref_name}:{self.vcf_region}"
-            )
-            result = subprocess.run(vcf_cmd, capture_output=True, text=True, shell=True)
-            result.check_returncode()
-
-            # fileter vcf
+            # call variants
             hap_vcf_out = os.path.join(self.outdir, self.sample_id + f"_{hap_name}.vcf")
-            variants_called = self.filter_vcf(hap_vcf, hap_vcf_out, hap_range, offset)
+            variants_called = self.read_pileup(
+                hap_bam, hap_vcf_out, hap_bound, offset, ref_seq, uniq_reads
+            )
+            os.remove(hap_bam)
+            os.remove(hap_bam + ".bai")
 
-            for var_name, ad, qual in variants_called:
-                vars.setdefault(var_name, [None] * nhap)
-                vars[var_name][i] = [ad, qual]
-        # insert info for two-copy haplotype
-        if two_cp_haplotypes is not None and two_cp_haplotypes != []:
-            for i, hap_name in enumerate(final_haps.values()):
+            for pos, var_name, dp, ad, qual, gt in variants_called:
+                vars.setdefault(pos, [None] * nhap)
+                vars[pos][i] = [var_name, dp, ad, qual, gt]
                 if hap_name in two_cp_haplotypes:
-                    for var in vars:
-                        var_call = vars[var][i]
-                        vars[var].insert(i, var_call)
-                    range_call = ranges[i]
-                    ranges.insert(i, range_call)
-        return vars, ranges
+                    vars[pos][i + 1] = [var_name, dp, ad, qual, gt]
+            if hap_name in two_cp_haplotypes:
+                i += 1
+            i += 1
+        return vars
 
     def run(self):
         """Process haplotypes one by one"""
         call_sum = self.call_sum
-        vars, ranges = self.run_step(
+        vars = self.run_step(
             call_sum["final_haplotypes"],
             call_sum["haplotype_details"],
             self.ref,
-            self.nchr_old,
             self.offset,
         )
-        self.merge_vcf([(vars, ranges)])
+        self.merge_vcf([vars])
 
 
 class TwoGeneVcfGenerater(VcfGenerater):
@@ -494,19 +566,17 @@ class TwoGeneVcfGenerater(VcfGenerater):
         in this two-gene scenario
         """
         call_sum = self.call_sum
-        vars_smn1, ranges_smn1 = self.run_step(
+        vars_smn1 = self.run_step(
             call_sum["smn1_haplotypes"],
             call_sum["haplotype_details"],
             self.ref,
-            self.nchr_old,
             self.offset,
         )
-        vars_smn2, ranges_smn2 = self.run_step(
+        vars_smn2 = self.run_step(
             call_sum["smn2_haplotypes"],
             call_sum["haplotype_details"],
             self.ref_gene2,
-            self.nchr_old_gene2,
             self.offset_gene2,
             match_range=True,
         )
-        self.merge_vcf([(vars_smn2, ranges_smn2), (vars_smn1, ranges_smn1)])
+        self.merge_vcf([vars_smn2, vars_smn1])
