@@ -69,7 +69,7 @@ class BamRealigner:
             if (
                 read.mapping_quality >= self.min_mapq
                 and read.query_alignment_length >= self.min_aln
-                # and read.get_tag("NM") < read.reference_length * 0.1
+                and read.get_tag("NM") < read.reference_length * 0.1  # pms2
                 # and (self.use_supplementary is True or read.is_supplementary is False)
             ):
                 read.reference_start += self.offset

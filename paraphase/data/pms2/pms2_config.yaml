@@ -25,4 +25,7 @@ coordinates:
     left_boundary: 5970925
     right_boundary: 5986000
 
+    clip_3p_positions: [5989126]
+
+    noisy_region: [[5980880, 5980980], [5979663, 5979669]]
 

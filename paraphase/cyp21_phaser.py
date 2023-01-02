@@ -382,6 +382,7 @@ class Cyp21Phaser(Phaser):
         haplotypes = None
         dvar = None
         if self.het_sites != []:
+            # need to output the 120bp deletion here
             haplotypes, dvar = self.output_variants_in_haplotypes(
                 final_haps,
                 uniquely_supporting_reads,
