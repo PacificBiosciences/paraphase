@@ -128,6 +128,9 @@ def main():
     config_file = args.config
     logging.basicConfig(level=logging.DEBUG)
 
+    if os.path.exists(outdir) is False:
+        os.makedirs(outdir)
+
     data_path = os.path.join(os.path.dirname(__file__), "data")
     if config_file is None:
         config_file = os.path.join(data_path, "smn1", "config.yaml")
