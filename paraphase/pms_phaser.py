@@ -47,15 +47,15 @@ class PmsPhaser(Phaser):
 
         total_cn = len(ass_haps)
         tmp = {}
-        counter_gene = 1
-        counter_pseudo = 1
+        counter_gene = 0
+        counter_pseudo = 0
         for hap in ass_haps:
             if hap[-1] in ["0", "x"]:
-                tmp.setdefault(hap, f"pms2cl_hap{counter_pseudo}")
                 counter_pseudo += 1
+                tmp.setdefault(hap, f"pms2cl_hap{counter_pseudo}")
             else:
-                tmp.setdefault(hap, f"pms2_hap{counter_gene}")
                 counter_gene += 1
+                tmp.setdefault(hap, f"pms2_hap{counter_gene}")
         ass_haps = tmp
 
         haplotypes = None
@@ -67,12 +67,20 @@ class PmsPhaser(Phaser):
                 nonuniquely_supporting_reads,
             )
 
+        # two-cp haplotypes
+        two_cp_haps = []
+        if len(ass_haps) < 4:
+            if counter_gene == 1 and counter_pseudo == 1:
+                two_cp_haps = list(ass_haps.values())
+            elif len(ass_haps) == 3 and 2 in [counter_gene, counter_pseudo]:
+                two_cp_haps = self.compare_depth(haplotypes, loose=True)
+
         self.close_handle()
 
         return self.GeneCall(
             total_cn,
             ass_haps,
-            [],
+            two_cp_haps,
             hcn,
             original_haps,
             self.het_sites,

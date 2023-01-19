@@ -148,7 +148,7 @@ class VariantGraph:
     def get_previous_pos(self, pos):
         """Get previous position and its haplotype blocks in the graph"""
         positions = sorted(list(set([int(a.split("-")[1]) for a in self.nodes])))
-        if pos <= 0:
+        if pos <= positions[0]:
             return None, None
         for position in positions[::-1]:
             if position < pos:

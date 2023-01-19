@@ -1,13 +1,15 @@
 from collections import namedtuple
 import re
+import copy
 from .phaser import Phaser
 
 
 class Cyp21Phaser(Phaser):
     GeneCall = namedtuple(
         "GeneCall",
-        "total_cn final_haplotypes two_copy_haplotypes ending_hap gene1_read_number gene2_read_number alleles \
-        highest_total_cn assembled_haplotypes het_sites \
+        "total_cn final_haplotypes two_copy_haplotypes starting_hap ending_hap deletion_hap \
+        phasing_success alleles_simple annotated_alleles alleles hap_links \
+        hap_variants highest_total_cn assembled_haplotypes gene1_read_number gene2_read_number het_sites \
         unique_supporting_reads het_sites_not_used_in_phasing homozygous_sites \
         haplotype_details variant_genotypes nonunique_supporting_reads \
         read_details genome_depth",
@@ -28,6 +30,15 @@ class Cyp21Phaser(Phaser):
 
     def set_parameter(self, config):
         super().set_parameter(config)
+        self.variant_def = config["data"]["snp_file"]
+        self.known_variants = {}
+        with open(self.variant_def) as f:
+            for line in f:
+                split_line = line.split()
+                self.known_variants.setdefault(
+                    "_".join([split_line[1], split_line[2], split_line[3]]),
+                    split_line[-1],
+                )
         self.deletion1_size = config["coordinates"]["hg38"]["deletion1_size"]
         self.deletion2_size = config["coordinates"]["hg38"]["deletion2_size"]
         self.del2_3p_pos1 = config["coordinates"]["hg38"]["del2_3p_pos1"]
@@ -38,116 +49,6 @@ class Cyp21Phaser(Phaser):
         self.del1_3p_pos2 = config["coordinates"]["hg38"]["del1_3p_pos2"]
         self.del1_5p_pos1 = config["coordinates"]["hg38"]["del1_5p_pos1"]
         self.del1_5p_pos2 = config["coordinates"]["hg38"]["del1_5p_pos2"]
-
-    """
-    def get_long_del_reads(
-        self,
-        p3_pos1,
-        p3_pos2,
-        p5_pos1,
-        p5_pos2,
-        del_size,
-        min_clip_len=300,
-        min_extend=1000,
-    ):
-        bamh = self._bamh
-        p5_reads = set()
-        p3_reads = set()
-        del_reads = set()
-        # SMN1, 3 prime clip
-        pos1 = p3_pos1
-        pos2 = p3_pos2
-        reference_start_cutoff = pos1 - min_extend
-        for read in bamh.fetch(self.nchr, pos1, pos2):
-            read_name = read.query_name
-            if read.is_supplementary:
-                read_name = (
-                    read_name + f"_sup_{read.reference_start}_{read.reference_length}"
-                )
-            find_clip_3p = re.findall(self.clip_3p, read.cigarstring)
-            if find_clip_3p != [] and pos1 < read.reference_end < pos2:
-                if (
-                    int(find_clip_3p[0][:-1]) >= min_clip_len
-                    and read.reference_start < reference_start_cutoff
-                ):
-                    p3_reads.add(read_name)
-            if self.check_del(read, del_size):
-                del_reads.add(read_name)
-        # SMN1, 5 prime clip
-        pos1 = p5_pos1
-        pos2 = p5_pos2
-        reference_end_cutoff = pos2 + min_extend
-        for read in bamh.fetch(self.nchr, pos1, pos2):
-            read_name = read.query_name
-            if read.is_supplementary:
-                read_name = (
-                    read_name + f"_sup_{read.reference_start}_{read.reference_length}"
-                )
-            find_clip_5p = re.findall(self.clip_5p, read.cigarstring)
-            if find_clip_5p != [] and pos1 < read.reference_start < pos2:
-                if (
-                    int(find_clip_5p[0][:-1]) >= min_clip_len
-                    and read.reference_end > reference_end_cutoff
-                ):
-                    p5_reads.add(read_name)
-            if self.check_del(read, del_size):
-                del_reads.add(read_name)
-        if del_reads != set() or (p3_reads != set() and p5_reads != set()):
-            return (
-                del_reads.union(p3_reads.intersection(p5_reads)),
-                del_reads.union(p3_reads).union(p5_reads),
-            )
-        return set(), set()
-
-    def get_haplotypes_from_reads(self, het_sites, exclude_reads=[], min_mapq=5):
-        read_haps = {}
-        nvar = len(het_sites)
-        for dsnp_index, allele_site in enumerate(het_sites):
-            snp_position_gene1, allele1, allele2, *at = allele_site.split("_")
-            snp_position = int(snp_position_gene1)
-            for pileupcolumn in self._bamh.pileup(
-                self.nchr,
-                snp_position - 1,
-                snp_position,
-                truncate=True,
-                min_base_quality=29,  # lowered base quality cutoff
-                # min_base_quality=30,
-            ):
-                for read in pileupcolumn.pileups:
-                    read_names = [read.alignment.query_name]
-                    if read.alignment.is_supplementary:
-                        sup_name = (
-                            read.alignment.query_name
-                            + f"_sup_{read.alignment.reference_start}_{read.alignment.reference_length}"
-                        )
-                        read_names = [sup_name]
-                        if (
-                            sup_name in self.del1_reads_partial
-                            and read.alignment.query_name in self.del1_reads_partial
-                        ):
-                            read_names.append(read.alignment.query_name)
-                    for read_name in read_names:
-                        if (
-                            not read.is_del
-                            and not read.is_refskip
-                            and read.alignment.is_secondary == 0
-                            and read.alignment.is_duplicate == 0
-                            and read.alignment.mapping_quality >= min_mapq
-                            and read_name not in exclude_reads
-                        ):
-                            read_seq = read.alignment.query_sequence
-                            start_pos = read.query_position
-                            end_pos = start_pos + 1
-                            if end_pos < len(read_seq):
-                                hap = read_seq[start_pos:end_pos]
-                                if read_name not in read_haps:
-                                    read_haps.setdefault(read_name, ["x"] * nvar)
-                                if hap.upper() == allele1.upper():
-                                    read_haps[read_name][dsnp_index] = "1"
-                                elif hap.upper() == allele2.upper():
-                                    read_haps[read_name][dsnp_index] = "2"
-        return read_haps
-    """
 
     def allow_del_bases(self, pos):
         """
@@ -168,8 +69,11 @@ class Cyp21Phaser(Phaser):
 
     @staticmethod
     def get_alleles(reads):
+        """
+        Phase haplotypes into alleles using read evidence
+        """
         new_reads = {}
-        for i, hap in enumerate(reads):
+        for hap in reads:
             hap_reads = set()
             for read in reads[hap]:
                 if "sup" not in read:
@@ -177,7 +81,7 @@ class Cyp21Phaser(Phaser):
                 else:
                     hap_reads.add(read.split("_sup")[0])
             new_reads.setdefault(hap, hap_reads)
-        d = {}
+        links = {}
         checked = set()
         for hap1 in new_reads:
             r1 = new_reads[hap1]
@@ -189,15 +93,15 @@ class Cyp21Phaser(Phaser):
                     read_overlap = r1.intersection(r2)
                     # print(hap1, hap2, read_overlap)
                     if len(read_overlap) >= 2:
-                        d.setdefault(hap1, []).append(hap2)
-                        d.setdefault(hap2, []).append(hap1)
-        d = dict(sorted(d.items(), key=lambda item: len(item[1]), reverse=True))
+                        links.setdefault(hap1, []).append(hap2)
+                        links.setdefault(hap2, []).append(hap1)
+        links = dict(sorted(links.items(), key=lambda item: len(item[1]), reverse=True))
         # print(d)
         alleles = []
-        if d != {}:
-            alleles = [[list(d.keys())[0]] + list(d.values())[0]]
-            for hap1 in d:
-                for hap2 in d[hap1]:
+        if links != {}:
+            alleles = [[list(links.keys())[0]] + list(links.values())[0]]
+            for hap1 in links:
+                for hap2 in links[hap1]:
                     hap1_in = sum([hap1 in a for a in alleles])
                     hap2_in = sum([hap2 in a for a in alleles])
                     if hap1_in == 0 and hap2_in == 0:
@@ -218,9 +122,12 @@ class Cyp21Phaser(Phaser):
                                     alleles[a_index].append(hap2)
                                 if hap1 not in alleles[a_index]:
                                     alleles[a_index].append(hap1)
-        return alleles
+        return alleles, links
 
     def check_gene_presence(self):
+        """
+        check if either copy is present using a SNP site
+        """
         bamh = self._bamh
         for pileupcolumn in bamh.pileup(
             self.nchr, self.pivot_site - 1, self.pivot_site, truncate=True
@@ -241,6 +148,129 @@ class Cyp21Phaser(Phaser):
             self.has_gene1 = True
         if self.gene2_read_number >= 2:
             self.has_gene2 = True
+
+    def output_variants_in_haplotypes(self, haps, reads, nonunique, two_cp_haps=[]):
+        """
+        Summarize all variants in each haplotype.
+        Output all variants and their genotypes.
+        Haplotypes are different length, so a range (boundary) is reported
+        """
+        het_sites = self.het_sites
+        haplotype_variants = {}
+        haplotype_info = {}
+        dvar = {}
+        var_no_phasing = copy.deepcopy(self.het_no_phasing)
+        for hap, hap_name in haps.items():
+            haplotype_variants.setdefault(hap_name, [])
+        # het sites not used in phasing
+        if reads != {}:
+            for var in var_no_phasing:
+                genotypes = []
+                var_reads = self.check_variants_in_haplotypes(var)
+                haps_with_variant = []
+                for hap, hap_name in haps.items():
+                    hap_reads = reads[hap]
+                    hap_reads_nonunique = [a for a in nonunique if hap in nonunique[a]]
+                    genotype = self.get_genotype_in_hap(
+                        var_reads, hap_reads, hap_reads_nonunique
+                    )
+                    genotypes.append(genotype)
+                    if genotype == "1":
+                        haps_with_variant.append(hap_name)
+                if haps_with_variant == []:
+                    self.het_no_phasing.remove(var)
+                else:
+                    for hap_name in haps_with_variant:
+                        haplotype_variants[hap_name].append(var)
+                    dvar.setdefault(var, genotypes)
+        # het sites and homo sites
+        for hap, hap_name in haps.items():
+            for i in range(len(hap)):
+                if hap[i] == "2":
+                    haplotype_variants[hap_name].append(het_sites[i])
+                elif (
+                    hap[i] == "3"
+                    and "32043718_del120" not in haplotype_variants[hap_name]
+                ):
+                    haplotype_variants[hap_name].append("32043718_del120")
+                elif (
+                    hap[i] == "4"
+                    and "32017431_del6367" not in haplotype_variants[hap_name]
+                ):
+                    haplotype_variants[hap_name].append("32017431_del6367")
+            if "32017431_del6367" in haplotype_variants[hap_name]:
+                pos1 = self.del1_3p_pos1
+                pos2 = self.del1_5p_pos2
+                for var in self.homo_sites:
+                    pos = int(var.split("_")[0])
+                    if pos < pos1 or pos > pos2:
+                        haplotype_variants[hap_name].append(var)
+            elif "32043718_del120" in haplotype_variants[hap_name]:
+                pos1 = self.del2_3p_pos1
+                pos2 = self.del2_5p_pos2
+                for var in self.homo_sites:
+                    pos = int(var.split("_")[0])
+                    if pos < pos1 or pos > pos2:
+                        haplotype_variants[hap_name].append(var)
+            else:
+                haplotype_variants[hap_name] += self.homo_sites
+
+            var_nstart, var_nend = self.get_hap_variant_ranges(hap)
+            var_tmp = haplotype_variants[hap_name]
+            var_tmp1 = [
+                a for a in var_tmp if var_nstart <= int(a.split("_")[0]) <= var_nend
+            ]
+            var_tmp1 = list(set(var_tmp1))
+            var_tmp2 = sorted(var_tmp1, key=lambda x: int(x.split("_")[0]))
+            haplotype_info.setdefault(
+                hap_name, {"variants": var_tmp2, "boundary": [var_nstart, var_nend]}
+            )
+
+        # summary per variant
+        all_haps = haps
+        nhap = len(all_haps)
+        for var in self.homo_sites:
+            dvar.setdefault(var, ["1"] * nhap)
+        for i, var in enumerate(het_sites):
+            dvar.setdefault(var, [])
+            for hap, hap_name in haps.items():
+                base_call = "."
+                if hap[i] == "2":
+                    base_call = "1"
+                elif hap[i] == "1":
+                    base_call = "0"
+                dvar[var].append(base_call)
+                if hap_name in two_cp_haps:
+                    dvar[var].append(base_call)
+
+        return haplotype_info, {
+            var: "|".join(dvar[var]) for var in dict(sorted(dvar.items()))
+        }
+
+    def annotate_var(self, allele_var):
+        """annotate an allele with variants"""
+        annotated_allele = None
+        if len(allele_var) == 2:
+            if [] in allele_var:
+                annotated_allele = "WT"
+            else:
+                tmp = sorted(allele_var, key=lambda x: len(x))
+                annotated_allele = ",".join(tmp[0])
+        elif len(allele_var) == 1:
+            if allele_var == [[]]:
+                annotated_allele = "pseudogene_deletion"
+            else:
+                annotated_allele = "deletion_" + ",".join(allele_var[0])
+        elif len(allele_var) == 3:
+            tmp = sorted(allele_var, key=lambda x: len(x))
+            if tmp[0] == [] and tmp[1] == []:
+                annotated_allele = "gene_duplication"
+            elif tmp[0] == []:
+                if abs(len(tmp[1]) - len(tmp[2])) <= 1:
+                    annotated_allele = "pseudogene_duplication"
+                else:
+                    annotated_allele = "duplicaton_plus_" + ",".join(tmp[1])
+        return annotated_allele
 
     def call(self):
         self.get_homopolymer()
@@ -280,24 +310,32 @@ class Cyp21Phaser(Phaser):
         if self.candidate_pos != set():
             self.candidate_pos.add("32039816_T_A")
 
-        # last snp outside of repeat
-        # if self.candidate_pos != set():
-        #    self.candidate_pos.add("32046300_G_A")
-
+        # add last snp outside of repeat
         var_found = False
         for var in self.candidate_pos:
             pos = int(var.split("_")[0])
             if pos > self.clip_3p_positions[0]:
                 var_found = True
                 break
-        if var_found is False:
+        if var_found is False and self.candidate_pos != set():
             self.candidate_pos.add("32046300_G_A")
+        var_found = False
+        for var in self.candidate_pos:
+            pos = int(var.split("_")[0])
+            if pos < self.clip_5p_positions[0]:
+                var_found = True
+                break
+        if var_found is False and self.candidate_pos != set():
+            self.candidate_pos.add("32013265_A_T")
 
         het_sites = sorted(list(self.candidate_pos))
-        if "32029159_T_C" in het_sites:
-            het_sites.remove("32029159_T_C")
-        if "32022483_G_A" in het_sites:
-            het_sites.remove("32022483_G_A")
+        problematic_sites = []
+        for site in het_sites:
+            for region in self.noisy_region:
+                if region[0] <= int(site.split("_")[0]) <= region[1]:
+                    problematic_sites.append(site)
+        for site in problematic_sites:
+            het_sites.remove(site)
 
         raw_read_haps = self.get_haplotypes_from_reads(
             het_sites, check_clip=True, partial_deletion_reads=self.del1_reads_partial
@@ -335,117 +373,266 @@ class Cyp21Phaser(Phaser):
             read_counts,
         ) = self.phase_haps(raw_read_haps)
 
-        # pprint(read_counts)
-        # get haps that extend into tnxb
-        last_genes = [a for a in ass_haps if a[-1] != "0"]
-        """
-        last_genes = []
-        ending_haps = {}
-        for hap in uniquely_supporting_reads:
-            ending_haps.setdefault(
-                hap,
-                [
-                    a
-                    for a in uniquely_supporting_reads[hap]
-                    if raw_read_haps[a][-1] != "x"
-                ],
-            )
-        for hap in ending_haps:
-            if len(ending_haps[hap]) >= 2:
-                last_genes.append(hap)
-        if len(last_genes) == 0:
-            for read in nonuniquely_supporting_reads:
-                if raw_read_haps[read][-1] != "x":
-                    for hap in nonuniquely_supporting_reads[read]:
-                        ending_haps.setdefault(hap, []).append(read)
-            # pprint(ending_haps)
-            for hap in ending_haps:
-                if len(ending_haps[hap]) >= 2 and hap not in last_genes:
-                    last_genes.append(hap)
-        """
-
-        total_cn = None
-        if ass_haps == [] and self.het_sites == []:
-            # feed all reads to deepvariant and call in a diploid mode
-            if self.has_gene1 is True and self.has_gene2 is False:
-                total_cn = 2
-            elif self.has_gene1 is False and self.has_gene2 is True:
-                total_cn = 0
-        else:
-            total_cn = len(ass_haps)
-
-        tmp = {}
+        tmp1 = {}
+        tmp2 = {}
         for i, hap in enumerate(ass_haps):
-            tmp.setdefault(hap, f"hap{i+1}")
-        final_haps = tmp
+            hap_name = f"hap{i+1}"
+            tmp1.setdefault(hap, hap_name)
+            tmp2.setdefault(hap_name, hap)
+        final_haps = tmp1
+        # get haps that extend into tnxb
+        ending_copies = [
+            final_haps[a]
+            for a in ass_haps
+            if a[0] not in ["0", "x"] and a[-1] not in ["0", "x"]
+        ]
+        starting_copies = [
+            final_haps[a] for a in ass_haps if a[0] == "0" and a[-1] == "0"
+        ]
+        single_copies = [
+            final_haps[a] for a in ass_haps if a[0] == "0" and a[-1] not in ["0", "x"]
+        ]
 
         haplotypes = None
         dvar = None
         if self.het_sites != []:
-            # need to output the 120bp deletion here
             haplotypes, dvar = self.output_variants_in_haplotypes(
                 final_haps,
                 uniquely_supporting_reads,
                 nonuniquely_supporting_reads,
             )
 
-        alleles = self.get_alleles(uniquely_supporting_reads)
+        successful_phasing = False
+        # phase haplotypes into alleles
+        alleles, links = self.get_alleles(uniquely_supporting_reads)
+        # switch to hap name
+        new_alleles = []
+        for pair in alleles:
+            new_pair = []
+            for hap1 in pair:
+                new_pair.append(final_haps[hap1])
+            new_alleles.append(new_pair)
+        new_links = {}
+        for hap in links:
+            hap_links = [final_haps[a] for a in links[hap]]
+            new_links.setdefault(final_haps[hap], []).append(hap_links)
+        links = new_links
         # print(alleles)
-        # print(last_genes)
+        # print(links)
+        two_cp_haplotypes = []
+        # the deletion haplotype will be reported as an allele
+        if len(single_copies) == 1 and len(ass_haps) < 5:
+            if (
+                len(new_alleles) == 1
+                and len(new_alleles[0]) == len(ass_haps) - 1
+                and single_copies not in new_alleles
+            ):
+                new_alleles.append(single_copies)
+            elif (
+                len(new_alleles) == 1
+                and len(new_alleles[0]) < len(ass_haps) - 1
+                and single_copies not in new_alleles
+                and len(starting_copies) == 1
+                and len(ending_copies) == 1
+            ):
+                new_alleles = []
+            if new_alleles == []:
+                new_alleles.append(single_copies)
+                remaining_hap = [
+                    a for a in final_haps.values() if a not in single_copies
+                ]
+                if len(remaining_hap) == len(ass_haps) - 1:
+                    new_alleles.append(remaining_hap)
+        elif (
+            len(single_copies) == 2
+            and len(alleles) == 0
+            and len(ass_haps) == 2
+            and len(starting_copies) == 0
+            and len(ending_copies) == 0
+        ):
+            new_alleles = [[single_copies[0]], [single_copies[1]]]
+            successful_phasing = True
+        elif single_copies == []:
+            # 2 cp, one allele, one haplotype extends to tnxb -> each haplotype has cn 2
+            if (
+                len(ass_haps) == 2
+                and len(ending_copies) == 1
+                and len(starting_copies) == 1
+                and len(alleles) == 1
+            ):
+                two_cp_haplotypes = [final_haps[a] for a in ass_haps]
+                new_alleles.append(new_alleles[0])
+                successful_phasing = True
+
+            # depth-based adjustment when found 3 haplotypes or <2 ending haplotypes
+            if haplotypes is not None:
+                two_cp_hap_candidate = self.compare_depth(haplotypes, loose=True)
+                if len(ending_copies) == 1 and len(starting_copies) == 2:
+                    if two_cp_hap_candidate == ending_copies:
+                        two_cp_haplotypes = two_cp_hap_candidate
+                        if len(ass_haps) == 3:
+                            new_alleles = [
+                                [starting_copies[0], ending_copies[0]],
+                                [starting_copies[1], ending_copies[0]],
+                            ]
+                            successful_phasing = True
+                elif len(starting_copies) == 1 and len(ending_copies) == 2:
+                    if two_cp_hap_candidate == starting_copies:
+                        two_cp_haplotypes = two_cp_hap_candidate
+                        if len(ass_haps) == 3:
+                            new_alleles = [
+                                [starting_copies[0], ending_copies[0]],
+                                [starting_copies[0], ending_copies[1]],
+                            ]
+                            successful_phasing = True
+
+            # add the missing link in cn=4
+            if (
+                len(ass_haps) in [3, 4]
+                and two_cp_haplotypes == []
+                and len(new_alleles) == 1
+                and len(new_alleles[0]) == 2
+            ):
+                remaining_hap = [
+                    a for a in final_haps.values() if a not in new_alleles[0]
+                ]
+                if len(remaining_hap) == len(ass_haps) - 2:
+                    new_alleles.append(remaining_hap)
+            # add the missing link in cn=5
+            if len(ass_haps) == 5 and two_cp_haplotypes == []:
+                if (
+                    len(new_alleles) == 1
+                    and len(new_alleles[0]) == 2
+                    and (
+                        (
+                            new_alleles[0][0] in starting_copies
+                            and new_alleles[0][1] in ending_copies
+                        )
+                        or (
+                            new_alleles[0][1] in starting_copies
+                            and new_alleles[0][0] in ending_copies
+                        )
+                    )
+                ):
+                    remaining_hap = [
+                        a for a in final_haps.values() if a not in new_alleles[0]
+                    ]
+                    if len(remaining_hap) == 3:
+                        new_alleles.append(remaining_hap)
+                if len(new_alleles) == 2:
+                    allele1 = (
+                        new_alleles[0][0] in starting_copies
+                        and new_alleles[0][1] in ending_copies
+                    ) or (
+                        new_alleles[0][1] in starting_copies
+                        and new_alleles[0][0] in ending_copies
+                    )
+                    allele2 = (
+                        new_alleles[1][0] in starting_copies
+                        and new_alleles[1][1] in ending_copies
+                    ) or (
+                        new_alleles[1][1] in starting_copies
+                        and new_alleles[1][0] in ending_copies
+                    )
+                    if allele1 is True and allele2 is False:
+                        remaining_hap = [
+                            a for a in final_haps.values() if a not in new_alleles[0]
+                        ]
+                        if len(remaining_hap) == 3:
+                            new_alleles = [new_alleles[0], remaining_hap]
+                    elif allele1 is False and allele2 is True:
+                        remaining_hap = [
+                            a for a in final_haps.values() if a not in new_alleles[1]
+                        ]
+                        if len(remaining_hap) == 3:
+                            new_alleles = [new_alleles[1], remaining_hap]
+
+        if len(new_alleles) == 2:
+            if sorted(new_alleles[0] + new_alleles[1]) == sorted(
+                list(final_haps.values())
+            ):
+                successful_phasing = True
+
         # check wrong phasing
         wrong_allele = False
-        for allele in alleles:
+        for allele in new_alleles:
             hp_set = set(allele)
             for hp in hp_set:
-                if hp in last_genes and allele.count(hp) > 1:
+                if (
+                    hp in ending_copies
+                    and allele.count(hp) > 1
+                    and hp not in two_cp_haplotypes
+                ):
                     wrong_allele = True
-                    # alleles = []
                     break
         if wrong_allele:
+            new_alleles = []
             alleles = []
-
-        # the case of two on one allele and one on the other allele
-        if len(ass_haps) == 3 and len(alleles) == 1:
-            second_allele = [a for a in ass_haps if a not in alleles[0]]
-            assert len(second_allele) == 1
-            alleles.append(second_allele)
-
-        two_cp_haplotypes = []
-        # 2 cp, one allele, one haplotype extends to tnxb -> each haplotype has cn 2
-        # call deepvariant in diploid mode
-        if len(last_genes) == 1 and total_cn == 2 and len(alleles) == 1:
-            two_cp_haplotypes = ass_haps
-
-        # 3 or 4 cp, only one haplotype extends to tnxb -> identify if this haplotype has twice coverage
-        # check unassigned reads
-        if (total_cn == 3 or len(last_genes) < 2) and read_counts is not None:
-            # check if one smn1 haplotype has more reads than others
-            haps = list(read_counts.keys())
-            counts = list(read_counts.values())
-            # print(counts)
-            max_count = max(counts)
-            cp2_hap = haps[counts.index(max_count)]
-            if cp2_hap in ass_haps:
-                others_max = sorted(counts, reverse=True)[1]
-                probs = self.depth_prob(max_count, others_max)
-                if probs[0] < 0.0005 and others_max >= 10:
-                    two_cp_haplotypes.append(cp2_hap)
 
         # annotate haplotypes by checking the diff sites
         # output variants carried by each haplotype
+        hap_variants = {}
+        if haplotypes is not None:
+            for hap, hap_info in haplotypes.items():
+                hap_variants.setdefault(hap, [])
+                for var in hap_info["variants"]:
+                    if var in self.known_variants:
+                        hap_variants[hap].append(self.known_variants[var])
+                    elif "del120" in var:
+                        hap_variants[hap].append(var)
 
+        total_cn = len(ass_haps) + len(two_cp_haplotypes)
+        if ass_haps == [] and self.het_sites == []:
+            # feed all reads to call variants
+            if True in [self.has_gene1, self.has_gene2] and False in [
+                self.has_gene1,
+                self.has_gene2,
+            ]:
+                total_cn = 2
+        if total_cn == 0:
+            total_cn = None
+
+        annotated_alleles = []
+        if successful_phasing:
+            allele1 = new_alleles[0]
+            allele2 = new_alleles[1]
+            allele1_var = [hap_variants[a] for a in allele1]
+            allele2_var = [hap_variants[a] for a in allele2]
+            for allele_var in [allele1_var, allele2_var]:
+                annotated_allele = self.annotate_var(allele_var)
+                annotated_alleles.append(annotated_allele)
+        else:
+            if (
+                len(ending_copies) == 2
+                and len(ass_haps) == 4
+                and two_cp_haplotypes == []
+            ):
+                for allele_var in [hap_variants[a] for a in ending_copies]:
+                    annotated_allele = None
+                    if allele_var == [[]]:
+                        annotated_allele = "WT"
+                    else:
+                        annotated_allele = ",".join(allele_var)
+                annotated_alleles.append(annotated_allele)
         self.close_handle()
 
         return self.GeneCall(
             total_cn,
             final_haps,
             two_cp_haplotypes,
-            last_genes,
-            self.gene1_read_number,
-            self.gene2_read_number,
+            starting_copies,
+            ending_copies,
+            single_copies,
+            successful_phasing,
+            new_alleles,
+            annotated_alleles,
             alleles,
+            new_links,
+            hap_variants,
             hcn,
             original_haps,
+            self.gene1_read_number,
+            self.gene2_read_number,
             self.het_sites,
             uniquely_supporting_reads,
             self.het_no_phasing,

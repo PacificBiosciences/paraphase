@@ -17,17 +17,20 @@ data:
 coordinates:
   hg38:
     nchr: "chr6"
-    nchr_old: "chr6_32013274_32049000"
+    nchr_old: "chr6_32013240_32049000"
     nchr_length: 170805979
     extract_region1: "chr6:31980000-32046800"
     extract_region2: ""
 
     clip_3p_positions: [32046127]
+    clip_5p_positions: [32013270]
     
     deletion1_size: 6367
     deletion2_size: 120
 
     pivot_site: 32039816
+
+    noisy_region: [[32029159, 32029159], [32022483, 32022483]]
 
     left_boundary: 32013300
     right_boundary: 32046000

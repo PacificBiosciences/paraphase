@@ -34,6 +34,9 @@ class BamRealigner:
         self.use_supplementary = False
         if "use_supplementary" in config:
             self.use_supplementary = config["use_supplementary"]
+        self.check_nm = False
+        if "check_nm" in config:
+            self.check_nm = config["check_nm"]
         self._bamh = pysam.AlignmentFile(bam, "rb")
         self.sample_id = bam.split("/")[-1].split(".")[0]
         self.realign_bam = os.path.join(
@@ -69,7 +72,10 @@ class BamRealigner:
             if (
                 read.mapping_quality >= self.min_mapq
                 and read.query_alignment_length >= self.min_aln
-                and read.get_tag("NM") < read.reference_length * 0.1  # pms2
+                and (
+                    self.check_nm is False
+                    or read.get_tag("NM") < read.reference_length * 0.1
+                )  # pms2
                 # and (self.use_supplementary is True or read.is_supplementary is False)
             ):
                 read.reference_start += self.offset
@@ -242,6 +248,7 @@ class VcfGenerater:
     """
 
     search_range = 200
+    min_aln = 800
 
     def __init__(self, sample_id, outdir, config, call_sum):
         self.sample_id = sample_id
@@ -405,6 +412,7 @@ class VcfGenerater:
             ref_name,
             truncate=True,
             min_base_quality=30,
+            min_mapping_quality=59,
         ):
             pos = pileupcolumn.pos + 1
             pileups_raw.setdefault(
@@ -503,6 +511,7 @@ class VcfGenerater:
                     self.get_range_in_other_gene(hap_bound[3]),
                 ]
             hap_bam = os.path.join(self.outdir, self.sample_id + f"_{hap_name}.bam")
+            # use original ailgnment, only aligned portion
             realign_cmd = (
                 f"{self.samtools} view -d HP:{hap_name} {self.bam} |"
                 + f'awk \'BEGIN {{FS="\\t"}} {{print "@" $1 "\\n" $10 "\\n+\\n" $11}}\''
