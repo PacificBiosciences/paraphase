@@ -1,5 +1,5 @@
 import pytest
-from ..haplotype_assembler import VariantGraph
+from paraphase.haplotype_assembler import VariantGraph
 
 
 class TestVariantGraph(object):

@@ -1,7 +1,7 @@
 import pytest
 import yaml
 import os
-from ..smn_phaser import SmnPhaser
+from paraphase.smn_phaser import SmnPhaser
 
 
 class TestSmnPhaser(object):
@@ -9,7 +9,7 @@ class TestSmnPhaser(object):
     cur_dir = os.path.dirname(__file__)
     sample_dir = os.path.join(cur_dir, "test_data")
     sample_id = "HG00733"
-    data_dir = os.path.join(os.path.dirname(cur_dir), "data")
+    data_dir = os.path.join(os.path.dirname(cur_dir), "paraphase", "data")
     config_file = os.path.join(data_dir, "smn1", "config.yaml")
     with open(config_file, "r") as f:
         config = yaml.safe_load(f)

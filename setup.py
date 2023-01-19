@@ -8,7 +8,7 @@ def readme():
 
 setup(
     name="paraphase",
-    version="1.1.2",
+    version="1.1.3",
     description="paraphase: HiFi-based SMN1/SMN2 variant caller",
     long_description=readme(),
     url="https://github.com/PacificBiosciences/paraphase",
