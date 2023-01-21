@@ -1,6 +1,8 @@
 # Paraphase: HiFi-based SMN1/SMN2 variant caller
 
-SMN1, the gene that causes spinal muscular atrophy, is considered a 'dark' region of the genome due to high sequence similarity with its paralog SMN2. Paraphase is a Python tool that takes HiFi BAMs as input (whole-genome or enrichment), phases complete SMN1 and SMN2 haplotypes, determines copy numbers and makes phased variant calls for both genes. It also categorizes the haplotypes, enabling future haplotype-based screening of silent carriers (2+0). Please check out our [preprint](https://www.biorxiv.org/content/10.1101/2022.10.19.512930) for more details about the method and our population-wide haplotype analysis.   
+SMN1, the gene that causes spinal muscular atrophy, is considered a 'dark' region of the genome due to high sequence similarity with its paralog SMN2. Paraphase is a Python tool that takes HiFi BAMs as input (whole-genome or enrichment), phases complete SMN1 and SMN2 haplotypes, determines copy numbers and makes phased variant calls for both genes. It also categorizes the haplotypes, enabling future haplotype-based screening of silent carriers (2+0). Please check out our paper for more details about the method and our population-wide haplotype analysis.   
+
+Chen X, Harting J, Farrow E, et al. Comprehensive SMN1 and SMN2 profiling for spinal muscular atrophy analysis using long-read PacBio HiFi sequencing. The American Journal of Human Genetics. 2023;0(0). doi:10.1016/j.ajhg.2023.01.001
 
 For whole-genome sequencing (WGS) data, we recommend >20X, ideally 30X, genome coverage. Low coverage or short read length could result in less accurate phasing, especially when haplotypes are highly similar to each other in Exons 1-6. For hybrid capture-based enrichment data, a higher read depth (>50X) is recommended as the read length is generally shorter than WGS.
 
@@ -17,9 +19,11 @@ Xiao Chen: xchen@pacificbiosciences.com
 
 ## Installation
 
-Paraphase can be installed through pip:
+Paraphase can be installed through pip or conda:
 ```bash
 pip install paraphase
+# or
+conda install -c conda-forge -c bioconda paraphase
 ```
 
 Alternatively, Paraphase can be installed from GitHub.
