@@ -8,8 +8,8 @@ class Cyp21Phaser(Phaser):
     GeneCall = namedtuple(
         "GeneCall",
         "total_cn final_haplotypes two_copy_haplotypes starting_hap ending_hap deletion_hap \
-        phasing_success alleles_simple annotated_alleles alleles hap_links \
-        hap_variants highest_total_cn assembled_haplotypes gene1_read_number gene2_read_number het_sites \
+        phasing_success alleles_simple annotated_alleles hap_variants alleles hap_links \
+        highest_total_cn assembled_haplotypes gene1_read_number gene2_read_number het_sites \
         unique_supporting_reads het_sites_not_used_in_phasing homozygous_sites \
         haplotype_details variant_genotypes nonunique_supporting_reads \
         read_details genome_depth",
@@ -263,13 +263,21 @@ class Cyp21Phaser(Phaser):
                 annotated_allele = "deletion_" + ",".join(allele_var[0])
         elif len(allele_var) == 3:
             tmp = sorted(allele_var, key=lambda x: len(x))
-            if tmp[0] == [] and tmp[1] == []:
-                annotated_allele = "gene_duplication"
-            elif tmp[0] == []:
-                if abs(len(tmp[1]) - len(tmp[2])) <= 1:
+            if tmp[0] == []:
+                if tmp[1] == []:
+                    annotated_allele = "gene_duplication"
+                elif abs(len(tmp[1]) - len(tmp[2])) <= 1 and len(tmp[2]) >= 6:
                     annotated_allele = "pseudogene_duplication"
                 else:
-                    annotated_allele = "duplicaton_plus_" + ",".join(tmp[1])
+                    annotated_allele = "duplicaton_WT_plus_" + ",".join(tmp[1])
+            else:
+                if abs(len(tmp[1]) - len(tmp[2])) <= 1 and len(tmp[2]) >= 6:
+                    annotated_allele = ",".join(tmp[0]) + "_pseudogene_duplication"
+                else:
+                    annotated_allele = (
+                        "duplication_" + ",".join(tmp[0]) + "_plus_" + ",".join(tmp[1])
+                    )
+
         return annotated_allele
 
     def call(self):
@@ -578,8 +586,6 @@ class Cyp21Phaser(Phaser):
                 for var in hap_info["variants"]:
                     if var in self.known_variants:
                         hap_variants[hap].append(self.known_variants[var])
-                    elif "del120" in var:
-                        hap_variants[hap].append(var)
 
         total_cn = len(ass_haps) + len(two_cp_haplotypes)
         if ass_haps == [] and self.het_sites == []:
@@ -609,11 +615,11 @@ class Cyp21Phaser(Phaser):
             ):
                 for allele_var in [hap_variants[a] for a in ending_copies]:
                     annotated_allele = None
-                    if allele_var == [[]]:
+                    if allele_var == []:
                         annotated_allele = "WT"
                     else:
                         annotated_allele = ",".join(allele_var)
-                annotated_alleles.append(annotated_allele)
+                    annotated_alleles.append(annotated_allele)
         self.close_handle()
 
         return self.GeneCall(
@@ -626,9 +632,9 @@ class Cyp21Phaser(Phaser):
             successful_phasing,
             new_alleles,
             annotated_alleles,
+            hap_variants,
             alleles,
             new_links,
-            hap_variants,
             hcn,
             original_haps,
             self.gene1_read_number,
