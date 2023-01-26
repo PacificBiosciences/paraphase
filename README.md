@@ -6,6 +6,8 @@ Chen X, Harting J, Farrow E, et al. Comprehensive SMN1 and SMN2 profiling for sp
 
 For whole-genome sequencing (WGS) data, we recommend >20X, ideally 30X, genome coverage. Low coverage or short read length could result in less accurate phasing, especially when haplotypes are highly similar to each other in Exons 1-6. For hybrid capture-based enrichment data, a higher read depth (>50X) is recommended as the read length is generally shorter than WGS.
 
+Currently Paraphase only works on GRCh38. Support for GRCh37 will be adde in the future.
+
 ## Contact
 
 If you need assistance or have suggestions, please don't hesitate to reach out by email or open a GitHub issue.
