@@ -83,7 +83,8 @@ def process_sample(bamlist, outdir, config, dcov={}, vcf=False):
             logging.info(f"Generating VCFs at {datetime.datetime.now()}...")
             # vcf_generater = TwoGeneVcfGenerater(
             vcf_generater = VcfGenerater(sample_id, outdir, config, phaser_call)
-            vcf_generater.run()
+            # vcf_generater.run()
+            vcf_generater.run_without_realign()
 
         sample_out = phaser_call
         logging.info(f"Writing to json at {datetime.datetime.now()}...")

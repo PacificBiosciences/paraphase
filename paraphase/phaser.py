@@ -40,7 +40,9 @@ class Phaser:
         self._refh = pysam.FastaFile(self.ref)
         self.left_boundary = config["coordinates"]["hg38"]["left_boundary"]
         self.right_boundary = config["coordinates"]["hg38"]["right_boundary"]
-        self.pivot_site = config["coordinates"]["hg38"]["pivot_site"]
+        self.pivot_site = None
+        if "pivot_site" in config["coordinates"]["hg38"]:
+            self.pivot_site = config["coordinates"]["hg38"]["pivot_site"]
         self.nchr_old = config["coordinates"]["hg38"]["nchr_old"]
         self.offset = int(self.nchr_old.split("_")[1]) - 1
         self.use_supplementary = False
@@ -395,6 +397,16 @@ class Phaser:
             if pos not in excluded_variants:
                 ref_seq, var_seq = variants_no_phasing[pos]
                 self.het_no_phasing.append(f"{pos}_{ref_seq}_{var_seq}")
+
+    def remove_noisy_sites(self):
+        """remove variants in predefined noisy sites"""
+        problematic_sites = []
+        for site in self.het_sites:
+            for region in self.noisy_region:
+                if region[0] <= int(site.split("_")[0]) <= region[1]:
+                    problematic_sites.append(site)
+        for site in problematic_sites:
+            self.het_sites.remove(site)
 
     @staticmethod
     def simplify_read_haps(read_haps):

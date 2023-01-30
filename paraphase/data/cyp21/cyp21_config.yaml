@@ -28,8 +28,6 @@ coordinates:
     deletion1_size: 6367
     deletion2_size: 120
 
-    pivot_site: 32039816
-
     noisy_region: [[32029159, 32029159], [32022483, 32022483]]
 
     left_boundary: 32013300

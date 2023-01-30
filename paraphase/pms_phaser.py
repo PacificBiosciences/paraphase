@@ -1,4 +1,3 @@
-from pprint import pprint
 import numpy as np
 from collections import namedtuple
 from .phaser import Phaser
@@ -7,7 +6,7 @@ from .phaser import Phaser
 class PmsPhaser(Phaser):
     GeneCall = namedtuple(
         "GeneCall",
-        "total_cn final_haplotypes two_copy_haplotypes \
+        "total_cn pms2_cn final_haplotypes two_copy_haplotypes \
         highest_total_cn assembled_haplotypes sites_for_phasing \
         unique_supporting_reads het_sites_not_used_in_phasing homozygous_sites \
         haplotype_details variant_genotypes nonunique_supporting_reads \
@@ -24,13 +23,8 @@ class PmsPhaser(Phaser):
         self.get_homopolymer()
         self.get_candidate_pos()
         self.het_sites = sorted(list(self.candidate_pos))
-        problematic_sites = []
-        for site in self.het_sites:
-            for region in self.noisy_region:
-                if region[0] <= int(site.split("_")[0]) <= region[1]:
-                    problematic_sites.append(site)
-        for site in problematic_sites:
-            self.het_sites.remove(site)
+        self.remove_noisy_sites()
+        # for distinguishing pms2 from pms2cl
         self.het_sites.append("5989137_G_A")
 
         raw_read_haps = self.get_haplotypes_from_reads(self.het_sites, check_clip=True)
@@ -45,7 +39,6 @@ class PmsPhaser(Phaser):
             read_counts,
         ) = self.phase_haps(raw_read_haps)
 
-        total_cn = len(ass_haps)
         tmp = {}
         counter_gene = 0
         counter_pseudo = 0
@@ -75,10 +68,18 @@ class PmsPhaser(Phaser):
             elif len(ass_haps) == 3 and 2 in [counter_gene, counter_pseudo]:
                 two_cp_haps = self.compare_depth(haplotypes, loose=True)
 
+        total_cn = len(ass_haps) + len(two_cp_haps)
+        pms2_cn = len([a for a in ass_haps.values() if "cl" not in a]) + len(
+            [a for a in two_cp_haps if "cl" not in a]
+        )
+        # bigger cnvs are not handled here yet
+        if pms2_cn != 2:
+            pms2_cn = None
         self.close_handle()
 
         return self.GeneCall(
             total_cn,
+            pms2_cn,
             ass_haps,
             two_cp_haps,
             hcn,

@@ -21,8 +21,6 @@ coordinates:
     extract_region1: "chr7:5970000-5989062"
     extract_region2: "chr7:6735630-6754792"
     
-    pivot_site: 70951946
-
     left_boundary: 5970925
     right_boundary: 5986000
 
