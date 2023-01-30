@@ -1,0 +1,30 @@
+# thirdparty tools
+tools:
+  samtools: /home/xchen/bin/samtools
+  minimap2: /mnt/software/m/minimap2/2.15/bin/minimap2
+  singularity: /usr/bin/singularity
+
+gene: pms2
+check_nm: True
+
+# data files
+data:
+  reference: pms2_ref.fa
+  homopolymer: pms2_homopolymer_sites.txt
+
+# coordinates
+coordinates:
+  hg38:
+    nchr: "chr7"
+    nchr_old: "chr7_5967000_5992500"
+    nchr_length: 159345973
+    extract_region1: "chr7:5970000-5989062"
+    extract_region2: "chr7:6735630-6754792"
+    
+    left_boundary: 5970925
+    right_boundary: 5986000
+
+    clip_3p_positions: [5989126, 5989052]
+
+    noisy_region: [[5980880, 5980980], [5979663, 5979669], [5975950, 5976080]]
+

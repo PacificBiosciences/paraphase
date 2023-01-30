@@ -15,9 +15,18 @@ from paraphase.genome_depth import GenomeDepth
 from paraphase.prepare_bam_and_vcf import (
     BamRealigner,
     BamTagger,
+    VcfGenerater,
     TwoGeneVcfGenerater,
 )
 from paraphase.smn_phaser import SmnPhaser
+from paraphase.pms_phaser import PmsPhaser
+from paraphase.strc_phaser import StrcPhaser
+from paraphase.cyp21_phaser import Cyp21Phaser
+from paraphase.ikbkg_phaser import IkbkgPhaser
+from paraphase.f8_phaser import F8Phaser
+from paraphase.ncf_phaser import NcfPhaser
+from paraphase.neb_phaser import NebPhaser
+from paraphase.naip_phaser import NaipPhaser
 
 
 def process_sample(bamlist, outdir, config, dcov={}, vcf=False):
@@ -29,7 +38,8 @@ def process_sample(bamlist, outdir, config, dcov={}, vcf=False):
         gdepth = None
         if sample_id in dcov:
             gdepth = dcov[sample_id]
-        if gdepth is None:
+
+        if 0:  # gdepth is None:
             depth = GenomeDepth(bam, config)
             gdepth, gmad = depth.call()
             if gdepth < 10 or gmad > 0.25:
@@ -43,21 +53,40 @@ def process_sample(bamlist, outdir, config, dcov={}, vcf=False):
         bam_realigner.write_realign_bam()
 
         logging.info(f"Phasing haplotypes at {datetime.datetime.now()}...")
-        smn_phaser = SmnPhaser(sample_id, outdir, config, gdepth)
-        smn_phaser_call = smn_phaser.call()._asdict()
+
+        phasers = {
+            "smn1": SmnPhaser(sample_id, outdir, gdepth),
+            "cyp21": Cyp21Phaser(sample_id, outdir, gdepth),
+            "pms2": PmsPhaser(sample_id, outdir, gdepth),
+            "strc": StrcPhaser(sample_id, outdir, gdepth),
+            "ikbkg": IkbkgPhaser(sample_id, outdir, gdepth),
+            "f8": F8Phaser(sample_id, outdir, gdepth),
+            "ncf1": NcfPhaser(sample_id, outdir, gdepth),
+            "cfc1": StrcPhaser(sample_id, outdir, gdepth),
+            "neb": NebPhaser(sample_id, outdir, gdepth),
+            "serf": StrcPhaser(sample_id, outdir, gdepth),
+            "naip": NaipPhaser(sample_id, outdir, gdepth),
+            "naip_small": NaipPhaser(sample_id, outdir, gdepth),
+            "naip_big": NaipPhaser(sample_id, outdir, gdepth),
+        }
+        phaser = phasers.get(config.get("gene"))
+        phaser.set_parameter(config)
+
+        phaser_call = phaser.call()._asdict()
 
         logging.info(f"Tagging reads at {datetime.datetime.now()}...")
-        bam_tagger = BamTagger(sample_id, outdir, config, smn_phaser_call)
+        bam_tagger = BamTagger(sample_id, outdir, config, phaser_call)
         bam_tagger.write_bam(random_assign=True)
+        # bam_tagger.write_bam(random_assign=False)
 
         if vcf:
             logging.info(f"Generating VCFs at {datetime.datetime.now()}...")
-            vcf_generater = TwoGeneVcfGenerater(
-                sample_id, outdir, config, smn_phaser_call
-            )
-            vcf_generater.run()
+            # vcf_generater = TwoGeneVcfGenerater(
+            vcf_generater = VcfGenerater(sample_id, outdir, config, phaser_call)
+            # vcf_generater.run()
+            vcf_generater.run_without_realign()
 
-        sample_out = smn_phaser_call
+        sample_out = phaser_call
         logging.info(f"Writing to json at {datetime.datetime.now()}...")
         out_json = os.path.join(outdir, sample_id + ".json")
         with open(out_json, "w") as json_output:
