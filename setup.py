@@ -8,7 +8,7 @@ def readme():
 
 setup(
     name="paraphase",
-    version="1.0.0",
+    version="1.1.3",
     description="paraphase: HiFi-based SMN1/SMN2 variant caller",
     long_description=readme(),
     url="https://github.com/PacificBiosciences/paraphase",
@@ -17,7 +17,7 @@ setup(
     license="BSD-3-Clause-Clear",
     packages=["paraphase"],
     package_data={"paraphase": ["data/*", "data/smn1/*"]},
-    install_requires=["pysam", "numpy", "scipy", "networkx", "matplotlib"],
+    install_requires=["pysam", "numpy", "scipy", "networkx", "matplotlib", "pyyaml"],
     setup_requires=["pytest-runner"],
     tests_require=["pytest"],
     entry_points={"console_scripts": ["paraphase=paraphase.paraphase:main"]},
