@@ -19,13 +19,9 @@ class Phaser:
     clip_3p = r"\d+S$|\d+H$"
     deletion = r"\d+D"
 
-    def __init__(self, sample_id, outdir, config, wgs_depth=None):
+    def __init__(self, sample_id, outdir, wgs_depth=None):
         self.outdir = outdir
         self.sample_id = sample_id
-        self.bam = os.path.join(outdir, self.sample_id + "_realigned.bam")
-        if os.path.exists(self.bam) is False:
-            raise Exception(f"File {self.bam} not found.")
-        self._bamh = pysam.AlignmentFile(self.bam, "rb")
         self.homopolymer_sites = {}
         self.het_sites = []  # for phasing
         self.het_no_phasing = []
@@ -34,6 +30,13 @@ class Phaser:
         self.mdepth = wgs_depth
 
     def set_parameter(self, config):
+        self.gene = config["gene"]
+        self.bam = os.path.join(
+            self.outdir, self.sample_id + f"_{self.gene}_realigned.bam"
+        )
+        if os.path.exists(self.bam) is False:
+            raise Exception(f"File {self.bam} not found.")
+        self._bamh = pysam.AlignmentFile(self.bam, "rb")
         self.homopolymer_file = config["data"]["homopolymer"]
         self.nchr = config["coordinates"]["hg38"]["nchr"]
         self.ref = config["data"]["reference"]

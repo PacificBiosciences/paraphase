@@ -23,6 +23,7 @@ class BamRealigner:
     def __init__(self, bam, outdir, config):
         self.bam = bam
         self.outdir = outdir
+        self.gene = config["gene"]
         self.nchr = config["coordinates"]["hg38"]["nchr"]
         self.ref = config["data"]["reference"]
         self.nchr_old = config["coordinates"]["hg38"]["nchr_old"]
@@ -38,10 +39,10 @@ class BamRealigner:
         self._bamh = pysam.AlignmentFile(bam, "rb")
         self.sample_id = bam.split("/")[-1].split(".")[0]
         self.realign_bam = os.path.join(
-            self.outdir, self.sample_id + "_realigned_old.bam"
+            self.outdir, self.sample_id + f"_{self.gene}_realigned_old.bam"
         )
         self.realign_out_bam = os.path.join(
-            self.outdir, self.sample_id + "_realigned.bam"
+            self.outdir, self.sample_id + f"_{self.gene}_realigned.bam"
         )
 
     def write_realign_bam(self):
@@ -119,12 +120,15 @@ class BamTagger:
         self.sample_id = sample_id
         self.outdir = outdir
         self.call_sum = call_sum
-        self.bam = os.path.join(outdir, self.sample_id + "_realigned.bam")
+        self.gene = config["gene"]
+        self.bam = os.path.join(outdir, self.sample_id + f"_{self.gene}_realigned.bam")
         self.nchr = config["coordinates"]["hg38"]["nchr"]
         self._bamh = pysam.AlignmentFile(self.bam, "rb")
-        self.tmp_bam = os.path.join(self.outdir, self.sample_id + "_tmp.bam")
+        self.tmp_bam = os.path.join(
+            self.outdir, self.sample_id + f"_{self.gene}_tmp.bam"
+        )
         self.tagged_realigned_bam = os.path.join(
-            self.outdir, self.sample_id + "_realigned_tagged.bam"
+            self.outdir, self.sample_id + f"_{self.gene}_realigned_tagged.bam"
         )
         self.use_supplementary = False
         if "use_supplementary" in config:
@@ -247,7 +251,10 @@ class VcfGenerater:
         self.sample_id = sample_id
         self.outdir = outdir
         self.call_sum = call_sum
-        self.bam = os.path.join(outdir, self.sample_id + "_realigned_tagged.bam")
+        self.gene = config["gene"]
+        self.bam = os.path.join(
+            outdir, self.sample_id + f"_{self.gene}_realigned_tagged.bam"
+        )
         self.nchr = config["coordinates"]["hg38"]["nchr"]
         self.nchr_old = config["coordinates"]["hg38"]["nchr_old"]
         self.offset = int(self.nchr_old.split("_")[1]) - 1
@@ -300,7 +307,9 @@ class VcfGenerater:
         """
         Merge vcfs from multiple haplotypes.
         """
-        merged_vcf = os.path.join(self.outdir, self.sample_id + f"_variants.vcf")
+        merged_vcf = os.path.join(
+            self.outdir, self.sample_id + f"_{self.gene}_variants.vcf"
+        )
         with open(merged_vcf, "w") as fout:
             self.write_header(fout)
             for vars in vars_list:
@@ -461,7 +470,9 @@ class VcfGenerater:
                     self.get_range_in_other_gene(hap_bound[2]),
                     self.get_range_in_other_gene(hap_bound[3]),
                 ]
-            hap_bam = os.path.join(self.outdir, self.sample_id + f"_{hap_name}.bam")
+            hap_bam = os.path.join(
+                self.outdir, self.sample_id + f"_{self.gene}_{hap_name}.bam"
+            )
             # use original ailgnment, only aligned portion
             realign_cmd = (
                 f"{self.samtools} view -d HP:{hap_name} {self.bam} |"
@@ -475,7 +486,9 @@ class VcfGenerater:
             pysam.index(hap_bam)
 
             # call variants
-            hap_vcf_out = os.path.join(self.outdir, self.sample_id + f"_{hap_name}.vcf")
+            hap_vcf_out = os.path.join(
+                self.outdir, self.sample_id + f"_{self.gene}_{hap_name}.vcf"
+            )
             variants_called = self.read_pileup(
                 hap_bam, hap_vcf_out, hap_bound, offset, ref_seq, uniq_reads
             )
@@ -610,7 +623,9 @@ class VcfGenerater:
         i = 0
         for hap_name in final_haps.values():
             hap_bound = self.get_hap_bound(hap_name)
-            hap_vcf_out = os.path.join(self.outdir, self.sample_id + f"_{hap_name}.vcf")
+            hap_vcf_out = os.path.join(
+                self.outdir, self.sample_id + f"_{self.gene}_{hap_name}.vcf"
+            )
             vcf_out = open(hap_vcf_out, "w")
             self.write_header(vcf_out)
 

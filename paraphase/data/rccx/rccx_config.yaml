@@ -1,17 +1,16 @@
 # thirdparty tools
 tools:
-  samtools: /home/xchen/bin/samtools
-  minimap2: /mnt/software/m/minimap2/2.15/bin/minimap2
-  singularity: /usr/bin/singularity
+  samtools: path_to_samtools
+  minimap2: path_to_minimap2
 
-gene: cyp21
+gene: rccx
 use_supplementary: True
 
 # data files
 data:
-  reference: cyp21_ref.fa
+  reference: rccx_ref.fa
   snp_file: cyp21_diff_sites.txt
-  homopolymer: cyp21_homopolymer_sites.txt
+  homopolymer: rccx_homopolymer_sites.txt
 
 # coordinates
 coordinates:

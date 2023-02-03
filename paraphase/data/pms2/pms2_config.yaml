@@ -1,8 +1,7 @@
 # thirdparty tools
 tools:
-  samtools: /home/xchen/bin/samtools
-  minimap2: /mnt/software/m/minimap2/2.15/bin/minimap2
-  singularity: /usr/bin/singularity
+  samtools: path_to_samtools
+  minimap2: path_to_minimap2
 
 gene: pms2
 check_nm: True

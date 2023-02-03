@@ -5,7 +5,7 @@
 from collections import namedtuple
 import copy
 import json
-from .phaser import Phaser
+from ..phaser import Phaser
 
 
 class SmnPhaser(Phaser):

@@ -1,6 +1,6 @@
 import numpy as np
 from collections import namedtuple
-from .phaser import Phaser
+from ..phaser import Phaser
 
 
 class PmsPhaser(Phaser):
@@ -45,10 +45,10 @@ class PmsPhaser(Phaser):
         for hap in ass_haps:
             if hap[-1] in ["0", "x"]:
                 counter_pseudo += 1
-                tmp.setdefault(hap, f"pms2cl_hap{counter_pseudo}")
+                tmp.setdefault(hap, f"pms2clhap{counter_pseudo}")
             else:
                 counter_gene += 1
-                tmp.setdefault(hap, f"pms2_hap{counter_gene}")
+                tmp.setdefault(hap, f"pms2hap{counter_gene}")
         ass_haps = tmp
 
         haplotypes = None

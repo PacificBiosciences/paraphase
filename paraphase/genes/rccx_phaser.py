@@ -1,10 +1,9 @@
 from collections import namedtuple
-import re
 import copy
-from .phaser import Phaser
+from ..phaser import Phaser
 
 
-class Cyp21Phaser(Phaser):
+class RccxPhaser(Phaser):
     GeneCall = namedtuple(
         "GeneCall",
         "total_cn final_haplotypes two_copy_haplotypes starting_hap ending_hap deletion_hap \

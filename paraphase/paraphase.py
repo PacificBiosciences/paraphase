@@ -18,86 +18,135 @@ from paraphase.prepare_bam_and_vcf import (
     VcfGenerater,
     TwoGeneVcfGenerater,
 )
-from paraphase.smn_phaser import SmnPhaser
-from paraphase.pms_phaser import PmsPhaser
-from paraphase.strc_phaser import StrcPhaser
-from paraphase.cyp21_phaser import Cyp21Phaser
-from paraphase.ikbkg_phaser import IkbkgPhaser
-from paraphase.f8_phaser import F8Phaser
-from paraphase.ncf_phaser import NcfPhaser
-from paraphase.neb_phaser import NebPhaser
-from paraphase.naip_phaser import NaipPhaser
+from paraphase.genes.smn_phaser import SmnPhaser
+from paraphase.genes.pms_phaser import PmsPhaser
+from paraphase.genes.rccx_phaser import RccxPhaser
 
 
-def process_sample(bamlist, outdir, config, dcov={}, vcf=False):
+def process_sample(bamlist, outdir, configs, dcov={}):
     for bam in bamlist:
         sample_id = bam.split("/")[-1].split(".")[0]
         logging.info(f"Processing sample {sample_id} at {datetime.datetime.now()}...")
-
-        logging.info(f"Getting genome depth at {datetime.datetime.now()}...")
+        sample_out = {}
         gdepth = None
-        if sample_id in dcov:
-            gdepth = dcov[sample_id]
+        for gene in configs:
+            config = configs[gene]
+            logging.info(f"Running analysis for {gene} at {datetime.datetime.now()}...")
+            if gene == "smn1":
+                logging.info(f"Getting genome depth at {datetime.datetime.now()}...")
+                if sample_id in dcov:
+                    gdepth = dcov[sample_id]
+                if gdepth is None:
+                    depth = GenomeDepth(bam, config)
+                    gdepth, gmad = depth.call()
+                    if gdepth < 10 or gmad > 0.25:
+                        logging.warning(
+                            "Due to low or highly variable genome coverage, genome coverage is not used for depth correction."
+                        )
+                        gdepth = None
 
-        if 0:  # gdepth is None:
-            depth = GenomeDepth(bam, config)
-            gdepth, gmad = depth.call()
-            if gdepth < 10 or gmad > 0.25:
-                logging.warning(
-                    "Due to low or highly variable genome coverage, genome coverage is not used for depth correction."
+            logging.info(f"Realigning reads for {gene} at {datetime.datetime.now()}...")
+            bam_realigner = BamRealigner(bam, outdir, config)
+            bam_realigner.write_realign_bam()
+
+            logging.info(
+                f"Phasing haplotypes for {gene} at {datetime.datetime.now()}..."
+            )
+
+            phasers = {
+                "smn1": SmnPhaser(sample_id, outdir, gdepth),
+                "rccx": RccxPhaser(sample_id, outdir),
+                "pms2": PmsPhaser(sample_id, outdir),
+            }
+            phaser = phasers.get(gene)
+            phaser.set_parameter(config)
+
+            phaser_call = phaser.call()._asdict()
+
+            logging.info(f"Tagging reads for {gene} at {datetime.datetime.now()}...")
+            bam_tagger = BamTagger(sample_id, outdir, config, phaser_call)
+            bam_tagger.write_bam(random_assign=True)
+
+            logging.info(f"Generating VCFs for {gene} at {datetime.datetime.now()}...")
+            if gene == "smn1":
+                vcf_generater = TwoGeneVcfGenerater(
+                    sample_id, outdir, config, phaser_call
                 )
-                gdepth = None
+                vcf_generater.run()
+            else:
+                vcf_generater = VcfGenerater(sample_id, outdir, config, phaser_call)
+                vcf_generater.run_without_realign()
 
-        logging.info(f"Realigning reads at {datetime.datetime.now()}...")
-        bam_realigner = BamRealigner(bam, outdir, config)
-        bam_realigner.write_realign_bam()
+            sample_out.setdefault(gene, phaser_call)
 
-        logging.info(f"Phasing haplotypes at {datetime.datetime.now()}...")
-
-        phasers = {
-            "smn1": SmnPhaser(sample_id, outdir, gdepth),
-            "cyp21": Cyp21Phaser(sample_id, outdir, gdepth),
-            "pms2": PmsPhaser(sample_id, outdir, gdepth),
-            "strc": StrcPhaser(sample_id, outdir, gdepth),
-            "ikbkg": IkbkgPhaser(sample_id, outdir, gdepth),
-            "f8": F8Phaser(sample_id, outdir, gdepth),
-            "ncf1": NcfPhaser(sample_id, outdir, gdepth),
-            "cfc1": StrcPhaser(sample_id, outdir, gdepth),
-            "neb": NebPhaser(sample_id, outdir, gdepth),
-            "serf": StrcPhaser(sample_id, outdir, gdepth),
-            "naip": NaipPhaser(sample_id, outdir, gdepth),
-            "naip_small": NaipPhaser(sample_id, outdir, gdepth),
-            "naip_big": NaipPhaser(sample_id, outdir, gdepth),
-        }
-        phaser = phasers.get(config.get("gene"))
-        phaser.set_parameter(config)
-
-        phaser_call = phaser.call()._asdict()
-
-        logging.info(f"Tagging reads at {datetime.datetime.now()}...")
-        bam_tagger = BamTagger(sample_id, outdir, config, phaser_call)
-        bam_tagger.write_bam(random_assign=True)
-        # bam_tagger.write_bam(random_assign=False)
-
-        if vcf:
-            logging.info(f"Generating VCFs at {datetime.datetime.now()}...")
-            # vcf_generater = TwoGeneVcfGenerater(
-            vcf_generater = VcfGenerater(sample_id, outdir, config, phaser_call)
-            # vcf_generater.run()
-            vcf_generater.run_without_realign()
-
-        sample_out = phaser_call
         logging.info(f"Writing to json at {datetime.datetime.now()}...")
         out_json = os.path.join(outdir, sample_id + ".json")
         with open(out_json, "w") as json_output:
             json.dump(sample_out, json_output, indent=4)
 
 
+def update_config(gene_list, args):
+    """Get config info for each gene"""
+    data_path = os.path.join(os.path.dirname(__file__), "data")
+    configs = {}
+    for gene in gene_list:
+        config_file = os.path.join(data_path, gene, f"{gene}_config.yaml")
+        # parse config file
+        with open(config_file, "r") as f:
+            try:
+                config = yaml.safe_load(f)
+            except yaml.YAMLError as yaml_error:
+                raise Exception(f"Error reading {config_file}: \n\n{yaml_error}")
+        configs.setdefault(gene, config)
+
+        # check third-party tools
+        tools = config.get("tools")
+        samtools_check = [
+            a
+            for a in [tools.get("samtools"), args.samtools, shutil.which("samtools")]
+            if a is not None
+        ]
+        samtools_check2 = [a for a in samtools_check if os.path.exists(a)]
+        if samtools_check2 == []:
+            raise Exception("samtools is not found")
+        else:
+            configs[gene]["tools"]["samtools"] = samtools_check2[0]
+
+        minimap2_check = [
+            a
+            for a in [tools.get("minimap2"), args.minimap2, shutil.which("minimap2")]
+            if a is not None
+        ]
+        minimap2_check2 = [a for a in minimap2_check if os.path.exists(a)]
+        if minimap2_check2 == []:
+            raise Exception("minimap2 is not found")
+        else:
+            configs[gene]["tools"]["minimap2"] = minimap2_check2[0]
+
+        # update paths
+        data_paths = configs[gene].get("data")
+        for data_entry in data_paths:
+            old_data_file = data_paths[data_entry]
+            if data_entry != "depth_region":
+                new_data_file = os.path.join(data_path, gene, old_data_file)
+            else:
+                new_data_file = os.path.join(data_path, old_data_file)
+            data_paths[data_entry] = new_data_file
+
+        for data_file in list(data_paths.values()):
+            if os.path.exists(data_file) is False:
+                raise Exception(f"File {data_file} not found.")
+    return configs
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="paraphase: HiFi-based SMN1/SMN2 variant caller."
     )
-    input_group = parser.add_mutually_exclusive_group(required=True)
+
+    inputp = parser.add_argument_group("Input Options")
+    outputp = parser.add_argument_group("Output Options")
+    input_group = inputp.add_mutually_exclusive_group(required=True)
     input_group.add_argument(
         "-b",
         "--bam",
@@ -108,23 +157,16 @@ def main():
         "--list",
         help="File listing absolute paths to multiple input BAM files, one per line",
     )
-    parser.add_argument(
+    outputp.add_argument(
         "-o",
         "--out",
         help="Output directory",
         required=True,
     )
     parser.add_argument(
-        "-v",
-        "--vcf",
-        help="Optional. If specified, paraphase will produce vcf for each haplotype",
-        required=False,
-        action="store_true",
-    )
-    parser.add_argument(
-        "-c",
-        "--config",
-        help="Optional path to config yaml file",
+        "-g",
+        "--gene",
+        help="Optionally specify which gene(s) to run (separated by comma). Will run all genes if not specified",
         required=False,
     )
     parser.add_argument(
@@ -154,61 +196,24 @@ def main():
 
     args = parser.parse_args()
     outdir = args.out
-    config_file = args.config
     logging.basicConfig(level=logging.DEBUG)
 
     if os.path.exists(outdir) is False:
         os.makedirs(outdir)
 
-    data_path = os.path.join(os.path.dirname(__file__), "data")
-    if config_file is None:
-        config_file = os.path.join(data_path, "smn1", "config.yaml")
-
-    # parse config file
-    with open(config_file, "r") as f:
-        try:
-            config = yaml.safe_load(f)
-        except yaml.YAMLError as yaml_error:
-            raise Exception(f"Error reading {config_file}: \n\n{yaml_error}")
-
-    # check third-party tools
-    tools = config.get("tools")
-    samtools_check = [
-        a
-        for a in [tools.get("samtools"), args.samtools, shutil.which("samtools")]
-        if a is not None
-    ]
-    samtools_check2 = [a for a in samtools_check if os.path.exists(a)]
-    if samtools_check2 == []:
-        raise Exception("samtools is not found")
+    gene_list = args.gene
+    accepted_gene_list = ["smn1", "rccx", "pms2"]
+    if gene_list is None:
+        gene_list = accepted_gene_list
     else:
-        config["tools"]["samtools"] = samtools_check2[0]
+        gene_list = [a for a in gene_list.split(",") if a in accepted_gene_list]
+        if gene_list == []:
+            joined_list = ",".join(accepted_gene_list)
+            raise Exception(
+                f"Gene names not recognized. Currently accepted genes are {joined_list}"
+            )
 
-    minimap2_check = [
-        a
-        for a in [tools.get("minimap2"), args.minimap2, shutil.which("minimap2")]
-        if a is not None
-    ]
-    minimap2_check2 = [a for a in minimap2_check if os.path.exists(a)]
-    if minimap2_check2 == []:
-        raise Exception("minimap2 is not found")
-    else:
-        config["tools"]["minimap2"] = minimap2_check2[0]
-
-    # update paths
-    gene = config.get("gene")
-    data_paths = config.get("data")
-    for data_entry in data_paths:
-        old_data_file = data_paths[data_entry]
-        if data_entry != "depth_region":
-            new_data_file = os.path.join(data_path, gene, old_data_file)
-        else:
-            new_data_file = os.path.join(data_path, old_data_file)
-        data_paths[data_entry] = new_data_file
-
-    for data_file in list(data_paths.values()):
-        if os.path.exists(data_file) is False:
-            raise Exception(f"File {data_file} not found.")
+    configs = update_config(gene_list, args)
 
     # parse depth file
     dcov = {}
@@ -226,9 +231,8 @@ def main():
             process_sample(
                 bamlist,
                 outdir,
-                config,
+                configs,
                 dcov,
-                args.vcf,
             )
         else:
             print(f"{args.bam} bam or bai file doesn't exist")
@@ -245,9 +249,8 @@ def main():
         process_sample_partial = partial(
             process_sample,
             outdir=outdir,
-            config=config,
+            configs=configs,
             dcov=dcov,
-            vcf=args.vcf,
         )
         bam_groups = [bamlist[i::nCores] for i in range(nCores)]
         pool = mp.Pool(nCores)
