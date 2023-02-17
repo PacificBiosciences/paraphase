@@ -21,6 +21,7 @@ from paraphase.prepare_bam_and_vcf import (
 from paraphase.genes.smn_phaser import SmnPhaser
 from paraphase.genes.pms_phaser import PmsPhaser
 from paraphase.genes.rccx_phaser import RccxPhaser
+from paraphase.genes.strc_phaser import StrcPhaser
 
 
 def process_sample(bamlist, outdir, configs, dcov={}):
@@ -32,13 +33,13 @@ def process_sample(bamlist, outdir, configs, dcov={}):
         for gene in configs:
             config = configs[gene]
             logging.info(f"Running analysis for {gene} at {datetime.datetime.now()}...")
-            if gene == "smn1":
+            if gene in ["smn1", "strc"]:
                 logging.info(f"Getting genome depth at {datetime.datetime.now()}...")
                 if sample_id in dcov:
                     gdepth = dcov[sample_id]
                 if gdepth is None:
                     depth = GenomeDepth(bam, config)
-                    gdepth, gmad = depth.call()
+                    gdepth, gmad, region_depth = depth.call()
                     if gdepth < 10 or gmad > 0.25:
                         logging.warning(
                             "Due to low or highly variable genome coverage, genome coverage is not used for depth correction."
@@ -54,9 +55,10 @@ def process_sample(bamlist, outdir, configs, dcov={}):
             )
 
             phasers = {
-                "smn1": SmnPhaser(sample_id, outdir, gdepth),
+                "smn1": SmnPhaser(sample_id, outdir, [gdepth, None]),
                 "rccx": RccxPhaser(sample_id, outdir),
                 "pms2": PmsPhaser(sample_id, outdir),
+                "strc": StrcPhaser(sample_id, outdir, [gdepth, region_depth]),
             }
             phaser = phasers.get(gene)
             phaser.set_parameter(config)
@@ -202,7 +204,7 @@ def main():
         os.makedirs(outdir)
 
     gene_list = args.gene
-    accepted_gene_list = ["smn1", "rccx", "pms2"]
+    accepted_gene_list = ["smn1", "rccx", "pms2", "strc"]
     if gene_list is None:
         gene_list = accepted_gene_list
     else:

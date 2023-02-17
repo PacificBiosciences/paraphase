@@ -35,6 +35,7 @@ class SmnPhaser(Phaser):
 
     def set_parameter(self, config):
         super().set_parameter(config)
+        self.mdepth = self.mdepth[0]
         self.deletion1_size = config["coordinates"]["hg38"]["deletion1_size"]
         self.deletion2_size = config["coordinates"]["hg38"]["deletion2_size"]
         self.del2_3p_pos1 = config["coordinates"]["hg38"]["del2_3p_pos1"]
