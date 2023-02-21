@@ -23,6 +23,7 @@ from paraphase.genes.pms_phaser import PmsPhaser
 from paraphase.genes.rccx_phaser import RccxPhaser
 from paraphase.genes.strc_phaser import StrcPhaser
 from paraphase.genes.ncf_phaser import NcfPhaser
+from paraphase.genes.cfc_phaser import CfcPhaser
 
 
 def process_sample(bamlist, outdir, configs, dcov={}):
@@ -31,6 +32,7 @@ def process_sample(bamlist, outdir, configs, dcov={}):
         logging.info(f"Processing sample {sample_id} at {datetime.datetime.now()}...")
         sample_out = {}
         gdepth = None
+        region_depth = None
         for gene in configs:
             config = configs[gene]
             logging.info(f"Running analysis for {gene} at {datetime.datetime.now()}...")
@@ -61,6 +63,7 @@ def process_sample(bamlist, outdir, configs, dcov={}):
                 "pms2": PmsPhaser(sample_id, outdir),
                 "strc": StrcPhaser(sample_id, outdir, [gdepth, region_depth]),
                 "ncf1": NcfPhaser(sample_id, outdir, [gdepth, None]),
+                "cfc1": CfcPhaser(sample_id, outdir),
             }
             phaser = phasers.get(gene)
             phaser.set_parameter(config)
@@ -72,7 +75,9 @@ def process_sample(bamlist, outdir, configs, dcov={}):
             bam_tagger.write_bam(random_assign=True)
 
             if 0:
-                logging.info(f"Generating VCFs for {gene} at {datetime.datetime.now()}...")
+                logging.info(
+                    f"Generating VCFs for {gene} at {datetime.datetime.now()}..."
+                )
                 if gene == "smn1":
                     vcf_generater = TwoGeneVcfGenerater(
                         sample_id, outdir, config, phaser_call
@@ -207,7 +212,7 @@ def main():
         os.makedirs(outdir)
 
     gene_list = args.gene
-    accepted_gene_list = ["smn1", "rccx", "pms2", "strc", "ncf1"]
+    accepted_gene_list = ["smn1", "rccx", "pms2", "strc", "ncf1", "cfc1"]
     if gene_list is None:
         gene_list = accepted_gene_list
     else:
