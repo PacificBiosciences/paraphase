@@ -18,7 +18,6 @@ class BamRealigner:
 
     min_mapq = 50
     min_aln = 800  # 400
-    max_mismatch = 0.1
 
     def __init__(self, bam, outdir, config):
         self.bam = bam
@@ -33,9 +32,9 @@ class BamRealigner:
         self.extract_region2 = config["coordinates"]["hg38"]["extract_region2"]
         self.samtools = config["tools"]["samtools"]
         self.minimap2 = config["tools"]["minimap2"]
-        self.check_nm = False
+        self.max_mismatch = 1
         if "check_nm" in config:
-            self.check_nm = config["check_nm"]
+            self.max_mismatch = config["check_nm"]
         self._bamh = pysam.AlignmentFile(bam, "rb")
         self.sample_id = bam.split("/")[-1].split(".")[0]
         self.realign_bam = os.path.join(
@@ -71,10 +70,7 @@ class BamRealigner:
             if (
                 read.mapping_quality >= self.min_mapq
                 and read.query_alignment_length >= self.min_aln
-                and (
-                    self.check_nm is False
-                    or read.get_tag("NM") < read.reference_length * self.max_mismatch
-                )
+                and (read.get_tag("NM") < read.reference_length * self.max_mismatch)
             ):
                 read.reference_start += self.offset
                 ltags = read.tags

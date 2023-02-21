@@ -4,7 +4,7 @@ tools:
   minimap2: path_to_minimap2
 
 gene: pms2
-check_nm: True
+check_nm: 0.1
 
 # data files
 data:

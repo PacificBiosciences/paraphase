@@ -44,13 +44,7 @@ class StrcPhaser(Phaser):
         )
         self.get_candidate_pos()
         self.het_sites = sorted(list(self.candidate_pos))
-        problematic_sites = []
-        for site in self.het_sites:
-            for region in self.noisy_region:
-                if region[0] <= int(site.split("_")[0]) <= region[1]:
-                    problematic_sites.append(site)
-        for site in problematic_sites:
-            self.het_sites.remove(site)
+        self.remove_noisy_sites()
 
         raw_read_haps = self.get_haplotypes_from_reads(self.het_sites)
         het_sites = self.het_sites
@@ -116,7 +110,7 @@ class StrcPhaser(Phaser):
             if prob[0] < 0.9 and counter_gene == 1:
                 counter_gene = None
                 total_cn = None
-            if prob[0] > 0.95 and counter_gene > 1:
+            if prob[0] > 0.95 and counter_gene > 1 and two_cp_haps != []:
                 counter_gene = None
                 total_cn = None
 

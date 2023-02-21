@@ -22,6 +22,7 @@ from paraphase.genes.smn_phaser import SmnPhaser
 from paraphase.genes.pms_phaser import PmsPhaser
 from paraphase.genes.rccx_phaser import RccxPhaser
 from paraphase.genes.strc_phaser import StrcPhaser
+from paraphase.genes.ncf_phaser import NcfPhaser
 
 
 def process_sample(bamlist, outdir, configs, dcov={}):
@@ -33,7 +34,7 @@ def process_sample(bamlist, outdir, configs, dcov={}):
         for gene in configs:
             config = configs[gene]
             logging.info(f"Running analysis for {gene} at {datetime.datetime.now()}...")
-            if gene in ["smn1", "strc"]:
+            if gene in ["smn1", "strc", "ncf1"]:
                 logging.info(f"Getting genome depth at {datetime.datetime.now()}...")
                 if sample_id in dcov:
                     gdepth = dcov[sample_id]
@@ -59,6 +60,7 @@ def process_sample(bamlist, outdir, configs, dcov={}):
                 "rccx": RccxPhaser(sample_id, outdir),
                 "pms2": PmsPhaser(sample_id, outdir),
                 "strc": StrcPhaser(sample_id, outdir, [gdepth, region_depth]),
+                "ncf1": NcfPhaser(sample_id, outdir, [gdepth, None]),
             }
             phaser = phasers.get(gene)
             phaser.set_parameter(config)
@@ -69,15 +71,16 @@ def process_sample(bamlist, outdir, configs, dcov={}):
             bam_tagger = BamTagger(sample_id, outdir, config, phaser_call)
             bam_tagger.write_bam(random_assign=True)
 
-            logging.info(f"Generating VCFs for {gene} at {datetime.datetime.now()}...")
-            if gene == "smn1":
-                vcf_generater = TwoGeneVcfGenerater(
-                    sample_id, outdir, config, phaser_call
-                )
-                vcf_generater.run()
-            else:
-                vcf_generater = VcfGenerater(sample_id, outdir, config, phaser_call)
-                vcf_generater.run_without_realign()
+            if 0:
+                logging.info(f"Generating VCFs for {gene} at {datetime.datetime.now()}...")
+                if gene == "smn1":
+                    vcf_generater = TwoGeneVcfGenerater(
+                        sample_id, outdir, config, phaser_call
+                    )
+                    vcf_generater.run()
+                else:
+                    vcf_generater = VcfGenerater(sample_id, outdir, config, phaser_call)
+                    vcf_generater.run_without_realign()
 
             sample_out.setdefault(gene, phaser_call)
 
@@ -204,7 +207,7 @@ def main():
         os.makedirs(outdir)
 
     gene_list = args.gene
-    accepted_gene_list = ["smn1", "rccx", "pms2", "strc"]
+    accepted_gene_list = ["smn1", "rccx", "pms2", "strc", "ncf1"]
     if gene_list is None:
         gene_list = accepted_gene_list
     else:
