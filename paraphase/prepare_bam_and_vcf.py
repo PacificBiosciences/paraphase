@@ -158,9 +158,9 @@ class BamTagger:
                 read.set_tag("HP", hap_name, "Z")
                 read.set_tag("YC", self.read_color, "Z")
                 if alleles != []:
-                    if hap in alleles[0]:
+                    if hap_name in alleles[0]:
                         read.set_tag("YC", self.read_color_allele1, "Z")
-                    elif len(alleles) > 1 and hap in alleles[1]:
+                    elif len(alleles) > 1 and hap_name in alleles[1]:
                         read.set_tag("YC", self.read_color_allele2, "Z")
                 hp_found = True
         if hp_found is False:
@@ -211,7 +211,7 @@ class BamTagger:
             nonunique_reads = {}
         hp_keys = call_sum.get("final_haplotypes")
         read_details = call_sum.get("read_details")
-        alleles = call_sum.get("alleles")
+        alleles = call_sum.get("alleles_final")
         if alleles is None:
             alleles = []
 
