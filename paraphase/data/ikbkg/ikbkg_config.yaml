@@ -1,0 +1,37 @@
+# thirdparty tools
+tools:
+  samtools: /home/xchen/bin/samtools
+  minimap2: /mnt/software/m/minimap2/2.15/bin/minimap2
+
+gene: ikbkg
+use_supplementary: True
+
+# data files
+data:
+  reference: ref.fa
+  homopolymer: homopolymer_sites.txt
+
+# coordinates
+coordinates:
+  hg38:
+    nchr: "chrX"
+    nchr_old: "chrX_154555600_154570000"
+    nchr_length: 156040895
+    extract_region1: "chrX:154555883-154569698"
+    extract_region2: "chrX:154634729-154648555"
+
+    clip_3p_positions: [154569698]
+    clip_5p_positions: [154557136]
+    
+    left_boundary: 154555780
+    right_boundary: 154568820
+
+    pivot_site: 154555823
+
+    deletion1_size: 10800
+    del1_3p_pos1: 154557900
+    del1_3p_pos2: 154558100
+    del1_5p_pos1: 154568700
+    del1_5p_pos2: 154568900
+
+    noisy_region: [[154566998, 154567171], [154555869, 154555876], [154565356, 154565401]]

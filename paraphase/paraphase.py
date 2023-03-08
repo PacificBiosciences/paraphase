@@ -25,6 +25,7 @@ from paraphase.genes.strc_phaser import StrcPhaser
 from paraphase.genes.ncf_phaser import NcfPhaser
 from paraphase.genes.cfc_phaser import CfcPhaser
 from paraphase.genes.neb_phaser import NebPhaser
+from paraphase.genes.ikbkg_phaser import IkbkgPhaser
 
 
 def process_sample(bamlist, outdir, configs, dcov={}):
@@ -66,6 +67,7 @@ def process_sample(bamlist, outdir, configs, dcov={}):
                 "ncf1": NcfPhaser(sample_id, outdir, [gdepth, None]),
                 "cfc1": CfcPhaser(sample_id, outdir),
                 "neb": NebPhaser(sample_id, outdir),
+                "ikbkg": IkbkgPhaser(sample_id, outdir),
             }
             phaser = phasers.get(gene)
             phaser.set_parameter(config)
@@ -214,7 +216,16 @@ def main():
         os.makedirs(outdir)
 
     gene_list = args.gene
-    accepted_gene_list = ["smn1", "rccx", "pms2", "strc", "ncf1", "cfc1", "neb"]
+    accepted_gene_list = [
+        "smn1",
+        "rccx",
+        "pms2",
+        "strc",
+        "ncf1",
+        "cfc1",
+        "neb",
+        "ikbkg",
+    ]
     if gene_list is None:
         gene_list = accepted_gene_list
     else:
