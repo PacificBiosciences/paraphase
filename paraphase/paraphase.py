@@ -26,6 +26,7 @@ from paraphase.genes.ncf_phaser import NcfPhaser
 from paraphase.genes.cfc_phaser import CfcPhaser
 from paraphase.genes.neb_phaser import NebPhaser
 from paraphase.genes.ikbkg_phaser import IkbkgPhaser
+from paraphase.genes.f8_phaser import F8Phaser
 
 
 def process_sample(bamlist, outdir, configs, dcov={}):
@@ -68,6 +69,7 @@ def process_sample(bamlist, outdir, configs, dcov={}):
                 "cfc1": CfcPhaser(sample_id, outdir),
                 "neb": NebPhaser(sample_id, outdir),
                 "ikbkg": IkbkgPhaser(sample_id, outdir),
+                "f8": F8Phaser(sample_id, outdir, genome_bam=bam),
             }
             phaser = phasers.get(gene)
             phaser.set_parameter(config)
@@ -225,6 +227,7 @@ def main():
         "cfc1",
         "neb",
         "ikbkg",
+        "f8",
     ]
     if gene_list is None:
         gene_list = accepted_gene_list

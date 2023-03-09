@@ -19,7 +19,7 @@ class Phaser:
     clip_3p = r"\d+S$|\d+H$"
     deletion = r"\d+D"
 
-    def __init__(self, sample_id, outdir, wgs_depth=None):
+    def __init__(self, sample_id, outdir, wgs_depth=None, genome_bam=None):
         self.outdir = outdir
         self.sample_id = sample_id
         self.homopolymer_sites = {}
@@ -28,6 +28,7 @@ class Phaser:
         self.homo_sites = []
         self.candidate_pos = set()
         self.mdepth = wgs_depth
+        self.genome_bam = genome_bam
 
     def set_parameter(self, config):
         self.gene = config["gene"]
