@@ -1,3 +1,7 @@
+# paraphase
+# Author: Xiao Chen <xchen@pacificbiosciences.com>
+
+
 from collections import namedtuple
 import copy
 from ..phaser import Phaser
@@ -452,6 +456,8 @@ class RccxPhaser(Phaser):
         return successful_phasing, new_alleles, two_cp_haplotypes
 
     def call(self):
+        if self.check_coverage_before_analysis() is False:
+            return None
         self.get_homopolymer()
         self.del2_reads, self.del2_reads_partial = self.get_long_del_reads(
             self.del2_3p_pos1,

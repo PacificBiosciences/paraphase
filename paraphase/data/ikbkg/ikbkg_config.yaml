@@ -1,8 +1,3 @@
-# thirdparty tools
-tools:
-  samtools: /home/xchen/bin/samtools
-  minimap2: /mnt/software/m/minimap2/2.15/bin/minimap2
-
 gene: ikbkg
 use_supplementary: True
 
@@ -25,8 +20,6 @@ coordinates:
     
     left_boundary: 154555780
     right_boundary: 154568820
-
-    pivot_site: 154555823
 
     deletion1_size: 10800
     del1_3p_pos1: 154557900

@@ -1,3 +1,7 @@
+# paraphase
+# Author: Xiao Chen <xchen@pacificbiosciences.com>
+
+
 from collections import namedtuple
 import pysam
 from ..phaser import Phaser
@@ -27,7 +31,7 @@ class F8Phaser(Phaser):
         """Get mapped region of the part of reads not overlapping repeat"""
         dpos5 = {}
         dpos3 = {}
-        bamh = pysam.AlignmentFile(self.genome_bam, "rb")
+        genome_bamh = pysam.AlignmentFile(self.genome_bam, "rb")
         for i, extract_region in enumerate(
             [self.extract_region2, self.extract_region1, self.extract_region3]
         ):
@@ -35,7 +39,7 @@ class F8Phaser(Phaser):
             pos1 = int(pos1)
             pos2 = int(pos2)
             pos_name = f"region{i+1}"
-            for pileupcolumn in bamh.pileup(
+            for pileupcolumn in genome_bamh.pileup(
                 self.nchr,
                 pos1 - 1,
                 pos1,
@@ -48,7 +52,7 @@ class F8Phaser(Phaser):
                             dpos5.setdefault(read_name, []).append(pos_name)
                         else:
                             dpos3.setdefault(read_name, []).append(pos_name)
-            for pileupcolumn in bamh.pileup(
+            for pileupcolumn in genome_bamh.pileup(
                 self.nchr,
                 pos2 - 1,
                 pos2,
@@ -61,10 +65,12 @@ class F8Phaser(Phaser):
                             dpos3.setdefault(read_name, []).append(pos_name)
                         else:
                             dpos5.setdefault(read_name, []).append(pos_name)
-        bamh.close()
+        genome_bamh.close()
         return dpos5, dpos3
 
     def call(self):
+        if self.check_coverage_before_analysis() is False:
+            return None
         dpos5, dpos3 = self.get_read_positions()
         self.get_homopolymer()
         self.get_candidate_pos()

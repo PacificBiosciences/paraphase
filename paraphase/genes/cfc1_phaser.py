@@ -1,8 +1,12 @@
+# paraphase
+# Author: Xiao Chen <xchen@pacificbiosciences.com>
+
+
 from collections import namedtuple
 from ..phaser import Phaser
 
 
-class CfcPhaser(Phaser):
+class Cfc1Phaser(Phaser):
     GeneCall = namedtuple(
         "GeneCall",
         "total_cn final_haplotypes two_copy_haplotypes \
@@ -16,11 +20,13 @@ class CfcPhaser(Phaser):
         Phaser.__init__(self, sample_id, outdir, wgs_depth)
 
     def call(self):
-        """
-        Main function that calls SMN1/SMN2 copy number and variants
-        """
+        if self.check_coverage_before_analysis() is False:
+            return None
         self.get_homopolymer()
         self.get_candidate_pos()
+        # add pivot site
+        if "130593061_A_G" not in self.candidate_pos:
+            self.candidate_pos.add("130593061_A_G")
         self.het_sites = sorted(list(self.candidate_pos))
         self.remove_noisy_sites()
 

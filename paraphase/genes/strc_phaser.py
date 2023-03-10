@@ -1,5 +1,8 @@
+# paraphase
+# Author: Xiao Chen <xchen@pacificbiosciences.com>
+
+
 from collections import namedtuple
-import numpy as np
 import pysam
 from ..phaser import Phaser
 
@@ -14,26 +17,27 @@ class StrcPhaser(Phaser):
         read_details genome_depth",
     )
 
-    def __init__(self, sample_id, outdir, wgs_depth=None):
-        Phaser.__init__(self, sample_id, outdir, wgs_depth)
+    def __init__(self, sample_id, outdir, wgs_depth=None, genome_bam=None):
+        Phaser.__init__(self, sample_id, outdir, wgs_depth, genome_bam)
         self.del1_reads = set()
         self.del1_reads_partial = set()
 
     def set_parameter(self, config):
         super().set_parameter(config)
-        self.mdepth, self.region_depth = self.mdepth
-        self.region_depth = self.region_depth[0]
         self.deletion1_size = config["coordinates"]["hg38"]["deletion1_size"]
         self.del1_3p_pos1 = config["coordinates"]["hg38"]["del1_3p_pos1"]
         self.del1_3p_pos2 = config["coordinates"]["hg38"]["del1_3p_pos2"]
         self.del1_5p_pos1 = config["coordinates"]["hg38"]["del1_5p_pos1"]
         self.del1_5p_pos2 = config["coordinates"]["hg38"]["del1_5p_pos2"]
         self.intergenic = config["coordinates"]["hg38"]["depth_region"]
+        self.depth_region = config["coordinates"]["hg38"]["depth_region"]
 
     def call(self):
-        """
-        Main function that calls SMN1/SMN2 copy number and variants
-        """
+        if self.check_coverage_before_analysis() is False:
+            return None
+        genome_bamh = pysam.AlignmentFile(self.genome_bam, "rb")
+        intergenic_depth = self.get_regional_depth(genome_bamh, self.depth_region)[0]
+        genome_bamh.close()
         self.get_homopolymer()
         self.del1_reads, self.del1_reads_partial = self.get_long_del_reads(
             self.del1_3p_pos1,
@@ -91,7 +95,7 @@ class StrcPhaser(Phaser):
             )
 
         two_cp_haps = []
-        if self.region_depth > 5 and len(ass_haps) == 2:
+        if intergenic_depth > 5 and len(ass_haps) == 2:
             two_cp_haps = list(ass_haps.values())
         elif counter_gene == 1 or counter_pseudo == 1:
             two_cp_haps = self.compare_depth(haplotypes)
@@ -105,8 +109,7 @@ class StrcPhaser(Phaser):
 
         # check depth between STRC and pseudogene
         if self.mdepth is not None:
-            prob = self.depth_prob(int(self.region_depth), self.mdepth / 2)
-            # print(self.sample_id, self.region_depth, self.mdepth, prob[0])
+            prob = self.depth_prob(int(intergenic_depth), self.mdepth / 2)
             if prob[0] < 0.9 and counter_gene == 1:
                 counter_gene = None
                 total_cn = None
@@ -121,7 +124,7 @@ class StrcPhaser(Phaser):
             counter_gene,
             ass_haps,
             two_cp_haps,
-            self.region_depth,
+            intergenic_depth,
             hcn,
             original_haps,
             self.het_sites,

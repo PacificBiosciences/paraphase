@@ -1,3 +1,7 @@
+# paraphase
+# Author: Xiao Chen <xchen@pacificbiosciences.com>
+
+
 from collections import namedtuple
 from .rccx_phaser import RccxPhaser
 from ..phaser import Phaser
@@ -27,9 +31,8 @@ class IkbkgPhaser(Phaser):
         self.del1_5p_pos2 = config["coordinates"]["hg38"]["del1_5p_pos2"]
 
     def call(self):
-        """
-        Main function that calls SMN1/SMN2 copy number and variants
-        """
+        if self.check_coverage_before_analysis() is False:
+            return None
         self.get_homopolymer()
 
         ## get deletion ##

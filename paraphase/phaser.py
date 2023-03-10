@@ -3,12 +3,12 @@
 
 
 import pysam
-from pprint import pprint
 import os
-import numpy as np
 import copy
+import numpy as np
 from collections import Counter
 import re
+import logging
 from scipy.stats import poisson
 from .haplotype_assembler import VariantGraph
 
@@ -61,6 +61,33 @@ class Phaser:
         self.noisy_region = []
         if "noisy_region" in config["coordinates"]["hg38"]:
             self.noisy_region = config["coordinates"]["hg38"]["noisy_region"]
+
+    def get_regional_depth(self, bam_handle, query_region, ninterval=100):
+        """Get depth of the query regions"""
+        region_depth = []
+        for region in query_region:
+            depth = []
+            nstep = max(1, int((region[1] - region[0]) / ninterval))
+            for pos in range(region[0], region[1], nstep):
+                for pileupcolumn in bam_handle.pileup(
+                    self.nchr, pos - 1, pos, truncate=True
+                ):
+                    site_depth = pileupcolumn.get_num_aligned()
+                    depth.append(site_depth)
+            region_depth.append(np.median(depth))
+        return region_depth
+
+    def check_coverage_before_analysis(self):
+        """check low coverage regions for enrichment data"""
+        region_depth = self.get_regional_depth(
+            self._bamh, [[self.left_boundary, self.right_boundary]]
+        )[0]
+        if np.isnan(region_depth) or region_depth < 10:
+            logging.warning(
+                "This region does not appear to have coverage. Will not attempt to phase haplotypes."
+            )
+            return False
+        return True
 
     def get_homopolymer(self):
         """Parse the homopolymer site file"""
@@ -737,7 +764,7 @@ class Phaser:
                     pos = int(pos)
                     if nstart < pos < nend and var in self.het_sites:
                         variants.add(var)
-        # print(variants)
+
         for hap in haplotypes:
             sites = {}
             other_haps = [a for a in haplotypes.keys() if a != hap]
@@ -774,8 +801,6 @@ class Phaser:
             elif loose is True:
                 if len(probs_fil) >= nsites * 0.5 and nsites >= 5:
                     two_cp_haps.append(hap)
-
-            # print(hap, sites, counts, probs, nsites, len(probs_fil))
 
         return two_cp_haps
 

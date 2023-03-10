@@ -2,7 +2,19 @@
 
 Many medically relevant genes fall into 'dark' regions where variat calling is limited due to high sequence homology with paralogs or pseudogenes. Paraphase is a Python tool that takes HiFi BAMs as input (whole-genome or enrichment), phases complete haplotypes for genes of the same family, determines copy numbers and makes phased variant calls. 
 
-This branch is work in progress as we adds more genes into Paraphase. Currently it supports SMN1/SMN2, the RCCX module (CYP21A2, TNXB, C4A/C4B) and PMS2.
+Paraphase supports the following genes:
+- SMN1/SMN2 (spinal muscular atrophy)
+- RCCX module
+  - CYP21A2 (21-Hydroxylase-Deficient Congenital Adrenal Hyperplasia)
+  - TNXB (Ehlers-Danlos syndrome)
+  - C4A/C4B (relevant in autoimmune diseases)
+- PMS2 (Lynch Syndrome)
+- STRC (hereditary hearing loss and deafness)
+- IKBKG (Incontinentia Pigmenti)
+- NCF1 (chronic granulomatous disease; Williams syndrome)
+- NEB (Nemaline myopathy)
+- F8 (intron 22 inversion, Hemophilia A)
+- CFC1 (heterotaxy syndrome)
 
 Please check out our paper on its application to the gene SMN1 for more details about Paraphase.   
 Chen X, Harting J, Farrow E, et al. Comprehensive SMN1 and SMN2 profiling for spinal muscular atrophy analysis using long-read PacBio HiFi sequencing. The American Journal of Human Genetics. 2023;0(0). doi:10.1016/j.ajhg.2023.01.001
@@ -64,7 +76,7 @@ The paths to samtools and minimap2 can be provided through the `--samtools` and 
 
 ## Interpreting the output
 
-Paraphase produces a few output files in the directory specified by `-o`, with the sample ID and the gene name as the prefix.
+Paraphase produces a few output files in the directory specified by `-o`, with the sample ID as the prefix.
 - `_realigned_tagged.bam`: This BAM file can be loaded into IGV for visualization of haplotypes, see [haplotype visualization](docs/visualization.md).  
 - `.vcf`: A VCF file is written for each haplotype, and there is also a `_variants.vcf` file containing merged variants from all haplotypes.
 - `.json`: Main output file, summerizes haplotypes and variant calls for each sample. Details of the fields are explained below for each gene.
@@ -86,15 +98,27 @@ Paraphase produces a few output files in the directory specified by `-o`, with t
   - `boundary`: The boundary of the region that is resolved on the haplotype. This is useful when a haplotype is only partially phased.
   - `haplogroup`: The haplogroup that the haplotype is assigned to
 
-### RCCX & PMS2
+### RCCX, PMS2, NCF1, CFC1, STRC, IKBKG, NEB & F8
 
 - `total_cn`: total copy number of the family (sum of gene and paralog/pseudogene)
+- `gene_cn`: copy number of the gene of interest, when the gene and pseudogene can be easily distinguished with known sequence differences, as in PMS2/NCF1/STRC/IKBKG
 - `final_haplotypes`: phased haplotypes
 - `two_copy_haplotypes`: haplotypes that are present in two copies based on depth. This happens when (in a small number of cases) two haplotypes are identical and we infer that there exist two of them instead of one by checking the read depth.
-- `phasing_success`: whether haplotypes are phased into alleles in the case of RCCX
-- `alleles_final`: haplotypes phased into alleles in the case of RCCX
-- `annotated_alleles`: CYP21A2 allele annotation in the case of RCCX. This is only based on common gene-pseudogene conversions. Please refer to the vcfs for most thorough variant calling and annotation.
 
+Multiple copies of the repeat are phased inito alleles with read-based phasing in the case of RCCX/IKBKG/NEB. Additional output entries include:
+- `alleles_final`: haplotypes phased into alleles
+
+### RCCX
+
+More info fields on phasing haplotypes into alleles and annotation of CYP21A2:
+- `phasing_success`: whether haplotypes are phased into alleles
+- `annotated_alleles`: allele annotation for the CYP21A2 gene. This is only based on common gene-pseudogene (CYP21A2-CYP21A1P) conversions (P31L, IVS2-13A/C>G, G111Vfs, I173N, I237N, V238E, M240K, V282L, Q319X and R357W). Please refer to the vcfs for most thorough variant calling and annotation.
+- `ending_hap`: the last copy of RCCX on each allele. Only these copies contain parts of TNXB (while the other copies contain TNXA)
+
+### F8
+
+Additional output is included to report SVs that occur between the repeat regions:
+- `sv_called`: reports deletions/duplications between int22h-1 and int22h-2, or inversions between int22h-1 and int22h-3
 
 
 

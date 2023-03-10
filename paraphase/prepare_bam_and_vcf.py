@@ -17,7 +17,7 @@ class BamRealigner:
     """
 
     min_mapq = 50
-    min_aln = 800  # 400
+    min_aln = 800
 
     def __init__(self, bam, outdir, config):
         self.bam = bam
@@ -251,6 +251,7 @@ class VcfGenerater:
         self.bam = os.path.join(
             outdir, self.sample_id + f"_{self.gene}_realigned_tagged.bam"
         )
+        self.vcf_dir = os.path.join(self.outdir, f"{self.sample_id}_vcfs")
         self.nchr = config["coordinates"]["hg38"]["nchr"]
         self.nchr_old = config["coordinates"]["hg38"]["nchr_old"]
         self.offset = int(self.nchr_old.split("_")[1]) - 1
@@ -304,7 +305,7 @@ class VcfGenerater:
         Merge vcfs from multiple haplotypes.
         """
         merged_vcf = os.path.join(
-            self.outdir, self.sample_id + f"_{self.gene}_variants.vcf"
+            self.vcf_dir, self.sample_id + f"_{self.gene}_variants.vcf"
         )
         with open(merged_vcf, "w") as fout:
             self.write_header(fout)
@@ -469,7 +470,7 @@ class VcfGenerater:
             hap_bam = os.path.join(
                 self.outdir, self.sample_id + f"_{self.gene}_{hap_name}.bam"
             )
-            # use original ailgnment, only aligned portion
+
             realign_cmd = (
                 f"{self.samtools} view -d HP:{hap_name} {self.bam} |"
                 + f'awk \'BEGIN {{FS="\\t"}} {{print "@" $1 "\\n" $10 "\\n+\\n" $11}}\''
@@ -483,7 +484,7 @@ class VcfGenerater:
 
             # call variants
             hap_vcf_out = os.path.join(
-                self.outdir, self.sample_id + f"_{self.gene}_{hap_name}.vcf"
+                self.vcf_dir, self.sample_id + f"_{self.gene}_{hap_name}.vcf"
             )
             variants_called = self.read_pileup(
                 hap_bam, hap_vcf_out, hap_bound, offset, ref_seq, uniq_reads
@@ -504,6 +505,8 @@ class VcfGenerater:
     def run(self):
         """Process haplotypes one by one"""
         call_sum = self.call_sum
+        if call_sum is None:
+            return
         vars = self.run_step(
             call_sum["final_haplotypes"],
             self.ref,
@@ -597,6 +600,8 @@ class VcfGenerater:
         i.e. no need to realign to pseudogene reference.
         """
         call_sum = self.call_sum
+        if call_sum is None:
+            return
         final_haps = call_sum["final_haplotypes"]
         uniq_reads = []
         for read_set in self.call_sum["unique_supporting_reads"].values():
@@ -620,7 +625,7 @@ class VcfGenerater:
         for hap_name in final_haps.values():
             hap_bound = self.get_hap_bound(hap_name)
             hap_vcf_out = os.path.join(
-                self.outdir, self.sample_id + f"_{self.gene}_{hap_name}.vcf"
+                self.vcf_dir, self.sample_id + f"_{self.gene}_{hap_name}.vcf"
             )
             vcf_out = open(hap_vcf_out, "w")
             self.write_header(vcf_out)
@@ -711,6 +716,8 @@ class TwoGeneVcfGenerater(VcfGenerater):
         in this two-gene scenario
         """
         call_sum = self.call_sum
+        if call_sum is None:
+            return
         vars_smn1 = self.run_step(
             call_sum["smn1_haplotypes"],
             self.ref,

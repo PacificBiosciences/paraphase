@@ -1,8 +1,12 @@
+# paraphase
+# Author: Xiao Chen <xchen@pacificbiosciences.com>
+
+
 from collections import namedtuple
 from ..phaser import Phaser
 
 
-class NcfPhaser(Phaser):
+class Ncf1Phaser(Phaser):
     GeneCall = namedtuple(
         "GeneCall",
         "total_cn gene_cn final_haplotypes two_copy_haplotypes gene_reads pseudo_reads \
@@ -17,9 +21,10 @@ class NcfPhaser(Phaser):
 
     def set_parameter(self, config):
         super().set_parameter(config)
-        self.mdepth = self.mdepth[0]
 
     def call(self):
+        if self.check_coverage_before_analysis() is False:
+            return None
         pivot_site = self.pivot_site
         for pileupcolumn in self._bamh.pileup(
             self.nchr, pivot_site - 1, pivot_site, truncate=True

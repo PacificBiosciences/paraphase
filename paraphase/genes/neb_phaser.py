@@ -1,4 +1,7 @@
-import pysam
+# paraphase
+# Author: Xiao Chen <xchen@pacificbiosciences.com>
+
+
 from collections import namedtuple
 from .rccx_phaser import RccxPhaser
 from ..phaser import Phaser
@@ -21,9 +24,8 @@ class NebPhaser(Phaser):
         super().set_parameter(config)
 
     def call(self):
-        """
-        Main function that calls SMN1/SMN2 copy number and variants
-        """
+        if self.check_coverage_before_analysis() is False:
+            return None
         self.get_homopolymer()
         self.get_candidate_pos()
         self.het_sites = sorted(list(self.candidate_pos))

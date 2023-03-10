@@ -1,12 +1,15 @@
-import numpy as np
+# paraphase
+# Author: Xiao Chen <xchen@pacificbiosciences.com>
+
+
 from collections import namedtuple
 from ..phaser import Phaser
 
 
-class PmsPhaser(Phaser):
+class Pms2Phaser(Phaser):
     GeneCall = namedtuple(
         "GeneCall",
-        "total_cn pms2_cn final_haplotypes two_copy_haplotypes \
+        "total_cn gene_cn final_haplotypes two_copy_haplotypes \
         highest_total_cn assembled_haplotypes sites_for_phasing \
         unique_supporting_reads het_sites_not_used_in_phasing homozygous_sites \
         haplotype_details variant_genotypes nonunique_supporting_reads \
@@ -17,9 +20,8 @@ class PmsPhaser(Phaser):
         Phaser.__init__(self, sample_id, outdir, wgs_depth)
 
     def call(self):
-        """
-        Main function that calls SMN1/SMN2 copy number and variants
-        """
+        if self.check_coverage_before_analysis() is False:
+            return None
         self.get_homopolymer()
         self.get_candidate_pos()
         self.het_sites = sorted(list(self.candidate_pos))
