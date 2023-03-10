@@ -18,6 +18,8 @@ coordinates:
     clip_3p_positions: [154569698]
     clip_5p_positions: [154557136]
     
+    pivot_site: 154555882
+    
     left_boundary: 154555780
     right_boundary: 154568820
 

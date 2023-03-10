@@ -105,7 +105,7 @@ def process_sample(bamlist, outdir, configs, dcov={}):
                 bam_tagger = BamTagger(sample_id, outdir, config, phaser_call)
                 bam_tagger.write_bam(random_assign=True)
 
-                if 0:  # gene not in NO_VCF_GENES:
+                if gene not in NO_VCF_GENES:
                     logging.info(
                         f"Generating VCFs for {gene} at {datetime.datetime.now()}..."
                     )
