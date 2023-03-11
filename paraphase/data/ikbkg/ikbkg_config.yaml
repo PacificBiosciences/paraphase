@@ -10,7 +10,7 @@ data:
 coordinates:
   hg38:
     nchr: "chrX"
-    nchr_old: "chrX_154555600_154570000"
+    nchr_old: "chrX_154555600_154575000"
     nchr_length: 156040895
     extract_region1: "chrX:154555883-154569698"
     extract_region2: "chrX:154634729-154648555"
@@ -23,10 +23,10 @@ coordinates:
     left_boundary: 154555780
     right_boundary: 154568820
 
-    deletion1_size: 10800
-    del1_3p_pos1: 154557900
-    del1_3p_pos2: 154558100
-    del1_5p_pos1: 154568700
-    del1_5p_pos2: 154568900
+    deletion1_size: 10806
+    del1_3p_pos1: 154558000
+    del1_3p_pos2: 154558030
+    del1_5p_pos1: 154568800
+    del1_5p_pos2: 154568840
 
     noisy_region: [[154566998, 154567171], [154555869, 154555876], [154565356, 154565401]]

@@ -25,7 +25,7 @@ Currently Paraphase only works on GRCh38. Support for GRCh37 will be adde in the
 
 ## Contact
 
-If you need assistance or have suggestions, please don't hesitate to reach out by email or open a GitHub issue.
+There is a need for building consensus on how to report variants in segmental duplication regions, which could be complicated due to the frequent presence of copy number changes. If you have suggestions or need assistance, please don't hesitate to reach out by email or open a GitHub issue.
 
 Xiao Chen: xchen@pacificbiosciences.com
 
@@ -69,6 +69,7 @@ Optional parameters:
 - `-g`: Gene(s) to analyze. All supported genes will be analyzed if not specified.
 - `-t`: Number of threads, used when `-l` is specified.
 - `-d`: File listing average genome depth per sample, with two columns, sample ID and depth values, separated by tab or space. This saves run time by skipping the step to calculate genome depth.
+- `--novcf`: no vcf output if specified.
 - `--samtools`
 - `--minimap2`
 
@@ -114,6 +115,10 @@ More info fields on phasing haplotypes into alleles and annotation of CYP21A2:
 - `phasing_success`: whether haplotypes are phased into alleles
 - `annotated_alleles`: allele annotation for the CYP21A2 gene. This is only based on common gene-pseudogene (CYP21A2-CYP21A1P) conversions (P31L, IVS2-13A/C>G, G111Vfs, I173N, I237N, V238E, M240K, V282L, Q319X and R357W). Please refer to the vcfs for most thorough variant calling and annotation.
 - `ending_hap`: the last copy of RCCX on each allele. Only these copies contain parts of TNXB (while the other copies contain TNXA)
+
+### IKBKG
+
+- `deletion_haplotypes`: haplotypes carrying the 11.8kb deletion
 
 ### F8
 

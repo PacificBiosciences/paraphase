@@ -44,7 +44,7 @@ GENOME_DEPTH_GENES = ["smn1", "strc", "ncf1"]
 NO_VCF_GENES = ["f8"]
 
 
-def process_sample(bamlist, outdir, configs, dcov={}):
+def process_sample(bamlist, outdir, configs, dcov={}, novcf=False):
     """Main workflow"""
     for bam in bamlist:
         sample_id = bam.split("/")[-1].split(".")[0]
@@ -105,7 +105,7 @@ def process_sample(bamlist, outdir, configs, dcov={}):
                 bam_tagger = BamTagger(sample_id, outdir, config, phaser_call)
                 bam_tagger.write_bam(random_assign=True)
 
-                if gene not in NO_VCF_GENES:
+                if novcf is False and gene not in NO_VCF_GENES:
                     logging.info(
                         f"Generating VCFs for {gene} at {datetime.datetime.now()}..."
                     )
@@ -213,7 +213,7 @@ def main():
     parser = argparse.ArgumentParser(
         description="paraphase: HiFi-based SMN1/SMN2 variant caller."
     )
-
+    all_genes_joined = ",".join(ACCEPTED_GENES)
     inputp = parser.add_argument_group("Input Options")
     outputp = parser.add_argument_group("Output Options")
     input_group = inputp.add_mutually_exclusive_group(required=True)
@@ -236,7 +236,7 @@ def main():
     parser.add_argument(
         "-g",
         "--gene",
-        help="Optionally specify which gene(s) to run (separated by comma). Will run all genes if not specified",
+        help=f"Optionally specify which gene(s) to run (separated by comma). Will run all genes if not specified. Currently supported genes are {all_genes_joined}",
         required=False,
     )
     parser.add_argument(
@@ -244,6 +244,12 @@ def main():
         "--depth",
         help="Optional path to a file listing average depth for each sample",
         required=False,
+    )
+    parser.add_argument(
+        "--novcf",
+        help="Optional. If specified, paraphase will not write vcfs",
+        required=False,
+        action="store_true",
     )
     parser.add_argument(
         "-t",
@@ -277,9 +283,8 @@ def main():
     else:
         gene_list = [a for a in gene_list.split(",") if a in ACCEPTED_GENES]
         if gene_list == []:
-            joined_list = ",".join(ACCEPTED_GENES)
             raise Exception(
-                f"Gene names not recognized. Currently accepted genes are {joined_list}"
+                f"Gene names not recognized. Currently accepted genes are {all_genes_joined}"
             )
 
     configs = update_config(gene_list, args)
@@ -302,6 +307,7 @@ def main():
                 outdir,
                 configs,
                 dcov,
+                args.novcf,
             )
         else:
             print(f"{args.bam} bam or bai file doesn't exist")
@@ -320,6 +326,7 @@ def main():
             outdir=outdir,
             configs=configs,
             dcov=dcov,
+            novcf=args.novcf,
         )
         bam_groups = [bamlist[i::nCores] for i in range(nCores)]
         pool = mp.Pool(nCores)

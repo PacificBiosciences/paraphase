@@ -398,7 +398,9 @@ class VcfGenerater:
                     gt = "1"
         return [var_seq, dp, ad, gt]
 
-    def read_pileup(self, hap_bam, hap_vcf_out, hap_bound, offset, ref, uniq_reads):
+    def call_variants_from_hp_bam(
+        self, hap_bam, hap_vcf_out, hap_bound, offset, ref, uniq_reads
+    ):
         """
         Call variants from bam. Take the most supported base at each position.
         """
@@ -486,7 +488,7 @@ class VcfGenerater:
             hap_vcf_out = os.path.join(
                 self.vcf_dir, self.sample_id + f"_{self.gene}_{hap_name}.vcf"
             )
-            variants_called = self.read_pileup(
+            variants_called = self.call_variants_from_hp_bam(
                 hap_bam, hap_vcf_out, hap_bound, offset, ref_seq, uniq_reads
             )
             os.remove(hap_bam)

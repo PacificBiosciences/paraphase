@@ -10,10 +10,10 @@ from ..phaser import Phaser
 class IkbkgPhaser(Phaser):
     GeneCall = namedtuple(
         "GeneCall",
-        "total_cn gene_cn final_haplotypes two_copy_haplotypes alleles_raw alleles_final \
-        del_read_number highest_total_cn assembled_haplotypes sites_for_phasing \
-        unique_supporting_reads het_sites_not_used_in_phasing homozygous_sites \
-        haplotype_details variant_genotypes nonunique_supporting_reads \
+        "total_cn gene_cn final_haplotypes deletion_haplotypes two_copy_haplotypes \
+        alleles_raw alleles_final del_read_number highest_total_cn assembled_haplotypes \
+        sites_for_phasing unique_supporting_reads het_sites_not_used_in_phasing \
+        homozygous_sites haplotype_details variant_genotypes nonunique_supporting_reads \
         read_details genome_depth",
     )
 
@@ -67,7 +67,23 @@ class IkbkgPhaser(Phaser):
         self.het_sites = sorted(list(self.candidate_pos))
         self.remove_noisy_sites()
 
-        raw_read_haps = self.get_haplotypes_from_reads(self.het_sites, check_clip=True)
+        raw_read_haps = self.get_haplotypes_from_reads(
+            self.het_sites,
+            check_clip=True,
+            partial_deletion_reads=self.del1_reads_partial,
+        )
+        het_sites = self.het_sites
+        if self.del1_reads_partial != set():
+            raw_read_haps, het_sites = self.update_reads_for_deletions(
+                raw_read_haps,
+                het_sites,
+                self.del1_3p_pos1,
+                self.del1_5p_pos2,
+                self.del1_reads_partial,
+                "3",
+                "154558014_del10806",
+            )
+        self.het_sites = het_sites
 
         (
             ass_haps,
@@ -84,16 +100,23 @@ class IkbkgPhaser(Phaser):
         gene_counter = 0
         pseudo_counter = 0
         dup_counter = 0
+        deletion_haplotypes = []
         for i, hap in enumerate(ass_haps):
             nsite = min(len(hap), 10)
             start_seq = hap[:nsite]
             if start_seq.startswith("0") is False:
                 if start_seq.count("1") >= start_seq.count("2"):
                     gene_counter += 1
-                    tmp.setdefault(hap, f"ikbkg_hap{gene_counter}")
+                    hap_name = f"ikbkg_hap{gene_counter}"
+                    tmp.setdefault(hap, hap_name)
+                    if "3" in hap:
+                        deletion_haplotypes.append(hap_name)
                 else:
                     pseudo_counter += 1
-                    tmp.setdefault(hap, f"pseudo_hap{pseudo_counter}")
+                    hap_name = f"pseudo_hap{pseudo_counter}"
+                    tmp.setdefault(hap, hap_name)
+                    if "3" in hap:
+                        deletion_haplotypes.append(hap_name)
             else:
                 dup_counter += 1
                 tmp.setdefault(hap, f"dup_hap{dup_counter}")
@@ -108,10 +131,9 @@ class IkbkgPhaser(Phaser):
                 nonuniquely_supporting_reads,
             )
 
+        # this is on chrX, males have one copy of gene and one copy of pseudogene
         two_cp_haps = []
-        if gene_counter == 1 and pseudo_counter == 1:
-            two_cp_haps = [a for a in ass_haps.values() if "dup" not in a]
-        elif gene_counter == 1:
+        if gene_counter == 1 and pseudo_counter > 1:
             two_cp_haps = self.compare_depth(haplotypes, loose=True)
             if two_cp_haps == [] and read_counts is not None:
                 # check if one haplotype has more reads than others
@@ -127,7 +149,7 @@ class IkbkgPhaser(Phaser):
             total_cn += 1
             if "ikbkg" in hap:
                 gene_counter += 1
-        if gene_counter != 2:
+        if gene_counter == 1 and pseudo_counter != 1:
             gene_counter = None
             total_cn = None
 
@@ -145,6 +167,7 @@ class IkbkgPhaser(Phaser):
             total_cn,
             gene_counter,
             ass_haps,
+            deletion_haplotypes,
             two_cp_haps,
             alleles,
             new_alleles,

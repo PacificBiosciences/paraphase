@@ -184,6 +184,7 @@ class Phaser:
         return -1, False
 
     def get_read_name(self, read):
+        """Rename reads when supplementary"""
         read_name = read.query_name
         if read.is_supplementary and self.use_supplementary:
             read_name = (
@@ -192,6 +193,7 @@ class Phaser:
         return read_name
 
     def get_read_names(self, read, partial_deletion_reads):
+        """Add read names for supplementary alignments"""
         read_names = [read.query_name]
         if read.is_supplementary and self.use_supplementary:
             sup_name = (
@@ -638,13 +640,20 @@ class Phaser:
                     hap.insert(pos1, "x")
                     if read in del_reads_partial:
                         hap[pos1] = base
-                    elif hap[pos1 - 1] == "0" and hap[pos1 + 1] == "0":
-                        hap[pos1] = "0"
                     elif (
-                        "x" not in hap[(pos1 - 2) : pos1]
-                        and "x" not in hap[(pos1 + 1) : (pos1 + 3)]
+                        hap[pos1 - 1] == "0"
+                        and pos1 - 1 >= 0
+                        and hap[pos1 + 1] == "0"
+                        and pos1 + 1 < len(hap)
                     ):
-                        hap[pos1] = "1"
+                        hap[pos1] = "0"
+                    else:
+                        flanking_left = hap[min(0, pos1 - 2) : pos1]
+                        flanking_right = hap[
+                            max(pos1 + 1, len(hap)) : max(pos1 + 3, len(hap))
+                        ]
+                        if "x" not in flanking_left and "x" not in flanking_right:
+                            hap[pos1] = "1"
                     raw_read_haps[read] = "".join(hap)
         return raw_read_haps, het_sites
 
@@ -750,6 +759,8 @@ class Phaser:
         from other haplotypes. Check depth at those variant sites and
         see if the depth suggests twice coverage.
         """
+        if haplotypes is None or len(haplotypes) == 1:
+            return []
         two_cp_haps = []
         bamh = self._bamh
         boundaries = [haplotypes[a]["boundary"] for a in haplotypes]
