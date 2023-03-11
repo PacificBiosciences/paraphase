@@ -211,7 +211,7 @@ def update_config(gene_list, args):
 
 def main():
     parser = argparse.ArgumentParser(
-        description="paraphase: HiFi-based SMN1/SMN2 variant caller."
+        description="paraphase: HiFi-based caller for highly homologous genes"
     )
     all_genes_joined = ",".join(ACCEPTED_GENES)
     inputp = parser.add_argument_group("Input Options")

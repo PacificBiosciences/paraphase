@@ -16,11 +16,10 @@ setup(
     author_email="xchen@pacificbiosciences.com",
     license="BSD-3-Clause-Clear",
     packages=["paraphase", "paraphase.genes"],
-    package_data={"paraphase": ["data/*", "data/smn1/*"]},
+    package_data={"paraphase": ["data/*", "data/**/*"]},
     install_requires=["pysam", "numpy", "scipy", "networkx", "matplotlib", "pyyaml"],
     setup_requires=["pytest-runner"],
     tests_require=["pytest"],
     entry_points={"console_scripts": ["paraphase=paraphase.paraphase:main"]},
-    include_package_data=True,
     long_description_content_type="text/markdown",
 )
