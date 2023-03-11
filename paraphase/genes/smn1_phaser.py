@@ -5,10 +5,10 @@
 from collections import namedtuple
 import copy
 import json
-from .phaser import Phaser
+from ..phaser import Phaser
 
 
-class SmnPhaser(Phaser):
+class Smn1Phaser(Phaser):
     SmnCall = namedtuple(
         "SmnCall",
         "smn1_cn smn2_cn smn2_del78_cn smn1_read_number smn2_read_number \
@@ -20,8 +20,8 @@ class SmnPhaser(Phaser):
     )
     HaplotypeInfo = namedtuple("HaplotypeInfo", "variants boundary haplogroup")
 
-    def __init__(self, sample_id, outdir, config, wgs_depth=None):
-        Phaser.__init__(self, sample_id, outdir, config, wgs_depth)
+    def __init__(self, sample_id, outdir, wgs_depth=None):
+        Phaser.__init__(self, sample_id, outdir, wgs_depth)
         self.has_smn1 = False
         self.has_smn2 = False
         self.smn1_reads = set()
@@ -32,6 +32,9 @@ class SmnPhaser(Phaser):
         self.smn1_del_reads_partial = set()
         self.smn2_del_reads = set()
         self.smn2_del_reads_partial = set()
+
+    def set_parameter(self, config):
+        super().set_parameter(config)
         self.deletion1_size = config["coordinates"]["hg38"]["deletion1_size"]
         self.deletion2_size = config["coordinates"]["hg38"]["deletion2_size"]
         self.del2_3p_pos1 = config["coordinates"]["hg38"]["del2_3p_pos1"]

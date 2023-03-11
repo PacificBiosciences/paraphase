@@ -8,6 +8,7 @@ import subprocess
 import random
 import re
 from collections import Counter
+from .haplotype_assembler import VariantGraph
 
 
 class BamRealigner:
@@ -16,11 +17,12 @@ class BamRealigner:
     """
 
     min_mapq = 50
-    min_aln = 400
+    min_aln = 800
 
     def __init__(self, bam, outdir, config):
         self.bam = bam
         self.outdir = outdir
+        self.gene = config["gene"]
         self.nchr = config["coordinates"]["hg38"]["nchr"]
         self.ref = config["data"]["reference"]
         self.nchr_old = config["coordinates"]["hg38"]["nchr_old"]
@@ -30,13 +32,16 @@ class BamRealigner:
         self.extract_region2 = config["coordinates"]["hg38"]["extract_region2"]
         self.samtools = config["tools"]["samtools"]
         self.minimap2 = config["tools"]["minimap2"]
+        self.max_mismatch = 1
+        if "check_nm" in config:
+            self.max_mismatch = config["check_nm"]
         self._bamh = pysam.AlignmentFile(bam, "rb")
         self.sample_id = bam.split("/")[-1].split(".")[0]
         self.realign_bam = os.path.join(
-            self.outdir, self.sample_id + "_realigned_old.bam"
+            self.outdir, self.sample_id + f"_{self.gene}_realigned_old.bam"
         )
         self.realign_out_bam = os.path.join(
-            self.outdir, self.sample_id + "_realigned.bam"
+            self.outdir, self.sample_id + f"_{self.gene}_realigned.bam"
         )
 
     def write_realign_bam(self):
@@ -65,6 +70,7 @@ class BamRealigner:
             if (
                 read.mapping_quality >= self.min_mapq
                 and read.query_alignment_length >= self.min_aln
+                and (read.get_tag("NM") < read.reference_length * self.max_mismatch)
             ):
                 read.reference_start += self.offset
                 ltags = read.tags
@@ -103,18 +109,26 @@ class BamTagger:
     """
 
     read_color = "166,206,227"
+    read_color_allele1 = "178,223,138"
+    read_color_allele2 = "177,156,217"
 
     def __init__(self, sample_id, outdir, config, call_sum):
         self.sample_id = sample_id
         self.outdir = outdir
         self.call_sum = call_sum
-        self.bam = os.path.join(outdir, self.sample_id + "_realigned.bam")
+        self.gene = config["gene"]
+        self.bam = os.path.join(outdir, self.sample_id + f"_{self.gene}_realigned.bam")
         self.nchr = config["coordinates"]["hg38"]["nchr"]
         self._bamh = pysam.AlignmentFile(self.bam, "rb")
-        self.tmp_bam = os.path.join(self.outdir, self.sample_id + "_tmp.bam")
-        self.tagged_realigned_bam = os.path.join(
-            self.outdir, self.sample_id + "_realigned_tagged.bam"
+        self.tmp_bam = os.path.join(
+            self.outdir, self.sample_id + f"_{self.gene}_tmp.bam"
         )
+        self.tagged_realigned_bam = os.path.join(
+            self.outdir, self.sample_id + f"_{self.gene}_realigned_tagged.bam"
+        )
+        self.use_supplementary = False
+        if "use_supplementary" in config:
+            self.use_supplementary = config["use_supplementary"]
         random.seed(0)
 
     def add_tag_to_read(
@@ -123,6 +137,8 @@ class BamTagger:
         hp_keys,
         reads_to_tag,
         nonunique,
+        read_details,
+        alleles=[],
         random_assign=False,
     ):
         """
@@ -132,18 +148,48 @@ class BamTagger:
         while unique reads are in blue.
         """
         hp_found = False
+        read_name = read.qname
+        if read.is_supplementary and self.use_supplementary:
+            read_name = (
+                read_name + f"_sup_{read.reference_start}_{read.reference_length}"
+            )
         for hap, hap_name in hp_keys.items():
-            if read.qname in reads_to_tag[hap]:
+            if read_name in reads_to_tag[hap]:
                 read.set_tag("HP", hap_name, "Z")
-                if random_assign:
-                    read.set_tag("YC", self.read_color, "Z")
+                read.set_tag("YC", self.read_color, "Z")
+                if alleles != []:
+                    if hap_name in alleles[0]:
+                        read.set_tag("YC", self.read_color_allele1, "Z")
+                    elif len(alleles) > 1 and hap_name in alleles[1]:
+                        read.set_tag("YC", self.read_color_allele2, "Z")
                 hp_found = True
+        if hp_found is False:
+            # find closest match
+            if read_name in read_details:
+                read_seq = read_details[read_name]
+                keys = []
+                mismatches = []
+                for ass_hap in hp_keys.keys():
+                    match, mismatch, extend = VariantGraph.compare_two_haps(
+                        read_seq, ass_hap
+                    )
+                    keys.append(ass_hap)
+                    mismatches.append(mismatch)
+                mismatches_sorted = sorted(mismatches)
+                if (
+                    len(mismatches_sorted) > 1
+                    and 0 < mismatches_sorted[0] <= 2
+                    and mismatches_sorted[1] >= mismatches_sorted[0] + 2
+                ):
+                    best_match = keys[mismatches.index(mismatches_sorted[0])]
+                    read.set_tag("HP", hp_keys[best_match], "Z")
+                    hp_found = True
         if hp_found is False:
             if random_assign is False:
                 read.set_tag("HP", "Unassigned", "Z")
             else:
-                if read.qname in nonunique:
-                    possible_haps = nonunique[read.qname]
+                if read_name in nonunique:
+                    possible_haps = nonunique[read_name]
                     random_hap = possible_haps[
                         random.randint(0, len(possible_haps) - 1)
                     ]
@@ -164,14 +210,20 @@ class BamTagger:
         if nonunique_reads is None:
             nonunique_reads = {}
         hp_keys = call_sum.get("final_haplotypes")
+        read_details = call_sum.get("read_details")
+        alleles = call_sum.get("alleles_final")
+        if alleles is None:
+            alleles = []
 
         for read in self._bamh.fetch(self.nchr):
-            if read.is_secondary is False:  # and read.is_supplementary is False:
+            if read.is_secondary is False:
                 read = self.add_tag_to_read(
                     read,
                     hp_keys,
                     unique_reads,
                     nonunique_reads,
+                    read_details,
+                    alleles,
                     random_assign=random_assign,
                 )
                 out_bamh.write(read)
@@ -195,7 +247,11 @@ class VcfGenerater:
         self.sample_id = sample_id
         self.outdir = outdir
         self.call_sum = call_sum
-        self.bam = os.path.join(outdir, self.sample_id + "_realigned_tagged.bam")
+        self.gene = config["gene"]
+        self.bam = os.path.join(
+            outdir, self.sample_id + f"_{self.gene}_realigned_tagged.bam"
+        )
+        self.vcf_dir = os.path.join(self.outdir, f"{self.sample_id}_vcfs")
         self.nchr = config["coordinates"]["hg38"]["nchr"]
         self.nchr_old = config["coordinates"]["hg38"]["nchr_old"]
         self.offset = int(self.nchr_old.split("_")[1]) - 1
@@ -203,6 +259,9 @@ class VcfGenerater:
         self.ref = config["data"]["reference"]
         self.samtools = config["tools"]["samtools"]
         self.minimap2 = config["tools"]["minimap2"]
+        self.use_supplementary = False
+        if "use_supplementary" in config:
+            self.use_supplementary = config["use_supplementary"]
         self.match = {}
 
     def get_range_in_other_gene(self, pos):
@@ -245,7 +304,9 @@ class VcfGenerater:
         """
         Merge vcfs from multiple haplotypes.
         """
-        merged_vcf = os.path.join(self.outdir, self.sample_id + f"_variants.vcf")
+        merged_vcf = os.path.join(
+            self.vcf_dir, self.sample_id + f"_{self.gene}_variants.vcf"
+        )
         with open(merged_vcf, "w") as fout:
             self.write_header(fout)
             for vars in vars_list:
@@ -337,7 +398,9 @@ class VcfGenerater:
                     gt = "1"
         return [var_seq, dp, ad, gt]
 
-    def read_pileup(self, hap_bam, hap_vcf_out, hap_bound, offset, ref, uniq_reads):
+    def call_variants_from_hp_bam(
+        self, hap_bam, hap_vcf_out, hap_bound, offset, ref, uniq_reads
+    ):
         """
         Call variants from bam. Take the most supported base at each position.
         """
@@ -348,11 +411,11 @@ class VcfGenerater:
         self.write_header(vcf_out)
         pileups_raw = {}
         read_names = {}
-        variants = []
         for pileupcolumn in bamh.pileup(
             ref_name,
             truncate=True,
             min_base_quality=30,
+            min_mapping_quality=59,
         ):
             pos = pileupcolumn.pos + 1
             pileups_raw.setdefault(
@@ -363,47 +426,15 @@ class VcfGenerater:
                 pos,
                 pileupcolumn.get_query_names(),
             )
-        for pos in pileups_raw:
-            all_bases = pileups_raw[pos]
-            true_pos = pos + offset
-            ref_seq = refh.fetch(ref_name, pos - 1, pos)
-            alt_all_reads = self.get_var(all_bases, ref_seq)
-            if None not in hap_bound and hap_bound[0] < true_pos < hap_bound[1]:
-                # use only unique reads for positions at the edge
-                if true_pos < hap_bound[2] or true_pos > hap_bound[3]:
-                    bases_uniq_reads = []
-                    for i, read_base in enumerate(all_bases):
-                        if read_names[pos][i] in uniq_reads:
-                            bases_uniq_reads.append(read_base)
-                    alt_uniq_reads = self.get_var(bases_uniq_reads, ref_seq)
-                    if alt_uniq_reads[-1] != ".":
-                        var_seq, dp, ad, gt = alt_uniq_reads
-                    else:
-                        var_seq, dp, ad, gt = alt_all_reads
-                        gt = "."
-                else:
-                    var_seq, dp, ad, gt = alt_all_reads
-
-                ref_seq, var_seq = self.refine_indels(
-                    ref_seq, var_seq, pos, refh, ref_name
-                )
-                var = f"{true_pos}_{ref_seq}_{var_seq}"
-                qual = "."
-                variants.append([true_pos, var, dp, ad, qual, gt])
-                if gt == "1":
-                    vcf_out_line = [
-                        self.nchr,
-                        str(true_pos),
-                        ".",
-                        ref_seq,
-                        var_seq,
-                        str(qual),
-                        "PASS",
-                        ".",
-                        "GT:DP:AD",
-                        f"1:{dp}:{ad}",
-                    ]
-                    vcf_out.write("\t".join(vcf_out_line) + "\n")
+        variants = self.pileup_to_variant(
+            pileups_raw,
+            read_names,
+            uniq_reads,
+            refh,
+            offset,
+            hap_bound,
+            vcf_out,
+        )
         vcf_out.close()
         bamh.close()
         refh.close()
@@ -412,7 +443,6 @@ class VcfGenerater:
     def run_step(
         self,
         final_haps,
-        haplotype_details,
         ref_seq,
         offset,
         match_range=False,
@@ -430,18 +460,7 @@ class VcfGenerater:
         )
         i = 0
         for hap_name in final_haps.values():
-            hap_bound = list(haplotype_details[hap_name]["boundary"])
-            # find the positions next to the existing boundaries
-            for var in self.call_sum["sites_for_phasing"]:
-                confident_position = int(var.split("_")[0])
-                if confident_position > hap_bound[0]:
-                    break
-            hap_bound.append(confident_position)
-            for var in reversed(self.call_sum["sites_for_phasing"]):
-                confident_position = int(var.split("_")[0])
-                if confident_position < hap_bound[1]:
-                    break
-            hap_bound.append(confident_position)
+            hap_bound = self.get_hap_bound(hap_name)
             # convert to positions in the other gene
             if match_range:
                 hap_bound = [
@@ -450,7 +469,10 @@ class VcfGenerater:
                     self.get_range_in_other_gene(hap_bound[2]),
                     self.get_range_in_other_gene(hap_bound[3]),
                 ]
-            hap_bam = os.path.join(self.outdir, self.sample_id + f"_{hap_name}.bam")
+            hap_bam = os.path.join(
+                self.outdir, self.sample_id + f"_{self.gene}_{hap_name}.bam"
+            )
+
             realign_cmd = (
                 f"{self.samtools} view -d HP:{hap_name} {self.bam} |"
                 + f'awk \'BEGIN {{FS="\\t"}} {{print "@" $1 "\\n" $10 "\\n+\\n" $11}}\''
@@ -463,8 +485,10 @@ class VcfGenerater:
             pysam.index(hap_bam)
 
             # call variants
-            hap_vcf_out = os.path.join(self.outdir, self.sample_id + f"_{hap_name}.vcf")
-            variants_called = self.read_pileup(
+            hap_vcf_out = os.path.join(
+                self.vcf_dir, self.sample_id + f"_{self.gene}_{hap_name}.vcf"
+            )
+            variants_called = self.call_variants_from_hp_bam(
                 hap_bam, hap_vcf_out, hap_bound, offset, ref_seq, uniq_reads
             )
             os.remove(hap_bam)
@@ -483,13 +507,193 @@ class VcfGenerater:
     def run(self):
         """Process haplotypes one by one"""
         call_sum = self.call_sum
+        if call_sum is None:
+            return
         vars = self.run_step(
             call_sum["final_haplotypes"],
-            call_sum["haplotype_details"],
             self.ref,
             self.offset,
         )
         self.merge_vcf([vars])
+
+    def get_hap_bound(self, hap_name):
+        """Get haplotype boundaries"""
+        hap_bound = list(self.call_sum["haplotype_details"][hap_name]["boundary"])
+        # find the positions next to the existing boundaries
+        for var in self.call_sum["sites_for_phasing"]:
+            confident_position = int(var.split("_")[0])
+            if confident_position > hap_bound[0]:
+                break
+        hap_bound.append(confident_position)
+        for var in reversed(self.call_sum["sites_for_phasing"]):
+            confident_position = int(var.split("_")[0])
+            if confident_position < hap_bound[1]:
+                break
+        hap_bound.append(confident_position)
+        return hap_bound
+
+    def pileup_to_variant(
+        self,
+        pileups_raw,
+        read_names,
+        uniq_reads,
+        refh,
+        offset,
+        hap_bound,
+        vcf_out,
+    ):
+        """
+        Filter pileups and make variant calls.
+        """
+        ref_name = refh.references[0]
+        variants = []
+        for pos in pileups_raw:
+            all_bases = pileups_raw[pos]
+            if offset < 0:
+                true_pos = pos
+                refh_pos = pos + offset
+            else:
+                true_pos = pos + offset
+                refh_pos = pos
+            ref_seq = refh.fetch(ref_name, refh_pos - 1, refh_pos)
+            alt_all_reads = self.get_var(all_bases, ref_seq)
+            if None not in hap_bound and hap_bound[0] < true_pos < hap_bound[1]:
+                # use only unique reads for positions at the edge
+                if true_pos < hap_bound[2] or true_pos > hap_bound[3]:
+                    bases_uniq_reads = []
+                    for i, read_base in enumerate(all_bases):
+                        if read_names[pos][i] in uniq_reads:
+                            bases_uniq_reads.append(read_base)
+                    alt_uniq_reads = self.get_var(bases_uniq_reads, ref_seq)
+                    if alt_uniq_reads[-1] != ".":
+                        var_seq, dp, ad, gt = alt_uniq_reads
+                    else:
+                        var_seq, dp, ad, gt = alt_all_reads
+                        gt = "."
+                else:
+                    var_seq, dp, ad, gt = alt_all_reads
+
+                ref_seq, var_seq = self.refine_indels(
+                    ref_seq, var_seq, refh_pos, refh, ref_name
+                )
+                var = f"{true_pos}_{ref_seq}_{var_seq}"
+                qual = "."
+                variants.append([true_pos, var, dp, ad, qual, gt])
+                if gt == "1":
+                    vcf_out_line = [
+                        self.nchr,
+                        str(true_pos),
+                        ".",
+                        ref_seq,
+                        var_seq,
+                        str(qual),
+                        "PASS",
+                        ".",
+                        "GT:DP:AD",
+                        f"1:{dp}:{ad}",
+                    ]
+                    vcf_out.write("\t".join(vcf_out_line) + "\n")
+        return variants
+
+    def run_without_realign(self):
+        """
+        Make vcf from existing alignment.
+        This works for gene/pseudogene scenarios,
+        i.e. no need to realign to pseudogene reference.
+        """
+        call_sum = self.call_sum
+        if call_sum is None:
+            return
+        final_haps = call_sum["final_haplotypes"]
+        uniq_reads = []
+        for read_set in self.call_sum["unique_supporting_reads"].values():
+            for read_name in read_set:
+                read_name_split = read_name.split("_")
+                # supplementary alignments
+                if self.use_supplementary and len(read_name_split) > 1:
+                    uniq_reads.append("_".join(read_name_split[:-1]))
+                else:
+                    uniq_reads.append(read_name)
+        vars = {}
+        two_cp_haplotypes = self.call_sum.get("two_copy_haplotypes")
+        nhap = len(final_haps) + len(
+            [a for a in two_cp_haplotypes if a in final_haps.values()]
+        )
+
+        bamh = pysam.AlignmentFile(self.bam, "rb")
+        refh = pysam.FastaFile(self.ref)
+
+        i = 0
+        for hap_name in final_haps.values():
+            hap_bound = self.get_hap_bound(hap_name)
+            hap_vcf_out = os.path.join(
+                self.vcf_dir, self.sample_id + f"_{self.gene}_{hap_name}.vcf"
+            )
+            vcf_out = open(hap_vcf_out, "w")
+            self.write_header(vcf_out)
+
+            # by HP tag
+            pileups_raw = {}
+            read_names = {}
+            for pileupcolumn in bamh.pileup(
+                self.nchr,
+                truncate=True,
+                min_base_quality=30,
+            ):
+                pos = pileupcolumn.pos + 1
+                this_pos_bases = [
+                    a.upper() for a in pileupcolumn.get_query_sequences(add_indels=True)
+                ]
+                this_position_hps = []
+                this_pos_read_names = []
+                this_pos_read_names_sup = []
+
+                for read in pileupcolumn.pileups:
+                    read_tag = read.alignment.get_tag("HP")
+                    this_position_hps.append(read_tag)
+                    read_name = read.alignment.query_name
+                    new_read_name = read_name
+                    if self.use_supplementary and read.alignment.is_supplementary:
+                        new_read_name = (
+                            read_name + f"_sup_{read.alignment.reference_start}"
+                        )
+                    this_pos_read_names.append(read_name)
+                    this_pos_read_names_sup.append(new_read_name)
+
+                for read_num, read_hap in enumerate(this_position_hps):
+                    if read_hap == hap_name:
+                        pileups_raw.setdefault(pos, []).append(this_pos_bases[read_num])
+                        if self.use_supplementary:
+                            read_names.setdefault(pos, []).append(
+                                this_pos_read_names_sup[read_num]
+                            )
+                        else:
+                            read_names.setdefault(pos, []).append(
+                                this_pos_read_names[read_num]
+                            )
+
+            variants_called = self.pileup_to_variant(
+                pileups_raw,
+                read_names,
+                uniq_reads,
+                refh,
+                0 - self.offset,
+                hap_bound,
+                vcf_out,
+            )
+            vcf_out.close()
+
+            for pos, var_name, dp, ad, qual, gt in variants_called:
+                vars.setdefault(pos, [None] * nhap)
+                vars[pos][i] = [var_name, dp, ad, qual, gt]
+                if hap_name in two_cp_haplotypes:
+                    vars[pos][i + 1] = [var_name, dp, ad, qual, gt]
+            if hap_name in two_cp_haplotypes:
+                i += 1
+            i += 1
+        self.merge_vcf([vars])
+        bamh.close()
+        refh.close()
 
 
 class TwoGeneVcfGenerater(VcfGenerater):
@@ -514,15 +718,15 @@ class TwoGeneVcfGenerater(VcfGenerater):
         in this two-gene scenario
         """
         call_sum = self.call_sum
+        if call_sum is None:
+            return
         vars_smn1 = self.run_step(
             call_sum["smn1_haplotypes"],
-            call_sum["haplotype_details"],
             self.ref,
             self.offset,
         )
         vars_smn2 = self.run_step(
             call_sum["smn2_haplotypes"],
-            call_sum["haplotype_details"],
             self.ref_gene2,
             self.offset_gene2,
             match_range=True,

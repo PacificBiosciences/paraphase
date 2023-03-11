@@ -3,12 +3,12 @@
 
 
 import pysam
-from pprint import pprint
 import os
-import numpy as np
 import copy
+import numpy as np
 from collections import Counter
 import re
+import logging
 from scipy.stats import poisson
 from .haplotype_assembler import VariantGraph
 
@@ -19,28 +19,75 @@ class Phaser:
     clip_3p = r"\d+S$|\d+H$"
     deletion = r"\d+D"
 
-    def __init__(self, sample_id, outdir, config, wgs_depth=None):
+    def __init__(self, sample_id, outdir, wgs_depth=None, genome_bam=None):
         self.outdir = outdir
         self.sample_id = sample_id
-        self.bam = os.path.join(outdir, self.sample_id + "_realigned.bam")
-        if os.path.exists(self.bam) is False:
-            raise Exception(f"File {self.bam} not found.")
-        self._bamh = pysam.AlignmentFile(self.bam, "rb")
-        self.homopolymer_file = config["data"]["homopolymer"]
         self.homopolymer_sites = {}
         self.het_sites = []  # for phasing
         self.het_no_phasing = []
         self.homo_sites = []
         self.candidate_pos = set()
         self.mdepth = wgs_depth
+        self.genome_bam = genome_bam
+
+    def set_parameter(self, config):
+        self.gene = config["gene"]
+        self.bam = os.path.join(
+            self.outdir, self.sample_id + f"_{self.gene}_realigned.bam"
+        )
+        if os.path.exists(self.bam) is False:
+            raise Exception(f"File {self.bam} not found.")
+        self._bamh = pysam.AlignmentFile(self.bam, "rb")
+        self.homopolymer_file = config["data"]["homopolymer"]
         self.nchr = config["coordinates"]["hg38"]["nchr"]
         self.ref = config["data"]["reference"]
         self._refh = pysam.FastaFile(self.ref)
         self.left_boundary = config["coordinates"]["hg38"]["left_boundary"]
         self.right_boundary = config["coordinates"]["hg38"]["right_boundary"]
-        self.pivot_site = config["coordinates"]["hg38"]["pivot_site"]
+        self.pivot_site = None
+        if "pivot_site" in config["coordinates"]["hg38"]:
+            self.pivot_site = config["coordinates"]["hg38"]["pivot_site"]
         self.nchr_old = config["coordinates"]["hg38"]["nchr_old"]
         self.offset = int(self.nchr_old.split("_")[1]) - 1
+        self.use_supplementary = False
+        if "use_supplementary" in config:
+            self.use_supplementary = config["use_supplementary"]
+        self.clip_3p_positions = []
+        self.clip_5p_positions = []
+        if "clip_3p_positions" in config["coordinates"]["hg38"]:
+            self.clip_3p_positions = config["coordinates"]["hg38"]["clip_3p_positions"]
+        if "clip_5p_positions" in config["coordinates"]["hg38"]:
+            self.clip_5p_positions = config["coordinates"]["hg38"]["clip_5p_positions"]
+        self.noisy_region = []
+        if "noisy_region" in config["coordinates"]["hg38"]:
+            self.noisy_region = config["coordinates"]["hg38"]["noisy_region"]
+
+    def get_regional_depth(self, bam_handle, query_region, ninterval=100):
+        """Get depth of the query regions"""
+        region_depth = []
+        for region in query_region:
+            depth = []
+            nstep = max(1, int((region[1] - region[0]) / ninterval))
+            for pos in range(region[0], region[1], nstep):
+                for pileupcolumn in bam_handle.pileup(
+                    self.nchr, pos - 1, pos, truncate=True
+                ):
+                    site_depth = pileupcolumn.get_num_aligned()
+                    depth.append(site_depth)
+            region_depth.append(np.median(depth))
+        return region_depth
+
+    def check_coverage_before_analysis(self):
+        """check low coverage regions for enrichment data"""
+        region_depth = self.get_regional_depth(
+            self._bamh, [[self.left_boundary, self.right_boundary]]
+        )[0]
+        if np.isnan(region_depth) or region_depth < 10:
+            logging.warning(
+                "This region does not appear to have coverage. Will not attempt to phase haplotypes."
+            )
+            return False
+        return True
 
     def get_homopolymer(self):
         """Parse the homopolymer site file"""
@@ -97,29 +144,31 @@ class Phaser:
         pos2 = p3_pos2
         reference_start_cutoff = pos1 - min_extend
         for read in bamh.fetch(self.nchr, pos1, pos2):
+            read_name = self.get_read_name(read)
             find_clip_3p = re.findall(self.clip_3p, read.cigarstring)
             if find_clip_3p != [] and pos1 < read.reference_end < pos2:
                 if (
                     int(find_clip_3p[0][:-1]) >= min_clip_len
                     and read.reference_start < reference_start_cutoff
                 ):
-                    p3_reads.add(read.query_name)
+                    p3_reads.add(read_name)
             if self.check_del(read, del_size):
-                del_reads.add(read.query_name)
+                del_reads.add(read_name)
         # 5 prime clip
         pos1 = p5_pos1
         pos2 = p5_pos2
         reference_end_cutoff = pos2 + min_extend
         for read in bamh.fetch(self.nchr, pos1, pos2):
+            read_name = self.get_read_name(read)
             find_clip_5p = re.findall(self.clip_5p, read.cigarstring)
             if find_clip_5p != [] and pos1 < read.reference_start < pos2:
                 if (
                     int(find_clip_5p[0][:-1]) >= min_clip_len
                     and read.reference_end > reference_end_cutoff
                 ):
-                    p5_reads.add(read.query_name)
+                    p5_reads.add(read_name)
             if self.check_del(read, del_size):
-                del_reads.add(read.query_name)
+                del_reads.add(read_name)
         if del_reads != set() or (p3_reads != set() and p5_reads != set()):
             return (
                 del_reads.union(p3_reads.intersection(p5_reads)),
@@ -134,7 +183,39 @@ class Phaser:
             return positions.index(self.pivot_site), True
         return -1, False
 
-    def get_haplotypes_from_reads(self, het_sites, exclude_reads=[], min_mapq=5):
+    def get_read_name(self, read):
+        """Rename reads when supplementary"""
+        read_name = read.query_name
+        if read.is_supplementary and self.use_supplementary:
+            read_name = (
+                read_name + f"_sup_{read.reference_start}_{read.reference_length}"
+            )
+        return read_name
+
+    def get_read_names(self, read, partial_deletion_reads):
+        """Add read names for supplementary alignments"""
+        read_names = [read.query_name]
+        if read.is_supplementary and self.use_supplementary:
+            sup_name = (
+                read.query_name + f"_sup_{read.reference_start}_{read.reference_length}"
+            )
+            read_names = [sup_name]
+            if (
+                sup_name in partial_deletion_reads
+                and read.query_name in partial_deletion_reads
+            ):
+                read_names.append(read.query_name)
+        return read_names
+
+    def get_haplotypes_from_reads(
+        self,
+        het_sites,
+        exclude_reads=[],
+        min_mapq=5,
+        min_clip_len=50,
+        check_clip=False,
+        partial_deletion_reads=[],
+    ):
         """
         Go through reads and get bases at sites of interest
         Returns:
@@ -151,28 +232,69 @@ class Phaser:
                 snp_position - 1,
                 snp_position,
                 truncate=True,
-                min_base_quality=30,
+                min_base_quality=29,
             ):
                 for read in pileupcolumn.pileups:
-                    read_name = read.alignment.query_name
-                    if (
-                        not read.is_del
-                        and not read.is_refskip
-                        and not read.alignment.is_secondary
-                        and read.alignment.mapping_quality >= min_mapq
-                        and read_name not in exclude_reads
-                    ):
-                        read_seq = read.alignment.query_sequence
-                        start_pos = read.query_position
-                        end_pos = start_pos + 1
-                        if end_pos < len(read_seq):
-                            hap = read_seq[start_pos:end_pos]
-                            if read_name not in read_haps:
-                                read_haps.setdefault(read_name, ["x"] * nvar)
-                            if hap.upper() == allele1.upper():
-                                read_haps[read_name][dsnp_index] = "1"
-                            elif hap.upper() == allele2.upper():
-                                read_haps[read_name][dsnp_index] = "2"
+                    read_names = self.get_read_names(
+                        read.alignment, partial_deletion_reads
+                    )
+                    for read_name in read_names:
+                        if (
+                            not read.is_del
+                            and not read.is_refskip
+                            and not read.alignment.is_secondary
+                            and read.alignment.mapping_quality >= min_mapq
+                            and read_name not in exclude_reads
+                        ):
+                            read_seq = read.alignment.query_sequence
+                            start_pos = read.query_position
+                            end_pos = start_pos + 1
+                            if end_pos < len(read_seq):
+                                hap = read_seq[start_pos:end_pos]
+                                if read_name not in read_haps:
+                                    read_haps.setdefault(read_name, ["x"] * nvar)
+                                if hap.upper() == allele1.upper():
+                                    read_haps[read_name][dsnp_index] = "1"
+                                elif hap.upper() == allele2.upper():
+                                    read_haps[read_name][dsnp_index] = "2"
+
+        # for softclips starting at a predefined position, mark sites as 0 instead of x
+        if check_clip:
+            for dsnp_index, allele_site in enumerate(het_sites):
+                snp_position_gene1, allele1, allele2, *at = allele_site.split("_")
+                snp_position = int(snp_position_gene1)
+                for clip_position in sorted(self.clip_3p_positions):
+                    if snp_position > clip_position:
+                        for read in self._bamh.fetch(
+                            self.nchr, clip_position - 10, clip_position + 10
+                        ):
+                            read_name = self.get_read_name(read)
+                            if read_name in read_haps:
+                                if abs(read.reference_end - clip_position) < 20:
+                                    find_clip_3p = re.findall(
+                                        self.clip_3p, read.cigarstring
+                                    )
+                                    if (
+                                        find_clip_3p != []
+                                        and int(find_clip_3p[0][:-1]) >= min_clip_len
+                                    ):
+                                        read_haps[read_name][dsnp_index] = "0"
+                for clip_position in sorted(self.clip_5p_positions, reverse=True):
+                    if snp_position < clip_position:
+                        for read in self._bamh.fetch(
+                            self.nchr, clip_position - 10, clip_position + 10
+                        ):
+                            read_name = self.get_read_name(read)
+                            if read_name in read_haps:
+                                if abs(read.reference_start - clip_position) < 20:
+                                    find_clip_5p = re.findall(
+                                        self.clip_5p, read.cigarstring
+                                    )
+                                    if (
+                                        find_clip_5p != []
+                                        and int(find_clip_5p[0][:-1]) >= min_clip_len
+                                    ):
+                                        read_haps[read_name][dsnp_index] = "0"
         return read_haps
 
     def allow_del_bases(self, pos):
@@ -309,6 +431,16 @@ class Phaser:
                 ref_seq, var_seq = variants_no_phasing[pos]
                 self.het_no_phasing.append(f"{pos}_{ref_seq}_{var_seq}")
 
+    def remove_noisy_sites(self):
+        """remove variants in predefined noisy sites"""
+        problematic_sites = []
+        for site in self.het_sites:
+            for region in self.noisy_region:
+                if region[0] <= int(site.split("_")[0]) <= region[1]:
+                    problematic_sites.append(site)
+        for site in problematic_sites:
+            self.het_sites.remove(site)
+
     @staticmethod
     def simplify_read_haps(read_haps):
         """Simplify read haplotypes for output"""
@@ -381,7 +513,7 @@ class Phaser:
             nend_next_pos = int(self.het_sites[nend_next].split("_")[0]) - 1
         return nstart_previous_pos, nend_next_pos
 
-    def output_variants_in_haplotypes(self, haps, reads, nonunique):
+    def output_variants_in_haplotypes(self, haps, reads, nonunique, two_cp_haps=[]):
         """
         Summarize all variants in each haplotype.
         Output all variants and their genotypes.
@@ -389,10 +521,10 @@ class Phaser:
         """
         het_sites = self.het_sites
         haplotype_variants = {}
+        haplotype_info = {}
         dvar = {}
         var_no_phasing = copy.deepcopy(self.het_no_phasing)
-        for hap_index, hap in enumerate(haps):
-            hap_name = f"hap{hap_index}"
+        for hap, hap_name in haps.items():
             haplotype_variants.setdefault(hap_name, [])
         # het sites not used in phasing
         if reads != {}:
@@ -400,8 +532,7 @@ class Phaser:
                 genotypes = []
                 var_reads = self.check_variants_in_haplotypes(var)
                 haps_with_variant = []
-                for hap_index, hap in enumerate(haps):
-                    hap_name = f"hap{hap_index}"
+                for hap, hap_name in haps.items():
                     hap_reads = reads[hap]
                     hap_reads_nonunique = [a for a in nonunique if hap in nonunique[a]]
                     genotype = self.get_genotype_in_hap(
@@ -417,8 +548,7 @@ class Phaser:
                         haplotype_variants[hap_name].append(var)
                     dvar.setdefault(var, genotypes)
         # het sites and homo sites
-        for hap_index, hap in enumerate(haps):
-            hap_name = f"hap{hap_index}"
+        for hap, hap_name in haps.items():
             for i in range(len(hap)):
                 if hap[i] == "2":
                     haplotype_variants[hap_name].append(het_sites[i])
@@ -431,11 +561,10 @@ class Phaser:
                 a for a in var_tmp if var_nstart <= int(a.split("_")[0]) <= var_nend
             ]
             var_tmp1 = list(set(var_tmp1))
-            haplotype_variants[hap_name] = sorted(
-                var_tmp1,
-                key=lambda x: int(x.split("_")[0]),
+            var_tmp2 = sorted(var_tmp1, key=lambda x: int(x.split("_")[0]))
+            haplotype_info.setdefault(
+                hap_name, {"variants": var_tmp2, "boundary": [var_nstart, var_nend]}
             )
-            haplotype_variants[hap_name].append((var_nstart, var_nend))
 
         # summary per variant
         all_haps = haps
@@ -443,15 +572,18 @@ class Phaser:
         for var in self.homo_sites:
             dvar.setdefault(var, ["1"] * nhap)
         for i, var in enumerate(het_sites):
-            dvar.setdefault(var, ["."] * nhap)
-            for hap_index in range(len(all_haps)):
-                hap = all_haps[hap_index]
+            dvar.setdefault(var, [])
+            for hap, hap_name in haps.items():
+                base_call = "."
                 if hap[i] == "2":
-                    dvar[var][hap_index] = "1"
+                    base_call = "1"
                 elif hap[i] == "1":
-                    dvar[var][hap_index] = "0"
+                    base_call = "0"
+                dvar[var].append(base_call)
+                if hap_name in two_cp_haps:
+                    dvar[var].append(base_call)
 
-        return haplotype_variants, {
+        return haplotype_info, {
             var: "|".join(dvar[var]) for var in dict(sorted(dvar.items()))
         }
 
@@ -509,10 +641,19 @@ class Phaser:
                     if read in del_reads_partial:
                         hap[pos1] = base
                     elif (
-                        "x" not in hap[(pos1 - 2) : pos1]
-                        and "x" not in hap[(pos1 + 1) : (pos1 + 3)]
+                        hap[pos1 - 1] == "0"
+                        and pos1 - 1 >= 0
+                        and hap[pos1 + 1] == "0"
+                        and pos1 + 1 < len(hap)
                     ):
-                        hap[pos1] = "1"
+                        hap[pos1] = "0"
+                    else:
+                        flanking_left = hap[min(0, pos1 - 2) : pos1]
+                        flanking_right = hap[
+                            max(pos1 + 1, len(hap)) : max(pos1 + 3, len(hap))
+                        ]
+                        if "x" not in flanking_left and "x" not in flanking_right:
+                            hap[pos1] = "1"
                     raw_read_haps[read] = "".join(hap)
         return raw_read_haps, het_sites
 
@@ -587,9 +728,10 @@ class Phaser:
         read_counts = self.get_read_counts(uniquely_supporting_haps)
 
         uniquely_supporting_reads = {}
+        for hap in ass_haps:
+            uniquely_supporting_reads.setdefault(hap, [])
         for hap in uniquely_supporting_haps:
             for read_hap in uniquely_supporting_haps[hap]:
-                uniquely_supporting_reads.setdefault(hap, [])
                 uniquely_supporting_reads[hap] += haplotypes_to_reads[read_hap]
         for hap in uniquely_supporting_haps:
             uniquely_supporting_reads[hap] = list(set(uniquely_supporting_reads[hap]))
@@ -610,6 +752,68 @@ class Phaser:
             raw_read_haps,
             read_counts,
         )
+
+    def compare_depth(self, haplotypes, loose=False):
+        """
+        For each haplotype, identify the variants where it's different
+        from other haplotypes. Check depth at those variant sites and
+        see if the depth suggests twice coverage.
+        """
+        if haplotypes is None or len(haplotypes) == 1:
+            return []
+        two_cp_haps = []
+        bamh = self._bamh
+        boundaries = [haplotypes[a]["boundary"] for a in haplotypes]
+        nstart = max([a[0] for a in boundaries])
+        nend = min(a[1] for a in boundaries)
+        variants = set()
+        for hap in haplotypes:
+            vars = haplotypes[hap]["variants"]
+            for var in vars:
+                if len(var.split("_")) == 3:
+                    pos, ref, alt = var.split("_")
+                    pos = int(pos)
+                    if nstart < pos < nend and var in self.het_sites:
+                        variants.add(var)
+
+        for hap in haplotypes:
+            sites = {}
+            other_haps = [a for a in haplotypes.keys() if a != hap]
+            other_cn = len(other_haps)
+            this_hap_var = haplotypes[hap]["variants"]
+            other_haps_var = []
+            for a in other_haps:
+                other_haps_var += haplotypes[a]["variants"]
+            for var in variants:
+                pos, ref, alt = var.split("_")
+                pos = int(pos)
+                if var in this_hap_var and var not in other_haps_var:
+                    sites.setdefault(pos, alt)
+                elif var not in this_hap_var and other_haps_var.count(var) == other_cn:
+                    sites.setdefault(pos, ref)
+
+            counts = []
+            for pos in sites:
+                hap_base = sites[pos]
+                for pileupcolumn in bamh.pileup(
+                    self.nchr, pos - 1, pos, truncate=True, min_base_quality=29
+                ):
+                    bases = [a.upper() for a in pileupcolumn.get_query_sequences()]
+                    base_num = bases.count(hap_base)
+                    counts.append([base_num, len(bases) - base_num])
+
+            probs = []
+            nsites = len(sites)
+            for n1, n2 in counts:
+                probs.append(self.depth_prob(n1, n2 / other_cn))
+            probs_fil = [a for a in probs if a[0] < 0.25]
+            if len(probs_fil) >= nsites * 0.6 and nsites >= 5:
+                two_cp_haps.append(hap)
+            elif loose is True:
+                if len(probs_fil) >= nsites * 0.5 and nsites >= 5:
+                    two_cp_haps.append(hap)
+
+        return two_cp_haps
 
     def close_handle(self):
         self._bamh.close()

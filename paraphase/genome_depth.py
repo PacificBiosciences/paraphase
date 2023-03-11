@@ -7,16 +7,16 @@ import pysam
 
 
 class GenomeDepth:
-    def __init__(self, bam, config):
+    def __init__(self, bam, genome_depth_region_file):
         self.bam = bam
-        self.config = config
+        self.genome_depth_region_file = genome_depth_region_file
         self._bamh = pysam.AlignmentFile(bam, "rb")
         self.mdepth = None
         self.mad = None
 
     def get_genome_depth(self):
         depth = []
-        with open(self.config["data"]["depth_region"]) as f:
+        with open(self.genome_depth_region_file) as f:
             for line in f:
                 at = line.split()
                 nchr = at[0]

@@ -1,16 +1,16 @@
 import pytest
 import yaml
 import os
-from paraphase.smn_phaser import SmnPhaser
+from paraphase.genes.smn1_phaser import Smn1Phaser
 
 
-class TestSmnPhaser(object):
+class TestSmn1Phaser(object):
 
     cur_dir = os.path.dirname(__file__)
     sample_dir = os.path.join(cur_dir, "test_data")
     sample_id = "HG00733"
     data_dir = os.path.join(os.path.dirname(cur_dir), "paraphase", "data")
-    config_file = os.path.join(data_dir, "smn1", "config.yaml")
+    config_file = os.path.join(data_dir, "smn1", "smn1_config.yaml")
     with open(config_file, "r") as f:
         config = yaml.safe_load(f)
     data_paths = config.get("data")
@@ -18,7 +18,8 @@ class TestSmnPhaser(object):
         old_data_file = data_paths[data_entry]
         new_data_file = os.path.join(data_dir, "smn1", old_data_file)
         data_paths[data_entry] = new_data_file
-    phaser = SmnPhaser(sample_id, sample_dir, config)
+    phaser = Smn1Phaser(sample_id, sample_dir)
+    phaser.set_parameter(config)
 
     def test_check_smn1_smn2_presence(self):
         self.phaser.check_smn1_smn2_presence()
