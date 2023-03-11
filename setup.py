@@ -8,14 +8,14 @@ def readme():
 
 setup(
     name="paraphase",
-    version="1.1.3",
-    description="paraphase: HiFi-based SMN1/SMN2 variant caller",
+    version="2.0.0",
+    description="paraphase: HiFi-based caller for highly homologous genes",
     long_description=readme(),
     url="https://github.com/PacificBiosciences/paraphase",
     author="Xiao Chen",
     author_email="xchen@pacificbiosciences.com",
     license="BSD-3-Clause-Clear",
-    packages=["paraphase"],
+    packages=["paraphase", "paraphase.genes"],
     package_data={"paraphase": ["data/*", "data/smn1/*"]},
     install_requires=["pysam", "numpy", "scipy", "networkx", "matplotlib", "pyyaml"],
     setup_requires=["pytest-runner"],

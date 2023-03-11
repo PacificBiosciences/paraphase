@@ -62,7 +62,7 @@ paraphase -l list.txt -o output_directory
 ```
 
 Required parameters:
-- `-b`: Input BAM file or `-l`: List of BAM files (one per line)
+- `-b`: Input BAM file or `-l`: text file listing BAM files one per line
 - `-o`: Output directory
 
 Optional parameters:
@@ -70,8 +70,8 @@ Optional parameters:
 - `-t`: Number of threads, used when `-l` is specified.
 - `-d`: File listing average genome depth per sample, with two columns, sample ID and depth values, separated by tab or space. This saves run time by skipping the step to calculate genome depth.
 - `--novcf`: no vcf output if specified.
-- `--samtools`
-- `--minimap2`
+- `--samtools`: path to samtools
+- `--minimap2`: path to minimap2
 
 The paths to samtools and minimap2 can be provided through the `--samtools` and `--minimap2` parameters.
 
@@ -112,7 +112,6 @@ Multiple copies of the repeat are phased inito alleles with read-based phasing i
 ### RCCX
 
 More info fields on phasing haplotypes into alleles and annotation of CYP21A2:
-- `phasing_success`: whether haplotypes are phased into alleles
 - `annotated_alleles`: allele annotation for the CYP21A2 gene. This is only based on common gene-pseudogene (CYP21A2-CYP21A1P) conversions (P31L, IVS2-13A/C>G, G111Vfs, I173N, I237N, V238E, M240K, V282L, Q319X and R357W). Please refer to the vcfs for most thorough variant calling and annotation.
 - `ending_hap`: the last copy of RCCX on each allele. Only these copies contain parts of TNXB (while the other copies contain TNXA)
 
