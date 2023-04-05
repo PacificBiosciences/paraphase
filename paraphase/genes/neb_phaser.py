@@ -31,7 +31,7 @@ class NebPhaser(Phaser):
         self.het_sites = sorted(list(self.candidate_pos))
         self.remove_noisy_sites()
 
-        raw_read_haps = self.get_haplotypes_from_reads(self.het_sites)
+        raw_read_haps = self.get_haplotypes_from_reads()
 
         (
             ass_haps,

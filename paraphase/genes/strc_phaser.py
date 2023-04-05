@@ -50,7 +50,7 @@ class StrcPhaser(Phaser):
         self.het_sites = sorted(list(self.candidate_pos))
         self.remove_noisy_sites()
 
-        raw_read_haps = self.get_haplotypes_from_reads(self.het_sites)
+        raw_read_haps = self.get_haplotypes_from_reads()
         het_sites = self.het_sites
         if self.del1_reads_partial != set():
             raw_read_haps, het_sites = self.update_reads_for_deletions(
@@ -116,6 +116,14 @@ class StrcPhaser(Phaser):
             if prob[0] > 0.95 and counter_gene > 1 and two_cp_haps != []:
                 counter_gene = None
                 total_cn = None
+
+        # homozygous case
+        if total_cn == 0:
+            total_cn = 2
+            if self.del1_reads_partial != set():
+                counter_gene = 0
+            else:
+                counter_gene = 2
 
         self.close_handle()
 

@@ -68,9 +68,10 @@ class IkbkgPhaser(Phaser):
         self.remove_noisy_sites()
 
         raw_read_haps = self.get_haplotypes_from_reads(
-            self.het_sites,
             check_clip=True,
             partial_deletion_reads=self.del1_reads_partial,
+            kept_sites=["154569800_T_G", "154555882_C_G"],
+            add_sites=["154555882_C_G"],
         )
         het_sites = self.het_sites
         if self.del1_reads_partial != set():

@@ -557,12 +557,18 @@ class VcfGenerater:
                 refh_pos = pos
             ref_seq = refh.fetch(ref_name, refh_pos - 1, refh_pos)
             alt_all_reads = self.get_var(all_bases, ref_seq)
-            if None not in hap_bound and hap_bound[0] < true_pos < hap_bound[1]:
+            if hap_bound == [] or (
+                None not in hap_bound and hap_bound[0] < true_pos < hap_bound[1]
+            ):
                 # use only unique reads for positions at the edge
-                if true_pos < hap_bound[2] or true_pos > hap_bound[3]:
+                if (
+                    hap_bound == []
+                    or true_pos < hap_bound[2]
+                    or true_pos > hap_bound[3]
+                ):
                     bases_uniq_reads = []
                     for i, read_base in enumerate(all_bases):
-                        if read_names[pos][i] in uniq_reads:
+                        if uniq_reads is None or read_names[pos][i] in uniq_reads:
                             bases_uniq_reads.append(read_base)
                     alt_uniq_reads = self.get_var(bases_uniq_reads, ref_seq)
                     if alt_uniq_reads[-1] != ".":
@@ -622,6 +628,41 @@ class VcfGenerater:
 
         bamh = pysam.AlignmentFile(self.bam, "rb")
         refh = pysam.FastaFile(self.ref)
+
+        if final_haps == {}:
+            hap_name = "homozygous_hap1"
+            hap_vcf_out = os.path.join(
+                self.vcf_dir, self.sample_id + f"_{self.gene}_{hap_name}.vcf"
+            )
+            vcf_out = open(hap_vcf_out, "w")
+            self.write_header(vcf_out)
+            pileups_raw = {}
+            read_names = {}
+            for pileupcolumn in bamh.pileup(
+                self.nchr,
+                truncate=True,
+                min_base_quality=30,
+            ):
+                pos = pileupcolumn.pos + 1
+                this_pos_bases = [
+                    a.upper() for a in pileupcolumn.get_query_sequences(add_indels=True)
+                ]
+                pileups_raw.setdefault(pos, this_pos_bases)
+                read_names.setdefault(pos, pileupcolumn.get_query_names())
+            variants_called = self.pileup_to_variant(
+                pileups_raw,
+                read_names,
+                None,
+                refh,
+                0 - self.offset,
+                [],
+                vcf_out,
+            )
+            vcf_out.close()
+            for pos, var_name, dp, ad, qual, gt in variants_called:
+                vars.setdefault(
+                    pos, [[var_name, dp, ad, qual, gt], [var_name, dp, ad, qual, gt]]
+                )
 
         i = 0
         for hap_name in final_haps.values():

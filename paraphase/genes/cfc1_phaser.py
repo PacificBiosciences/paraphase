@@ -24,13 +24,10 @@ class Cfc1Phaser(Phaser):
             return None
         self.get_homopolymer()
         self.get_candidate_pos()
-        # add pivot site
-        if "130593061_A_G" not in self.candidate_pos:
-            self.candidate_pos.add("130593061_A_G")
         self.het_sites = sorted(list(self.candidate_pos))
         self.remove_noisy_sites()
 
-        raw_read_haps = self.get_haplotypes_from_reads(self.het_sites)
+        raw_read_haps = self.get_haplotypes_from_reads(add_sites=["130593061_A_G"])
 
         (
             ass_haps,

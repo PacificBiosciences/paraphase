@@ -511,14 +511,12 @@ class Smn1Phaser(Phaser):
                 [self.del1_5p_pos1, self.del1_5p_pos2],
             ]
         self.get_candidate_pos(regions_to_check=regions_to_check)
-        # always add splice site
-        if self.candidate_pos != set():
-            self.candidate_pos.add("70951946_C_T")
 
-        het_sites = sorted(list(self.candidate_pos))
-        raw_read_haps = self.get_haplotypes_from_reads(het_sites)
+        self.het_sites = sorted(list(self.candidate_pos))
+        raw_read_haps = self.get_haplotypes_from_reads(add_sites=["70951946_C_T"])
 
         # update reads for those overlapping known deletions
+        het_sites = self.het_sites
         if self.smn2_del_reads_partial != set():
             raw_read_haps, het_sites = self.update_reads_for_deletions(
                 raw_read_haps,

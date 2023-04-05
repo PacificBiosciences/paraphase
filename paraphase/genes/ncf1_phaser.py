@@ -27,7 +27,7 @@ class Ncf1Phaser(Phaser):
             return None
         pivot_site = self.pivot_site
         for pileupcolumn in self._bamh.pileup(
-            self.nchr, pivot_site - 1, pivot_site, truncate=True
+            self.nchr, pivot_site, pivot_site + 1, truncate=True
         ):
             bases = [
                 a.upper() for a in pileupcolumn.get_query_sequences(add_indels=True)
@@ -37,13 +37,10 @@ class Ncf1Phaser(Phaser):
 
         self.get_homopolymer()
         self.get_candidate_pos()
-        # add pivot site
-        if "74777266_G_A" not in self.candidate_pos:
-            self.candidate_pos.add("74777266_G_A")
         self.het_sites = sorted(list(self.candidate_pos))
         self.remove_noisy_sites()
 
-        raw_read_haps = self.get_haplotypes_from_reads(self.het_sites)
+        raw_read_haps = self.get_haplotypes_from_reads(add_sites=["74777265_A_T"])
 
         (
             ass_haps,

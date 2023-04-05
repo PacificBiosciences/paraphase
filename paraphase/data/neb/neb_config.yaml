@@ -18,4 +18,4 @@ coordinates:
     left_boundary: 151578800
     right_boundary: 151588500
 
-    noisy_region: [[151584195, 151584196], [151578903, 151578903], [151579992, 151580022]]
+    noisy_region: [[151579992, 151580022]]

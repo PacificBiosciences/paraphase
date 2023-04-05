@@ -243,7 +243,7 @@ class RccxPhaser(Phaser):
                 elif abs(len(tmp[1]) - len(tmp[2])) <= 1 and len(tmp[2]) >= 6:
                     annotated_allele = "pseudogene_duplication"
                 else:
-                    annotated_allele = "duplicaton_WT_plus_" + ",".join(tmp[1])
+                    annotated_allele = "duplication_WT_plus_" + ",".join(tmp[1])
             else:
                 if abs(len(tmp[1]) - len(tmp[2])) <= 1 and len(tmp[2]) >= 6:
                     annotated_allele = ",".join(tmp[0]) + "_pseudogene_duplication"
@@ -509,11 +509,14 @@ class RccxPhaser(Phaser):
 
         self.het_sites = sorted(list(self.candidate_pos))
         self.remove_noisy_sites()
-        het_sites = self.het_sites
 
         raw_read_haps = self.get_haplotypes_from_reads(
-            het_sites, check_clip=True, partial_deletion_reads=self.del1_reads_partial
+            check_clip=True,
+            partial_deletion_reads=self.del1_reads_partial,
+            kept_sites=["32046300_G_A", "32013265_A_T"],
         )
+
+        het_sites = self.het_sites
         if self.del2_reads_partial != set():
             raw_read_haps, het_sites = self.update_reads_for_deletions(
                 raw_read_haps,

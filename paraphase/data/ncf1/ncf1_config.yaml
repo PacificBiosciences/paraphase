@@ -11,14 +11,11 @@ data:
 coordinates:
   hg38:
     nchr: "chr7"
-    nchr_old: "chr7_74768800_74792800"
+    nchr_old: "chr7_74760000_74820000"
     nchr_length: 159345973
     extract_region1: "chr7:74769011-74792315"
     extract_region2: "chr7:73215625-73238945 chr7:75153639-75176964"
     
-    pivot_site: 74777266
+    pivot_site: 74777265
     left_boundary: 74769011
     right_boundary: 74792315
-
-    #mutli-alleleic site
-    noisy_region: [[74783765, 74783765], [74781743, 74781743], [74776715, 74776718], [74780432, 74780432], [74778377, 74778377]] 

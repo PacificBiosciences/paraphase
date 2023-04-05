@@ -29,7 +29,9 @@ class Pms2Phaser(Phaser):
         # for distinguishing pms2 from pms2cl
         self.het_sites.append("5989137_G_A")
 
-        raw_read_haps = self.get_haplotypes_from_reads(self.het_sites, check_clip=True)
+        raw_read_haps = self.get_haplotypes_from_reads(
+            check_clip=True, kept_sites=["5989137_G_A"]
+        )
 
         (
             ass_haps,
