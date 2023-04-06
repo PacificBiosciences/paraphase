@@ -388,9 +388,9 @@ class VcfGenerater:
             var_seq = most_common_base[0][0]
             ad = most_common_base[0][1]
             if (
-                dp >= 3
-                and ad >= 2
-                and (len(most_common_base) == 1 or ad > most_common_base[1][1])
+                len(var_seq) == 1 and len(ref_seq) == 1 and dp >= 3 and ad > dp * 0.5
+            ) or (
+                (len(var_seq) > 1 or len(ref_seq) > 1) and dp >= 5 and ad >= dp * 0.7
             ):
                 if var_seq == ref_seq or var_seq == "*":
                     gt = "0"

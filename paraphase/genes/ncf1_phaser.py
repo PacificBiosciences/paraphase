@@ -112,6 +112,10 @@ class Ncf1Phaser(Phaser):
             counter_gene = None
             total_cn = None
 
+        # homozygous case
+        if total_cn == 0:
+            total_cn = None
+
         self.close_handle()
 
         return self.GeneCall(

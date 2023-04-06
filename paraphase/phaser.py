@@ -10,6 +10,7 @@ from collections import Counter
 import re
 import logging
 from scipy.stats import poisson
+from collections import namedtuple
 from .haplotype_assembler import VariantGraph
 
 
@@ -18,6 +19,15 @@ class Phaser:
     clip_5p = r"^\d+S|^\d+H"
     clip_3p = r"\d+S$|\d+H$"
     deletion = r"\d+D"
+    GeneCall = namedtuple(
+        "GeneCall",
+        "total_cn final_haplotypes two_copy_haplotypes \
+        highest_total_cn assembled_haplotypes sites_for_phasing \
+        unique_supporting_reads het_sites_not_used_in_phasing homozygous_sites \
+        haplotype_details variant_genotypes nonunique_supporting_reads \
+        read_details genome_depth",
+    )
+    MEAN_BASE_QUAL = 25
 
     def __init__(self, sample_id, outdir, wgs_depth=None, genome_bam=None):
         self.outdir = outdir
@@ -217,10 +227,8 @@ class Phaser:
         add_sites=[],
     ):
         """
-        Go through reads and get bases at sites of interest
-        Returns:
-            read_haps (dict of str:list): collapse each read into just the positions
-            of interest. 1 corresponds to ref, 2 corresponds to alt
+        Go through reads and get bases at sites of interest.
+        Two rounds, with variant site filtering in between.
         """
         raw_read_haps = self.get_haplotypes_from_reads_step(
             exclude_reads,
@@ -270,7 +278,7 @@ class Phaser:
                 snp_position - 2,
                 snp_position,
                 truncate=True,
-                min_base_quality=29,
+                min_base_quality=self.MEAN_BASE_QUAL,
             ):
                 # require that the base on the read is not flanked by any indels
                 if pileupcolumn.reference_pos == snp_position - 2:
@@ -783,7 +791,7 @@ class Phaser:
             read_count.setdefault(hap, len(lreads))
         return read_count
 
-    def phase_haps(self, raw_read_haps, debug=False):
+    def phase_haps(self, raw_read_haps, min_support=4, debug=False):
         """
         Assemble and evaluate haplotypes
         """
@@ -824,7 +832,7 @@ class Phaser:
         ass_haps = [
             a
             for a in uniquely_supporting_reads
-            if len(uniquely_supporting_reads[a]) >= 4
+            if len(uniquely_supporting_reads[a]) >= min_support
         ]
         (
             uniquely_supporting_reads,
@@ -843,6 +851,7 @@ class Phaser:
         )
 
     def get_read_support(self, raw_read_haps, haplotypes_to_reads, ass_haps):
+        """Find uniquely and nonuniquely supporting reads for given haplotypes"""
         read_support = VariantGraph.match_reads_and_haplotypes(raw_read_haps, ass_haps)
         uniquely_supporting_haps = read_support.unique
         read_counts = self.get_read_counts(uniquely_supporting_haps)
@@ -912,7 +921,11 @@ class Phaser:
             for pos in sites:
                 hap_base = sites[pos]
                 for pileupcolumn in bamh.pileup(
-                    self.nchr, pos - 1, pos, truncate=True, min_base_quality=29
+                    self.nchr,
+                    pos - 1,
+                    pos,
+                    truncate=True,
+                    min_base_quality=self.MEAN_BASE_QUAL,
                 ):
                     bases = [a.upper() for a in pileupcolumn.get_query_sequences()]
                     base_num = bases.count(hap_base)
@@ -968,7 +981,7 @@ class Phaser:
                             not in suspicious_hap_pair
                         ):
                             suspicious_hap_pair.append([hap_pair, mismatch_pos])
-        # print(suspicious_hap_pair)
+
         for hap_pair, mismatch_pos in suspicious_hap_pair:
             hap1, hap2 = hap_pair
             hap1_reads = uniquely_supporting_reads[hap1]
@@ -980,7 +993,7 @@ class Phaser:
                 mismatch_pos - 1,
                 mismatch_pos,
                 truncate=True,
-                min_base_quality=30,
+                min_base_quality=self.MEAN_BASE_QUAL,
             ):
                 for read in pileupcolumn.pileups:
                     if not read.is_del and not read.is_refskip:
@@ -998,10 +1011,67 @@ class Phaser:
                                 hap1_reads_at_pos.append(read_seq[start_pos:end_pos])
                             if read_name in hap2_reads:
                                 hap2_reads_at_pos.append(read_seq[start_pos:end_pos])
-            # print(hap1, hap2, hap1_reads_at_pos, hap2_reads_at_pos)
+
             if set(hap1_reads_at_pos).intersection(set(hap2_reads_at_pos)) != set():
                 passing_haplotypes.remove(hap2)
         return passing_haplotypes
+
+    def call(self):
+        """Main function to phase haplotypes and call copy numbers"""
+        if self.check_coverage_before_analysis() is False:
+            return None
+        self.get_homopolymer()
+        self.get_candidate_pos()
+        self.het_sites = sorted(list(self.candidate_pos))
+        self.remove_noisy_sites()
+
+        raw_read_haps = self.get_haplotypes_from_reads()
+
+        (
+            ass_haps,
+            original_haps,
+            hcn,
+            uniquely_supporting_reads,
+            nonuniquely_supporting_reads,
+            raw_read_haps,
+            read_counts,
+        ) = self.phase_haps(raw_read_haps)
+
+        tmp = {}
+        for i, hap in enumerate(ass_haps):
+            tmp.setdefault(hap, f"hap{i+1}")
+        ass_haps = tmp
+
+        haplotypes = None
+        dvar = None
+        if self.het_sites != []:
+            haplotypes, dvar = self.output_variants_in_haplotypes(
+                ass_haps,
+                uniquely_supporting_reads,
+                nonuniquely_supporting_reads,
+            )
+
+        two_cp_haps = self.compare_depth(haplotypes)
+        total_cn = len(ass_haps) + len(two_cp_haps)
+
+        self.close_handle()
+
+        return self.GeneCall(
+            total_cn,
+            ass_haps,
+            two_cp_haps,
+            hcn,
+            original_haps,
+            self.het_sites,
+            uniquely_supporting_reads,
+            self.het_no_phasing,
+            self.homo_sites,
+            haplotypes,
+            dvar,
+            nonuniquely_supporting_reads,
+            raw_read_haps,
+            self.mdepth,
+        )
 
     def close_handle(self):
         self._bamh.close()

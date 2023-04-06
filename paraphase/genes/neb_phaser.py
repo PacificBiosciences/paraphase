@@ -127,6 +127,10 @@ class NebPhaser(Phaser):
             total_cn = None
             new_alleles = []
 
+        # homozygous case
+        if total_cn == 0:
+            total_cn = None
+
         self.close_handle()
 
         return self.GeneCall(

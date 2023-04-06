@@ -46,6 +46,7 @@ class IkbkgPhaser(Phaser):
 
         self.get_candidate_pos(min_vaf=0.095)
 
+        # add these sites for duplication/deletion calling
         var_found = False
         for var in self.candidate_pos:
             pos = int(var.split("_")[0])
@@ -70,7 +71,7 @@ class IkbkgPhaser(Phaser):
         raw_read_haps = self.get_haplotypes_from_reads(
             check_clip=True,
             partial_deletion_reads=self.del1_reads_partial,
-            kept_sites=["154569800_T_G", "154555882_C_G"],
+            kept_sites=["154569800_T_G"],
             add_sites=["154555882_C_G"],
         )
         het_sites = self.het_sites
@@ -102,25 +103,26 @@ class IkbkgPhaser(Phaser):
         pseudo_counter = 0
         dup_counter = 0
         deletion_haplotypes = []
-        for i, hap in enumerate(ass_haps):
-            nsite = min(len(hap), 10)
-            start_seq = hap[:nsite]
-            if start_seq.startswith("0") is False:
-                if start_seq.count("1") >= start_seq.count("2"):
-                    gene_counter += 1
-                    hap_name = f"ikbkg_hap{gene_counter}"
-                    tmp.setdefault(hap, hap_name)
-                    if "3" in hap:
-                        deletion_haplotypes.append(hap_name)
+        pivot_index, index_found = self.get_pivot_site_index()
+        if index_found is True:
+            for i, hap in enumerate(ass_haps):
+                start_seq = hap[: pivot_index + 1]
+                if start_seq.startswith("0") is False:
+                    if start_seq.count("1") >= start_seq.count("2"):
+                        gene_counter += 1
+                        hap_name = f"ikbkg_hap{gene_counter}"
+                        tmp.setdefault(hap, hap_name)
+                        if "3" in hap:
+                            deletion_haplotypes.append(hap_name)
+                    else:
+                        pseudo_counter += 1
+                        hap_name = f"pseudo_hap{pseudo_counter}"
+                        tmp.setdefault(hap, hap_name)
+                        if "3" in hap:
+                            deletion_haplotypes.append(hap_name)
                 else:
-                    pseudo_counter += 1
-                    hap_name = f"pseudo_hap{pseudo_counter}"
-                    tmp.setdefault(hap, hap_name)
-                    if "3" in hap:
-                        deletion_haplotypes.append(hap_name)
-            else:
-                dup_counter += 1
-                tmp.setdefault(hap, f"dup_hap{dup_counter}")
+                    dup_counter += 1
+                    tmp.setdefault(hap, f"dup_hap{dup_counter}")
         ass_haps = tmp
 
         haplotypes = None
@@ -161,6 +163,14 @@ class IkbkgPhaser(Phaser):
             for hap in allele:
                 new_allele.append(ass_haps[hap])
             new_alleles.append(new_allele)
+
+        if gene_counter == 0 or pseudo_counter == 0:
+            total_cn = None
+            gene_counter = None
+        # homozygous case
+        if total_cn == 0:
+            total_cn = None
+            gene_counter = None
 
         self.close_handle()
 

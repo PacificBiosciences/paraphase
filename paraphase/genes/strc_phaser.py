@@ -29,7 +29,6 @@ class StrcPhaser(Phaser):
         self.del1_3p_pos2 = config["coordinates"]["hg38"]["del1_3p_pos2"]
         self.del1_5p_pos1 = config["coordinates"]["hg38"]["del1_5p_pos1"]
         self.del1_5p_pos2 = config["coordinates"]["hg38"]["del1_5p_pos2"]
-        self.intergenic = config["coordinates"]["hg38"]["depth_region"]
         self.depth_region = config["coordinates"]["hg38"]["depth_region"]
 
     def call(self):
@@ -50,7 +49,7 @@ class StrcPhaser(Phaser):
         self.het_sites = sorted(list(self.candidate_pos))
         self.remove_noisy_sites()
 
-        raw_read_haps = self.get_haplotypes_from_reads()
+        raw_read_haps = self.get_haplotypes_from_reads(add_sites=["43602487_C_G"])
         het_sites = self.het_sites
         if self.del1_reads_partial != set():
             raw_read_haps, het_sites = self.update_reads_for_deletions(
@@ -73,6 +72,9 @@ class StrcPhaser(Phaser):
             read_counts,
         ) = self.phase_haps(raw_read_haps)
 
+        haplotypes = None
+        dvar = None
+        two_cp_haps = []
         tmp = {}
         counter_gene = 0
         counter_pseudo = 0
@@ -85,8 +87,6 @@ class StrcPhaser(Phaser):
                 tmp.setdefault(hap, f"strc_hap{counter_gene}")
         ass_haps = tmp
 
-        haplotypes = None
-        dvar = None
         if self.het_sites != []:
             haplotypes, dvar = self.output_variants_in_haplotypes(
                 ass_haps,
@@ -94,33 +94,43 @@ class StrcPhaser(Phaser):
                 nonuniquely_supporting_reads,
             )
 
-        two_cp_haps = []
-        if intergenic_depth > 5 and len(ass_haps) == 2:
-            two_cp_haps = list(ass_haps.values())
-        elif counter_gene == 1 or counter_pseudo == 1:
-            two_cp_haps = self.compare_depth(haplotypes)
-        for hap in two_cp_haps:
-            if "strcp1" not in hap:
-                counter_gene += 1
-            else:
-                counter_pseudo += 1
+            if counter_gene == 1 or counter_pseudo == 1:
+                two_cp_haps = self.compare_depth(haplotypes)
+                for hap in two_cp_haps:
+                    if "strcp1" not in hap:
+                        counter_gene += 1
+                    else:
+                        counter_pseudo += 1
+            if (
+                intergenic_depth > 5
+                and counter_gene == 1
+                and counter_pseudo == 1
+                and two_cp_haps == []
+            ):
+                two_cp_haps = list(ass_haps.values())
+                for hap in two_cp_haps:
+                    if "strcp1" not in hap:
+                        counter_gene += 1
+                    else:
+                        counter_pseudo += 1
 
-        total_cn = len(ass_haps) + len(two_cp_haps)
+            total_cn = len(ass_haps) + len(two_cp_haps)
 
-        # check depth between STRC and pseudogene
-        if self.mdepth is not None:
-            prob = self.depth_prob(int(intergenic_depth), self.mdepth / 2)
-            if prob[0] < 0.9 and counter_gene == 1:
-                counter_gene = None
-                total_cn = None
-            if prob[0] > 0.95 and counter_gene > 1 and two_cp_haps != []:
-                counter_gene = None
-                total_cn = None
+            # check depth between STRC and pseudogene
+            if self.mdepth is not None:
+                prob = self.depth_prob(int(intergenic_depth), self.mdepth / 2)
+                if prob[0] < 0.9 and counter_gene == 1:
+                    counter_gene = None
+                    total_cn = None
+                if prob[0] > 0.95 and counter_gene > 1 and counter_pseudo > 1:
+                    counter_gene = None
+                    total_cn = None
 
         # homozygous case
-        if total_cn == 0:
+        else:
             total_cn = 2
-            if self.del1_reads_partial != set():
+            # both copies are pseudogene
+            if self.del1_reads_partial != set() or "43604720_G_A" in self.homo_sites:
                 counter_gene = 0
             else:
                 counter_gene = 2
