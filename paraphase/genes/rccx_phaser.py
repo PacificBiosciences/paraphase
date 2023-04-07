@@ -367,7 +367,7 @@ class RccxPhaser(Phaser):
                             successful_phasing = True
 
             # add missing links when there is no two-cp haplotypes
-            if two_cp_haplotypes == []:
+            if two_cp_haplotypes == [] and len(ending_copies) <= 2:
                 # add the missing link in cn=4
                 if (
                     len(final_haps) in [3, 4]
@@ -617,7 +617,7 @@ class RccxPhaser(Phaser):
         if ass_haps == [] and self.het_sites == []:
             # homozygous, feed all reads to call variants
             total_cn = 2
-        if total_cn < 2:
+        if total_cn < 2 or len(ending_copies) > 2:
             total_cn = None
 
         annotated_alleles = self.annotate_alleles(
