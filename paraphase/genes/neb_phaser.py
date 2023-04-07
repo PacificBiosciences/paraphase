@@ -31,7 +31,7 @@ class NebPhaser(Phaser):
         self.het_sites = sorted(list(self.candidate_pos))
         self.remove_noisy_sites()
 
-        raw_read_haps = self.get_haplotypes_from_reads(self.het_sites)
+        raw_read_haps = self.get_haplotypes_from_reads()
 
         (
             ass_haps,
@@ -126,6 +126,10 @@ class NebPhaser(Phaser):
         elif len(tri1) > 2 or len(tri3) > 2:
             total_cn = None
             new_alleles = []
+
+        # homozygous case
+        if total_cn == 0:
+            total_cn = None
 
         self.close_handle()
 

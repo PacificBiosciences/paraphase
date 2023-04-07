@@ -96,7 +96,9 @@ class F8Phaser(Phaser):
         self.het_sites = sorted(list(self.candidate_pos))
         self.remove_noisy_sites()
 
-        raw_read_haps = self.get_haplotypes_from_reads(self.het_sites, check_clip=True)
+        raw_read_haps = self.get_haplotypes_from_reads(
+            check_clip=True, kept_sites=["155386300_A_C", "155386860_C_G"]
+        )
 
         (
             ass_haps,

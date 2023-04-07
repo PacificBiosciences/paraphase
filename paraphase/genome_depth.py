@@ -21,13 +21,11 @@ class GenomeDepth:
                 at = line.split()
                 nchr = at[0]
                 pos1 = int(at[1])
-                site_depth = 0
                 for pos in [pos1, pos1 + 1600]:
-                    for pileupcolumn in self._bamh.pileup(
-                        nchr, pos - 1, pos, truncate=True
-                    ):
-                        site_depth = pileupcolumn.get_num_aligned()
-                depth.append(site_depth)
+                    site_depth = self._bamh.count(
+                        nchr, pos - 1, pos, read_callback="all"
+                    )
+                    depth.append(site_depth)
         self.mdepth = np.median(depth)
         self.mad = np.median([abs(a - self.mdepth) for a in depth]) / self.mdepth
 

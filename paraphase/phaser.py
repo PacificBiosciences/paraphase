@@ -10,6 +10,7 @@ from collections import Counter
 import re
 import logging
 from scipy.stats import poisson
+from collections import namedtuple
 from .haplotype_assembler import VariantGraph
 
 
@@ -18,6 +19,15 @@ class Phaser:
     clip_5p = r"^\d+S|^\d+H"
     clip_3p = r"\d+S$|\d+H$"
     deletion = r"\d+D"
+    GeneCall = namedtuple(
+        "GeneCall",
+        "total_cn final_haplotypes two_copy_haplotypes \
+        highest_total_cn assembled_haplotypes sites_for_phasing \
+        unique_supporting_reads het_sites_not_used_in_phasing homozygous_sites \
+        haplotype_details variant_genotypes nonunique_supporting_reads \
+        read_details genome_depth",
+    )
+    MEAN_BASE_QUAL = 25
 
     def __init__(self, sample_id, outdir, wgs_depth=None, genome_bam=None):
         self.outdir = outdir
@@ -69,11 +79,10 @@ class Phaser:
             depth = []
             nstep = max(1, int((region[1] - region[0]) / ninterval))
             for pos in range(region[0], region[1], nstep):
-                for pileupcolumn in bam_handle.pileup(
-                    self.nchr, pos - 1, pos, truncate=True
-                ):
-                    site_depth = pileupcolumn.get_num_aligned()
-                    depth.append(site_depth)
+                site_depth = bam_handle.count(
+                    self.nchr, pos - 1, pos, read_callback="all"
+                )
+                depth.append(site_depth)
             region_depth.append(np.median(depth))
         return region_depth
 
@@ -209,7 +218,42 @@ class Phaser:
 
     def get_haplotypes_from_reads(
         self,
-        het_sites,
+        exclude_reads=[],
+        min_mapq=5,
+        min_clip_len=50,
+        check_clip=False,
+        partial_deletion_reads=[],
+        kept_sites=[],
+        add_sites=[],
+    ):
+        """
+        Go through reads and get bases at sites of interest.
+        Two rounds, with variant site filtering in between.
+        """
+        raw_read_haps = self.get_haplotypes_from_reads_step(
+            exclude_reads,
+            min_mapq,
+            min_clip_len,
+            check_clip,
+            partial_deletion_reads,
+        )
+        self.remove_var(raw_read_haps, kept_sites)
+        if self.het_sites != []:
+            for var in add_sites:
+                if var not in self.het_sites:
+                    self.het_sites.append(var)
+        self.het_sites = sorted(self.het_sites)
+        raw_read_haps = self.get_haplotypes_from_reads_step(
+            exclude_reads,
+            min_mapq,
+            min_clip_len,
+            check_clip,
+            partial_deletion_reads,
+        )
+        return raw_read_haps
+
+    def get_haplotypes_from_reads_step(
+        self,
         exclude_reads=[],
         min_mapq=5,
         min_clip_len=50,
@@ -222,41 +266,55 @@ class Phaser:
             read_haps (dict of str:list): collapse each read into just the positions
             of interest. 1 corresponds to ref, 2 corresponds to alt
         """
+        het_sites = self.het_sites
         read_haps = {}
         nvar = len(het_sites)
         for dsnp_index, allele_site in enumerate(het_sites):
             snp_position_gene1, allele1, allele2, *at = allele_site.split("_")
             snp_position = int(snp_position_gene1)
+            reads_with_flanking_indels = []
             for pileupcolumn in self._bamh.pileup(
                 self.nchr,
-                snp_position - 1,
+                snp_position - 2,
                 snp_position,
                 truncate=True,
-                min_base_quality=29,
+                min_base_quality=self.MEAN_BASE_QUAL,
             ):
-                for read in pileupcolumn.pileups:
-                    read_names = self.get_read_names(
-                        read.alignment, partial_deletion_reads
-                    )
-                    for read_name in read_names:
-                        if (
-                            not read.is_del
-                            and not read.is_refskip
-                            and not read.alignment.is_secondary
-                            and read.alignment.mapping_quality >= min_mapq
-                            and read_name not in exclude_reads
-                        ):
-                            read_seq = read.alignment.query_sequence
-                            start_pos = read.query_position
-                            end_pos = start_pos + 1
-                            if end_pos < len(read_seq):
-                                hap = read_seq[start_pos:end_pos]
-                                if read_name not in read_haps:
-                                    read_haps.setdefault(read_name, ["x"] * nvar)
-                                if hap.upper() == allele1.upper():
-                                    read_haps[read_name][dsnp_index] = "1"
-                                elif hap.upper() == allele2.upper():
-                                    read_haps[read_name][dsnp_index] = "2"
+                # require that the base on the read is not flanked by any indels
+                if pileupcolumn.reference_pos == snp_position - 2:
+                    for read in pileupcolumn.pileups:
+                        if read.indel != 0 or read.is_del:
+                            read_names = self.get_read_names(
+                                read.alignment, partial_deletion_reads
+                            )
+                            for read_name in read_names:
+                                reads_with_flanking_indels.append(read_name)
+                if pileupcolumn.reference_pos == snp_position - 1:
+                    for read in pileupcolumn.pileups:
+                        read_names = self.get_read_names(
+                            read.alignment, partial_deletion_reads
+                        )
+                        for read_name in read_names:
+                            if (
+                                not read.is_del
+                                and not read.is_refskip
+                                and not read.alignment.is_secondary
+                                and read.alignment.mapping_quality >= min_mapq
+                                and read_name not in exclude_reads
+                                and read.indel == 0
+                                and read_name not in reads_with_flanking_indels
+                            ):
+                                read_seq = read.alignment.query_sequence
+                                start_pos = read.query_position
+                                end_pos = start_pos + 1
+                                if end_pos < len(read_seq):
+                                    hap = read_seq[start_pos:end_pos]
+                                    if read_name not in read_haps:
+                                        read_haps.setdefault(read_name, ["x"] * nvar)
+                                    if hap.upper() == allele1.upper():
+                                        read_haps[read_name][dsnp_index] = "1"
+                                    elif hap.upper() == allele2.upper():
+                                        read_haps[read_name][dsnp_index] = "2"
 
         # for softclips starting at a predefined position, mark sites as 0 instead of x
         if check_clip:
@@ -269,33 +327,58 @@ class Phaser:
                             self.nchr, clip_position - 10, clip_position + 10
                         ):
                             read_name = self.get_read_name(read)
-                            if read_name in read_haps:
-                                if abs(read.reference_end - clip_position) < 20:
-                                    find_clip_3p = re.findall(
-                                        self.clip_3p, read.cigarstring
-                                    )
-                                    if (
-                                        find_clip_3p != []
-                                        and int(find_clip_3p[0][:-1]) >= min_clip_len
-                                    ):
-                                        read_haps[read_name][dsnp_index] = "0"
+                            if read_name not in read_haps:
+                                read_haps.setdefault(read_name, ["x"] * nvar)
+                            if abs(read.reference_end - clip_position) < 20:
+                                find_clip_3p = re.findall(
+                                    self.clip_3p, read.cigarstring
+                                )
+                                if (
+                                    find_clip_3p != []
+                                    and int(find_clip_3p[0][:-1]) >= min_clip_len
+                                ):
+                                    read_haps[read_name][dsnp_index] = "0"
                 for clip_position in sorted(self.clip_5p_positions, reverse=True):
                     if snp_position < clip_position:
                         for read in self._bamh.fetch(
                             self.nchr, clip_position - 10, clip_position + 10
                         ):
                             read_name = self.get_read_name(read)
-                            if read_name in read_haps:
-                                if abs(read.reference_start - clip_position) < 20:
-                                    find_clip_5p = re.findall(
-                                        self.clip_5p, read.cigarstring
-                                    )
-                                    if (
-                                        find_clip_5p != []
-                                        and int(find_clip_5p[0][:-1]) >= min_clip_len
-                                    ):
-                                        read_haps[read_name][dsnp_index] = "0"
+                            if read_name not in read_haps:
+                                read_haps.setdefault(read_name, ["x"] * nvar)
+                            if abs(read.reference_start - clip_position) < 20:
+                                find_clip_5p = re.findall(
+                                    self.clip_5p, read.cigarstring
+                                )
+                                if (
+                                    find_clip_5p != []
+                                    and int(find_clip_5p[0][:-1]) >= min_clip_len
+                                ):
+                                    read_haps[read_name][dsnp_index] = "0"
         return read_haps
+
+    def remove_var(self, raw_read_haps, kept_sites):
+        """remove variants that are not present after checking each read-haplotype"""
+        bases_per_site = {}
+        sites_to_remove = []
+        for i in range(len(self.het_sites)):
+            for read, hap in raw_read_haps.items():
+                base = hap[i]
+                bases_per_site.setdefault(i, []).append(base)
+
+        for pos in bases_per_site:
+            bases = bases_per_site[pos]
+            bases_x = bases.count("x")
+            bases_ref = bases.count("1")
+            bases_alt = bases.count("2")
+            this_var = self.het_sites[pos]
+            if bases_x == len(bases):
+                sites_to_remove.append(this_var)
+            if bases_ref + bases_alt == len(bases) - bases_x and bases_alt <= 3:
+                if this_var not in kept_sites:
+                    sites_to_remove.append(this_var)
+        for var in sites_to_remove:
+            self.het_sites.remove(var)
 
     def allow_del_bases(self, pos):
         return False
@@ -343,53 +426,22 @@ class Phaser:
             del_bases_count = all_bases.count("*")
             # get reference base
             offset_pos = pos - self.offset
-            ref_seq = self._refh.fetch(self.nchr_old, offset_pos - 1, offset_pos)
+            ref_seq_genome = self._refh.fetch(self.nchr_old, offset_pos - 1, offset_pos)
 
             if total_depth >= min_read_support and (
                 del_bases_count < min_read_support or self.allow_del_bases(pos)
             ):
                 all_bases = [a for a in all_bases if a != "*"]
                 counter = Counter(all_bases)
-                bases = counter.most_common(2)
-                if (
-                    len(counter) >= 2
-                    and bases[1][1] >= min_read_support
-                    and bases[1][1] / total_depth > min_vaf
-                ):
-                    var_seq = None
-                    found_ref = ref_seq in [a[0] for a in bases]
-                    for base in bases:
-                        if base[0] != ref_seq:
-                            var_seq = base[0]
-                            break
-                    if found_ref is True and var_seq is not None:
-                        # SNV
-                        if "-" not in var_seq and "+" not in var_seq:
-                            if pos not in self.homopolymer_sites:
-                                variants.setdefault(pos, (ref_seq, var_seq))
-                            else:
-                                prohibited_bases = self.homopolymer_sites[pos].split(
-                                    ","
-                                )
-                                if var_seq not in prohibited_bases:
-                                    if "1" in prohibited_bases:
-                                        variants.setdefault(pos, (ref_seq, var_seq))
-                                    else:
-                                        variants_no_phasing.setdefault(
-                                            pos, (ref_seq, var_seq)
-                                        )
-                        # indels
-                        elif pos not in self.homopolymer_sites:
-                            ref_seq, var_seq, indel_size = self.process_indel(
-                                pos, ref_seq, var_seq
-                            )
-                            if indel_size < 25:
-                                variants_no_phasing.setdefault(pos, (ref_seq, var_seq))
-                elif len(counter) == 1 or (
+                # include multi-allelic sites
+                bases = counter.most_common(3)
+                # homozygous
+                if len(counter) == 1 or (
                     len(counter) >= 2
                     and bases[0][1] > len(all_bases) - min_read_support
                 ):
                     var_seq = bases[0][0]
+                    ref_seq = ref_seq_genome
                     if var_seq != ref_seq:
                         # SNV and indels
                         if "-" not in var_seq and "+" not in var_seq:
@@ -399,7 +451,7 @@ class Phaser:
                                 and del_bases_count >= min_read_support
                                 and pos not in self.homopolymer_sites
                             ):
-                                variants.setdefault(pos, (ref_seq, var_seq))
+                                variants.setdefault(pos, []).append((ref_seq, var_seq))
                             elif pos not in self.homopolymer_sites or (
                                 pos in self.homopolymer_sites
                                 and var_seq
@@ -412,14 +464,54 @@ class Phaser:
                             )
                             if indel_size < 25:
                                 self.homo_sites.append(f"{pos}_{ref_seq}_{var_seq}")
+                elif len(counter) >= 2:
+                    found_ref = ref_seq_genome in [a[0] for a in bases]
+                    if found_ref:
+                        for var_seq, var_count in bases:
+                            ref_seq = ref_seq_genome
+                            if (
+                                var_seq != ref_seq
+                                and var_count >= min_read_support
+                                and var_count / total_depth > min_vaf
+                            ):
+                                # SNV
+                                if "-" not in var_seq and "+" not in var_seq:
+                                    if pos not in self.homopolymer_sites:
+                                        variants.setdefault(pos, []).append(
+                                            (ref_seq, var_seq)
+                                        )
+                                    else:
+                                        prohibited_bases = self.homopolymer_sites[
+                                            pos
+                                        ].split(",")
+                                        if var_seq not in prohibited_bases:
+                                            if "1" in prohibited_bases:
+                                                variants.setdefault(pos, []).append(
+                                                    (ref_seq, var_seq)
+                                                )
+                                            else:
+                                                variants_no_phasing.setdefault(
+                                                    pos, (ref_seq, var_seq)
+                                                )
+                                # indels
+                                elif pos not in self.homopolymer_sites:
+                                    ref_seq, var_seq, indel_size = self.process_indel(
+                                        pos, ref_seq, var_seq
+                                    )
+                                    if indel_size < 25:
+                                        variants_no_phasing.setdefault(
+                                            pos, (ref_seq, var_seq)
+                                        )
+
         # exclude variants caused by shifted softclips of the big deletions
         excluded_variants = []
         for region in regions_to_check:
             var_to_check = [a for a in variants if region[0] < a < region[1]]
             excluded_variants += var_to_check
         for pos in variants:
-            if pos not in excluded_variants:
-                ref_seq, var_seq = variants[pos]
+            # for now, filter out multi-allelic sites
+            if pos not in excluded_variants and len(variants[pos]) == 1:
+                ref_seq, var_seq = variants[pos][0]
                 self.candidate_pos.add(f"{pos}_{ref_seq}_{var_seq}")
 
         excluded_variants = []
@@ -648,9 +740,9 @@ class Phaser:
                     ):
                         hap[pos1] = "0"
                     else:
-                        flanking_left = hap[min(0, pos1 - 2) : pos1]
+                        flanking_left = hap[max(0, pos1 - 2) : pos1]
                         flanking_right = hap[
-                            max(pos1 + 1, len(hap)) : max(pos1 + 3, len(hap))
+                            min(pos1 + 1, len(hap)) : min(pos1 + 3, len(hap))
                         ]
                         if "x" not in flanking_left and "x" not in flanking_right:
                             hap[pos1] = "1"
@@ -699,7 +791,7 @@ class Phaser:
             read_count.setdefault(hap, len(lreads))
         return read_count
 
-    def phase_haps(self, raw_read_haps, debug=False):
+    def phase_haps(self, raw_read_haps, min_support=4, debug=False):
         """
         Assemble and evaluate haplotypes
         """
@@ -722,8 +814,45 @@ class Phaser:
             )
             ass_haps, original_haps, hcn = hap_graph.run(debug=debug, make_plot=debug)
 
-        read_support = VariantGraph.match_reads_and_haplotypes(raw_read_haps, ass_haps)
+        (
+            uniquely_supporting_reads,
+            nonuniquely_supporting_reads,
+            read_counts,
+        ) = self.get_read_support(raw_read_haps, haplotypes_to_reads, ass_haps)
 
+        # remove spurious ones
+        ass_haps = self.adjust_spurious_haplotypes(uniquely_supporting_reads)
+        (
+            uniquely_supporting_reads,
+            nonuniquely_supporting_reads,
+            read_counts,
+        ) = self.get_read_support(raw_read_haps, haplotypes_to_reads, ass_haps)
+
+        # remove low-support ones
+        ass_haps = [
+            a
+            for a in uniquely_supporting_reads
+            if len(uniquely_supporting_reads[a]) >= min_support
+        ]
+        (
+            uniquely_supporting_reads,
+            nonuniquely_supporting_reads,
+            read_counts,
+        ) = self.get_read_support(raw_read_haps, haplotypes_to_reads, ass_haps)
+
+        return (
+            ass_haps,
+            original_haps,
+            hcn,
+            uniquely_supporting_reads,
+            nonuniquely_supporting_reads,
+            raw_read_haps,
+            read_counts,
+        )
+
+    def get_read_support(self, raw_read_haps, haplotypes_to_reads, ass_haps):
+        """Find uniquely and nonuniquely supporting reads for given haplotypes"""
+        read_support = VariantGraph.match_reads_and_haplotypes(raw_read_haps, ass_haps)
         uniquely_supporting_haps = read_support.unique
         read_counts = self.get_read_counts(uniquely_supporting_haps)
 
@@ -744,12 +873,8 @@ class Phaser:
                     read, read_support.by_read[read]
                 )
         return (
-            ass_haps,
-            original_haps,
-            hcn,
             uniquely_supporting_reads,
             nonuniquely_supporting_reads,
-            raw_read_haps,
             read_counts,
         )
 
@@ -796,7 +921,11 @@ class Phaser:
             for pos in sites:
                 hap_base = sites[pos]
                 for pileupcolumn in bamh.pileup(
-                    self.nchr, pos - 1, pos, truncate=True, min_base_quality=29
+                    self.nchr,
+                    pos - 1,
+                    pos,
+                    truncate=True,
+                    min_base_quality=self.MEAN_BASE_QUAL,
                 ):
                     bases = [a.upper() for a in pileupcolumn.get_query_sequences()]
                     base_num = bases.count(hap_base)
@@ -814,6 +943,135 @@ class Phaser:
                     two_cp_haps.append(hap)
 
         return two_cp_haps
+
+    def adjust_spurious_haplotypes(self, uniquely_supporting_reads, flanking_bp=10):
+        """Identify spurious haplotypes caused by locally misaligned reads"""
+        passing_haplotypes = list(uniquely_supporting_reads.keys())
+        suspicious_hap_pair = []
+        lhap = uniquely_supporting_reads.keys()
+        for hap1 in lhap:
+            for hap2 in lhap:
+                if hap1 != hap2:
+                    nmatch = 0
+                    nmismatch = 0
+                    mismatch_sites = []
+                    for i, base1 in enumerate(hap1):
+                        base2 = hap2[i]
+                        if "x" not in [base1, base2]:
+                            if base1 == base2:
+                                nmatch += 1
+                            elif base1 in ["1", "2"] and base2 in ["1", "2"]:
+                                nmismatch += 1
+                                mismatch_sites.append(self.het_sites[i])
+                    if nmatch >= 5 and nmismatch == 1 and len(mismatch_sites) == 1:
+                        mismatch_pos = int(mismatch_sites[0].split("_")[0])
+                        hap1_reads = uniquely_supporting_reads[hap1]
+                        hap2_reads = uniquely_supporting_reads[hap2]
+                        hap_pair = None
+                        if len(hap1_reads) <= 5 and len(hap2_reads) >= 6:
+                            hap_pair = [hap2, hap1]
+                        elif len(hap2_reads) <= 5 and len(hap1_reads) >= 6:
+                            hap_pair = [hap1, hap2]
+                        if (
+                            hap_pair is not None
+                            and [
+                                hap_pair,
+                                mismatch_pos,
+                            ]
+                            not in suspicious_hap_pair
+                        ):
+                            suspicious_hap_pair.append([hap_pair, mismatch_pos])
+
+        for hap_pair, mismatch_pos in suspicious_hap_pair:
+            hap1, hap2 = hap_pair
+            hap1_reads = uniquely_supporting_reads[hap1]
+            hap2_reads = uniquely_supporting_reads[hap2]
+            hap1_reads_at_pos = []
+            hap2_reads_at_pos = []
+            for pileupcolumn in self._bamh.pileup(
+                self.nchr,
+                mismatch_pos - 1,
+                mismatch_pos,
+                truncate=True,
+                min_base_quality=self.MEAN_BASE_QUAL,
+            ):
+                for read in pileupcolumn.pileups:
+                    if not read.is_del and not read.is_refskip:
+                        read_name = read.alignment.query_name
+                        read_seq = read.alignment.query_sequence
+                        read_pos = read.query_position
+                        if (
+                            read_name in hap1_reads + hap2_reads
+                            and read_pos >= flanking_bp
+                            and read_pos + flanking_bp < len(read_seq)
+                        ):
+                            start_pos = read_pos - flanking_bp
+                            end_pos = read_pos + flanking_bp
+                            if read_name in hap1_reads:
+                                hap1_reads_at_pos.append(read_seq[start_pos:end_pos])
+                            if read_name in hap2_reads:
+                                hap2_reads_at_pos.append(read_seq[start_pos:end_pos])
+
+            if set(hap1_reads_at_pos).intersection(set(hap2_reads_at_pos)) != set():
+                passing_haplotypes.remove(hap2)
+        return passing_haplotypes
+
+    def call(self):
+        """Main function to phase haplotypes and call copy numbers"""
+        if self.check_coverage_before_analysis() is False:
+            return None
+        self.get_homopolymer()
+        self.get_candidate_pos()
+        self.het_sites = sorted(list(self.candidate_pos))
+        self.remove_noisy_sites()
+
+        raw_read_haps = self.get_haplotypes_from_reads()
+
+        (
+            ass_haps,
+            original_haps,
+            hcn,
+            uniquely_supporting_reads,
+            nonuniquely_supporting_reads,
+            raw_read_haps,
+            read_counts,
+        ) = self.phase_haps(raw_read_haps)
+
+        tmp = {}
+        for i, hap in enumerate(ass_haps):
+            tmp.setdefault(hap, f"hap{i+1}")
+        ass_haps = tmp
+
+        haplotypes = None
+        dvar = None
+        if self.het_sites != []:
+            haplotypes, dvar = self.output_variants_in_haplotypes(
+                ass_haps,
+                uniquely_supporting_reads,
+                nonuniquely_supporting_reads,
+            )
+
+        two_cp_haps = self.compare_depth(haplotypes)
+        total_cn = len(ass_haps) + len(two_cp_haps)
+
+        self.close_handle()
+
+        return self.GeneCall(
+            total_cn,
+            ass_haps,
+            two_cp_haps,
+            hcn,
+            original_haps,
+            self.het_sites,
+            uniquely_supporting_reads,
+            self.het_no_phasing,
+            self.homo_sites,
+            haplotypes,
+            dvar,
+            nonuniquely_supporting_reads,
+            raw_read_haps,
+            self.mdepth,
+        )
 
     def close_handle(self):
         self._bamh.close()

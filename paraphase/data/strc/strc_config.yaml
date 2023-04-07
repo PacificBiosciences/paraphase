@@ -19,6 +19,8 @@ coordinates:
 
     depth_region: [[43610000, 43660000]]
 
+    pivot_site: 43602487
+
     left_boundary: 43599500
     right_boundary: 43619600
 

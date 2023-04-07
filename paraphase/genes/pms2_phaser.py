@@ -27,9 +27,9 @@ class Pms2Phaser(Phaser):
         self.het_sites = sorted(list(self.candidate_pos))
         self.remove_noisy_sites()
         # for distinguishing pms2 from pms2cl
-        self.het_sites.append("5989137_G_A")
-
-        raw_read_haps = self.get_haplotypes_from_reads(self.het_sites, check_clip=True)
+        raw_read_haps = self.get_haplotypes_from_reads(
+            check_clip=True, add_sites=["5989137_G_A"]
+        )
 
         (
             ass_haps,
@@ -77,6 +77,11 @@ class Pms2Phaser(Phaser):
         # bigger cnvs are not handled here yet
         if pms2_cn != 2:
             pms2_cn = None
+
+        # homozygous case
+        if total_cn == 0:
+            total_cn = None
+
         self.close_handle()
 
         return self.GeneCall(
