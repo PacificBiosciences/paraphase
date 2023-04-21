@@ -1,4 +1,5 @@
-from .paraphase import main
+from .paraphase import Paraphase
 
 if __name__ == "__main__":
-    main()
+    app = Paraphase()
+    app.run()

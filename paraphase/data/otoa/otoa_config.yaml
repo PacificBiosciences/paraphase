@@ -1,0 +1,10 @@
+gene: otoa
+data:
+ reference: otoa_ref.fa
+coordinates:
+ hg38:
+  nchr: chr16
+  nchr_old: chr16_21729103_21760729
+  nchr_length: 90338345
+  extract_region1: chr16:21729103-21760729
+  extract_region2: chr16:22545231-22576871

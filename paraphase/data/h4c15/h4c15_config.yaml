@@ -1,0 +1,10 @@
+gene: h4c15
+data:
+ reference: h4c15_ref.fa
+coordinates:
+ hg38:
+  nchr: chr1
+  nchr_old: chr1_149850000_149865000
+  nchr_length: 248956422
+  extract_region1: chr1:149850000-149865000
+  extract_region2: chr1:149828816-149843518

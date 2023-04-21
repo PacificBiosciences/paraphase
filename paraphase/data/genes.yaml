@@ -1,0 +1,17 @@
+# accepted_genes: [
+#     "smn1",
+#     "rccx",
+#     "pms2",
+#     "strc",
+#     "ncf1",
+#     "cfc1",
+#     "neb",
+#     "ikbkg",
+#     "f8",
+# ]
+
+genome_depth_genes: ["smn1", "strc", "ncf1"]
+
+no_vcf_genes: ["f8"]
+
+check_sex_genes: ["opn1lw"]

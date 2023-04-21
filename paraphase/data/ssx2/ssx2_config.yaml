@@ -1,0 +1,14 @@
+gene: ssx2
+check_nm: 0.1
+use_supplementary: True
+is_reverse: True
+to_phase: True
+data:
+ reference: ssx2_ref.fa
+coordinates:
+ hg38:
+  nchr: chrX
+  nchr_old: chrX_52696000_52729000
+  nchr_length: 156040895
+  extract_region1: chrX:52696000-52762432
+  extract_region2: ""

@@ -51,7 +51,7 @@ class BamRealigner:
         realign_cmd = (
             f"{self.samtools} view -F 0x100 -F 0x200 -F 0x800 {self.bam} {self.extract_region1} {self.extract_region2} | "
             + f'awk \'BEGIN {{FS="\\t"}} {{print "@" $1 "\\n" $10 "\\n+\\n" $11}}\''
-            + f" | {self.minimap2} -a -x map-pb {self.ref} - | {self.samtools} view -b | {self.samtools} sort > {self.realign_bam}"
+            + f" | {self.minimap2} -a -x map-pb -r2k {self.ref} - | {self.samtools} view -b | {self.samtools} sort > {self.realign_bam}"
         )
         result = subprocess.run(realign_cmd, capture_output=True, text=True, shell=True)
         result.check_returncode()

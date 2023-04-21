@@ -2,7 +2,7 @@
 # Author: Xiao Chen <xchen@pacificbiosciences.com>
 
 
-from collections import namedtuple
+from collections import namedtuple, Counter
 import copy
 from ..phaser import Phaser
 
@@ -121,6 +121,28 @@ class RccxPhaser(Phaser):
                                     alleles[a_index].append(hap2)
                                 if hap1 not in alleles[a_index]:
                                     alleles[a_index].append(hap1)
+        if len(alleles) > 2:
+            while True:
+                to_merge = []
+                for hap in reads:
+                    hap_found_in_alleles = [hap in a for a in alleles]
+                    if hap_found_in_alleles.count(True) > 1:
+                        to_merge.append(hap)
+                        break
+                if to_merge == []:
+                    break
+                new_alleles = []
+                hap = to_merge[0]
+                merged = []
+                for each_allele in alleles:
+                    if hap not in each_allele:
+                        new_alleles.append(each_allele)
+                    else:
+                        merged += each_allele
+                merged = list(set(merged))
+                new_alleles.append(merged)
+                alleles = new_alleles
+
         return alleles, links
 
     def output_variants_in_haplotypes(self, haps, reads, nonunique, two_cp_haps=[]):

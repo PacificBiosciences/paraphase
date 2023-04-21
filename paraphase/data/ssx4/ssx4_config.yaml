@@ -1,0 +1,15 @@
+gene: ssx4
+check_nm: 0.05
+use_supplementary: True
+is_reverse: True
+to_phase: True
+data:
+ reference: ssx4_ref.fa
+coordinates:
+ hg38:
+  nchr: chrX
+  nchr_old: chrX_48380000_48396314
+  nchr_length: 156040895
+  extract_region1: chrX:48380000-48417000
+  extract_region2: ""
+  left_boundary: 48380500

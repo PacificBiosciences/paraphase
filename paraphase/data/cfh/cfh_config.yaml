@@ -1,0 +1,10 @@
+gene: cfh
+data:
+ reference: cfh_ref.fa
+coordinates:
+ hg38:
+  nchr: chr1
+  nchr_old: chr1_196830181_196850000
+  nchr_length: 248956422
+  extract_region1: chr1:196830181-196850000
+  extract_region2: chr1:196745498-196765000

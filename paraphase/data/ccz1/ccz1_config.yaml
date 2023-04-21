@@ -1,0 +1,10 @@
+gene: ccz1
+data:
+ reference: ccz1_ref.fa
+coordinates:
+ hg38:
+  nchr: chr7
+  nchr_old: chr7_5898000_5930000
+  nchr_length: 159345973
+  extract_region1: chr7:5898000-5930000
+  extract_region2: chr7:6794958-6827006
