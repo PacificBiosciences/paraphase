@@ -8,32 +8,49 @@ from ..phaser import Phaser
 
 
 class StrcPhaser(Phaser):
+    fields = (
+        "total_cn",
+        "gene_cn",
+        "final_haplotypes",
+        "two_copy_haplotypes",
+        "intergenic_depth",
+        "highest_total_cn",
+        "assembled_haplotypes",
+        "sites_for_phasing",
+        "unique_supporting_reads",
+        "het_sites_not_used_in_phasing",
+        "homozygous_sites",
+        "haplotype_details",
+        "variant_genotypes",
+        "nonunique_supporting_reads",
+        "read_details",
+        "genome_depth",
+    )
     GeneCall = namedtuple(
         "GeneCall",
-        "total_cn gene_cn final_haplotypes two_copy_haplotypes intergenic_depth \
-        highest_total_cn assembled_haplotypes sites_for_phasing \
-        unique_supporting_reads het_sites_not_used_in_phasing homozygous_sites \
-        haplotype_details variant_genotypes nonunique_supporting_reads \
-        read_details genome_depth",
+        fields,
+        defaults=(None,) * len(fields),
     )
 
-    def __init__(self, sample_id, outdir, wgs_depth=None, genome_bam=None):
-        Phaser.__init__(self, sample_id, outdir, wgs_depth, genome_bam)
+    def __init__(
+        self, sample_id, outdir, genome_depth=None, genome_bam=None, sample_sex=None
+    ):
+        Phaser.__init__(self, sample_id, outdir, genome_depth, genome_bam, sample_sex)
         self.del1_reads = set()
         self.del1_reads_partial = set()
 
     def set_parameter(self, config):
         super().set_parameter(config)
-        self.deletion1_size = config["coordinates"]["hg38"]["deletion1_size"]
-        self.del1_3p_pos1 = config["coordinates"]["hg38"]["del1_3p_pos1"]
-        self.del1_3p_pos2 = config["coordinates"]["hg38"]["del1_3p_pos2"]
-        self.del1_5p_pos1 = config["coordinates"]["hg38"]["del1_5p_pos1"]
-        self.del1_5p_pos2 = config["coordinates"]["hg38"]["del1_5p_pos2"]
-        self.depth_region = config["coordinates"]["hg38"]["depth_region"]
+        self.deletion1_size = config["deletion1_size"]
+        self.del1_3p_pos1 = config["del1_3p_pos1"]
+        self.del1_3p_pos2 = config["del1_3p_pos2"]
+        self.del1_5p_pos1 = config["del1_5p_pos1"]
+        self.del1_5p_pos2 = config["del1_5p_pos2"]
+        self.depth_region = config["depth_region"]
 
     def call(self):
         if self.check_coverage_before_analysis() is False:
-            return None
+            return self.GeneCall()
         genome_bamh = pysam.AlignmentFile(self.genome_bam, "rb")
         intergenic_depth = self.get_regional_depth(genome_bamh, self.depth_region)[0]
         genome_bamh.close()

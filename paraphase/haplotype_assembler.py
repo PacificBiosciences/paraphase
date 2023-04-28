@@ -264,7 +264,12 @@ class VariantGraph:
                     len(self.next_per_node[node1]) > 1
                     and len(self.previous_per_node[node2]) > 1
                     and n <= thres
-                ) or (has_sv and n == 1):
+                ) or (
+                    has_sv
+                    and n == 1
+                    and len(self.next_per_node[node1]) > 1
+                    and len(self.previous_per_node[node2]) > 1
+                ):
                     edges_removed.append((node1, node2, n))
                 else:
                     new_edge_per_position.setdefault(pos, []).append((node1, node2, n))
@@ -1157,4 +1162,6 @@ class VariantGraph:
             reverse=True,
         )
         main_haps = sort_candidates[0][1]
+        if main_haps == []:
+            main_haps = final_haps
         return main_haps, final_haps, highest_cn

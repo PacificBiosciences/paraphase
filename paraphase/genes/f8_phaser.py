@@ -1,30 +1,34 @@
 # paraphase
 # Author: Xiao Chen <xchen@pacificbiosciences.com>
 
-
+import copy
 from collections import namedtuple
 import pysam
 from ..phaser import Phaser
 
 
 class F8Phaser(Phaser):
+    new_fields = copy.deepcopy(Phaser.fields)
+    new_fields.remove("gene_cn")
+    new_fields.remove("alleles_final")
+    new_fields.remove("hap_links")
+    new_fields.insert(3, "sv_called")
+    new_fields.insert(3, "flanking_summary")
     GeneCall = namedtuple(
         "GeneCall",
-        "total_cn final_haplotypes two_copy_haplotypes flanking_summary sv_called \
-        highest_total_cn assembled_haplotypes sites_for_phasing \
-        unique_supporting_reads het_sites_not_used_in_phasing homozygous_sites \
-        haplotype_details variant_genotypes nonunique_supporting_reads \
-        read_details genome_depth",
+        new_fields,
+        defaults=(None,) * len(new_fields),
     )
 
-    def __init__(self, sample_id, outdir, wgs_depth=None, genome_bam=None):
-        Phaser.__init__(self, sample_id, outdir, wgs_depth, genome_bam)
+    def __init__(
+        self, sample_id, outdir, genome_depth=None, genome_bam=None, sample_sex=None
+    ):
+        Phaser.__init__(self, sample_id, outdir, genome_depth, genome_bam, sample_sex)
 
     def set_parameter(self, config):
         super().set_parameter(config)
-        self.extract_region1 = config["coordinates"]["hg38"]["extract_region1"]
-        self.extract_region2, self.extract_region3 = config["coordinates"]["hg38"][
-            "extract_region2"
+        self.extract_region1, self.extract_region2, self.extract_region3 = config[
+            "extract_regions"
         ].split()
 
     def get_read_positions(self, min_extension=5000):
@@ -33,7 +37,7 @@ class F8Phaser(Phaser):
         dpos3 = {}
         genome_bamh = pysam.AlignmentFile(self.genome_bam, "rb")
         for i, extract_region in enumerate(
-            [self.extract_region2, self.extract_region1, self.extract_region3]
+            [self.extract_region1, self.extract_region2, self.extract_region3]
         ):
             pos1, pos2 = extract_region.split(":")[1].split("-")
             pos1 = int(pos1)
@@ -70,7 +74,7 @@ class F8Phaser(Phaser):
 
     def call(self):
         if self.check_coverage_before_analysis() is False:
-            return None
+            return self.GeneCall()
         dpos5, dpos3 = self.get_read_positions()
         self.get_homopolymer()
         self.get_candidate_pos()

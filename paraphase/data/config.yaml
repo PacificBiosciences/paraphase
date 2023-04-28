@@ -1,0 +1,112 @@
+smn1: 
+  data:
+    reference_smn2: ref_smn2.fa
+    smn_match: smn_matching_pos.txt
+    known_haplotypes: known_haplotypes.json
+  realign_region: chr5:70890000-71100000
+  nchr_old_smn2: chr5_70040526_70088546
+  extract_regions: chr5:70041526-70087546 chr5:70916946-70963000
+  pivot_site: 70951946
+  left_boundary: 70917100
+  right_boundary: 70961220
+  noisy_region: [[70946926, 70946958]]
+  strip_c_region_start: 70925087
+  strip_c_region_end: 70953015
+  deletion1_size: 3559
+  deletion2_size: 6310
+  # delta7-8 positions to check
+  del2_3p_pos1: 70948286
+  del2_3p_pos2: 70948569
+  del2_5p_pos1: 70954583
+  del2_5p_pos2: 70954592
+  # smn1 upstream deletion
+  del1_3p_pos1: 70917700
+  del1_3p_pos2: 70917795
+  del1_5p_pos1: 70921067
+  del1_5p_pos2: 70921260
+pms2: 
+  check_nm: 0.1
+  realign_region: chr7:5957000-6010000
+  extract_regions: chr7:5970000-5989062 chr7:6735630-6754792
+  left_boundary: 5970925
+  right_boundary: 5986000
+  clip_3p_positions: [5989126, 5989052]
+  noisy_region: [[5980880, 5980980], [5979663, 5979669], [5975950, 5976080]]
+rccx: 
+  use_supplementary: True
+  data:
+    snp_file: cyp21_diff_sites.txt
+  realign_region: chr6:32013240-32049000
+  extract_regions: chr6:31980000-32046800
+  pivot_site: 32040421
+  clip_3p_positions: [32046127]
+  clip_5p_positions: [32013270]
+  deletion1_size: 6367
+  deletion2_size: 120
+  left_boundary: 32013300
+  right_boundary: 32046000
+  # 120bp sv
+  del2_3p_pos1: 32043700
+  del2_3p_pos2: 32043723
+  del2_5p_pos1: 32043828
+  del2_5p_pos2: 32043865
+  # 6.3kb sv in C4B
+  del1_3p_pos1: 32017400
+  del1_3p_pos2: 32017433
+  del1_5p_pos1: 32023788
+  del1_5p_pos2: 32023798
+strc: 
+  realign_region: chr15:43599000-43620000
+  extract_regions: chr15:43599000-43620000 chr15:43698814-43719466
+  noisy_region: [[43602500, 43603700], [43602165, 43602176]]
+  depth_region: [[43610000, 43660000]]
+  pivot_site: 43602487
+  left_boundary: 43599500
+  right_boundary: 43619600
+  # deletion in pseudogene
+  deletion1_size: 314
+  del1_3p_pos1: 43602628
+  del1_3p_pos2: 43602631
+  del1_5p_pos1: 43602944
+  del1_5p_pos2: 43602948
+cfc1:
+  realign_region: chr2:130587000-130610000
+  extract_regions: chr2:130510753-130533741 chr2:130587000-130610000
+  pivot_site: 130593061
+  left_boundary: 130587000
+  right_boundary: 130610000
+ikbkg: 
+  use_supplementary: True
+  realign_region: chrX:154555600-154575000
+  extract_regions: chrX:154555883-154569698 chrX:154634729-154648555
+  clip_3p_positions: [154569698]
+  clip_5p_positions: [154557136]
+  pivot_site: 154555882
+  left_boundary: 154555780
+  right_boundary: 154568820
+  deletion1_size: 10806
+  del1_3p_pos1: 154558000
+  del1_3p_pos2: 154558030
+  del1_5p_pos1: 154568800
+  del1_5p_pos2: 154568840
+  noisy_region: [[154566998, 154567171], [154555869, 154555876], [154565356, 154565401]]
+ncf1: 
+  check_nm: 0.1
+  realign_region: chr7:74760000-74820000
+  extract_regions: chr7:73215625-73238945 chr7:74769011-74792315 chr7:75153639-75176964
+  pivot_site: 74777265
+  left_boundary: 74769011
+  right_boundary: 74792315
+neb: 
+  use_supplementary: True
+  realign_region: chr2:151578750-151588780
+  extract_regions: chr2:151578700-151609700
+  left_boundary: 151578800
+  right_boundary: 151588500
+  noisy_region: [[151579992, 151580022]]
+f8: 
+  realign_region: chrX:155376007-155387000
+  extract_regions: "chrX:154880316-154890327 chrX:155376007-155386059 chrX:155454650-155464706"
+  clip_3p_positions: [155386059, 155386727]
+  left_boundary: 155376507
+  right_boundary: 155386059

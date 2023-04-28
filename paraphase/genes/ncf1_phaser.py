@@ -1,30 +1,34 @@
 # paraphase
 # Author: Xiao Chen <xchen@pacificbiosciences.com>
 
-
+import copy
 from collections import namedtuple
 from ..phaser import Phaser
 
 
 class Ncf1Phaser(Phaser):
+    new_fields = copy.deepcopy(Phaser.fields)
+    new_fields.insert(4, "pseudo_reads")
+    new_fields.insert(4, "gene_reads")
+    new_fields.remove("alleles_final")
+    new_fields.remove("hap_links")
     GeneCall = namedtuple(
         "GeneCall",
-        "total_cn gene_cn final_haplotypes two_copy_haplotypes gene_reads pseudo_reads \
-        highest_total_cn assembled_haplotypes sites_for_phasing \
-        unique_supporting_reads het_sites_not_used_in_phasing homozygous_sites \
-        haplotype_details variant_genotypes nonunique_supporting_reads \
-        read_details genome_depth",
+        new_fields,
+        defaults=(None,) * len(new_fields),
     )
 
-    def __init__(self, sample_id, outdir, wgs_depth=None):
-        Phaser.__init__(self, sample_id, outdir, wgs_depth)
+    def __init__(
+        self, sample_id, outdir, genome_depth=None, genome_bam=None, sample_sex=None
+    ):
+        Phaser.__init__(self, sample_id, outdir, genome_depth, genome_bam, sample_sex)
 
     def set_parameter(self, config):
         super().set_parameter(config)
 
     def call(self):
         if self.check_coverage_before_analysis() is False:
-            return None
+            return self.GeneCall()
         pivot_site = self.pivot_site
         for pileupcolumn in self._bamh.pileup(
             self.nchr, pivot_site, pivot_site + 1, truncate=True

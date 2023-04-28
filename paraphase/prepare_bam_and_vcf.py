@@ -23,13 +23,12 @@ class BamRealigner:
         self.bam = bam
         self.outdir = outdir
         self.gene = config["gene"]
-        self.nchr = config["coordinates"]["hg38"]["nchr"]
         self.ref = config["data"]["reference"]
-        self.nchr_old = config["coordinates"]["hg38"]["nchr_old"]
+        self.nchr_old = config["nchr_old"]
+        self.nchr = config["nchr"]
         self.offset = int(self.nchr_old.split("_")[1]) - 1
-        self.nchr_length = config["coordinates"]["hg38"]["nchr_length"]
-        self.extract_region1 = config["coordinates"]["hg38"]["extract_region1"]
-        self.extract_region2 = config["coordinates"]["hg38"]["extract_region2"]
+        self.nchr_length = config["nchr_length"]
+        self.extract_regions = config["extract_regions"]
         self.samtools = config["tools"]["samtools"]
         self.minimap2 = config["tools"]["minimap2"]
         self.max_mismatch = 1
@@ -44,14 +43,25 @@ class BamRealigner:
             self.outdir, self.sample_id + f"_{self.gene}_realigned.bam"
         )
 
+    @staticmethod
+    def get_nm(read, min_size=300):
+        deletion = r"\d+D"
+        insertion = r"\d+I"
+        cigar = read.cigarstring
+        deletions_on_read = [int(a[:-1]) for a in re.findall(deletion, cigar)]
+        large_deletions = [a for a in deletions_on_read if a > min_size]
+        insertions_on_read = [int(a[:-1]) for a in re.findall(insertion, cigar)]
+        large_insertions = [a for a in insertions_on_read if a > min_size]
+        return read.get_tag("NM") - sum(large_deletions + large_insertions)
+
     def write_realign_bam(self):
         """
         Realign reads to region of interest and output a tagged bam for visualization
         """
         realign_cmd = (
-            f"{self.samtools} view -F 0x100 -F 0x200 -F 0x800 {self.bam} {self.extract_region1} {self.extract_region2} | "
+            f"{self.samtools} view -F 0x100 -F 0x200 -F 0x800 {self.bam} {self.extract_regions} | sort | uniq | "
             + f'awk \'BEGIN {{FS="\\t"}} {{print "@" $1 "\\n" $10 "\\n+\\n" $11}}\''
-            + f" | {self.minimap2} -a -x map-pb -r2k {self.ref} - | {self.samtools} view -b | {self.samtools} sort > {self.realign_bam}"
+            + f" | {self.minimap2} -a -x map-pb {self.ref} - | {self.samtools} view -b | {self.samtools} sort > {self.realign_bam}"
         )
         result = subprocess.run(realign_cmd, capture_output=True, text=True, shell=True)
         result.check_returncode()
@@ -67,10 +77,11 @@ class BamRealigner:
             reference_lengths=[self.nchr_length],
         )
         for read in realign_bamh.fetch(self.nchr_old):
+            num_mismatch = self.get_nm(read)
             if (
                 read.mapping_quality >= self.min_mapq
                 and read.query_alignment_length >= self.min_aln
-                and (read.get_tag("NM") < read.reference_length * self.max_mismatch)
+                and num_mismatch < read.reference_length * self.max_mismatch
             ):
                 read.reference_start += self.offset
                 ltags = read.tags
@@ -117,8 +128,10 @@ class BamTagger:
         self.outdir = outdir
         self.call_sum = call_sum
         self.gene = config["gene"]
-        self.bam = os.path.join(outdir, self.sample_id + f"_{self.gene}_realigned.bam")
-        self.nchr = config["coordinates"]["hg38"]["nchr"]
+        self.bam = os.path.join(
+            self.outdir, self.sample_id + f"_{self.gene}_realigned.bam"
+        )
+        self.nchr = config["nchr"]
         self._bamh = pysam.AlignmentFile(self.bam, "rb")
         self.tmp_bam = os.path.join(
             self.outdir, self.sample_id + f"_{self.gene}_tmp.bam"
@@ -204,12 +217,14 @@ class BamTagger:
         Write HP tags in output bams.
         """
         call_sum = self.call_sum
+        hp_keys = call_sum.get("final_haplotypes")
+        if hp_keys is None:
+            return
         out_bamh = pysam.AlignmentFile(self.tmp_bam, "wb", template=self._bamh)
         unique_reads = call_sum.get("unique_supporting_reads")
         nonunique_reads = call_sum.get("nonunique_supporting_reads")
         if nonunique_reads is None:
             nonunique_reads = {}
-        hp_keys = call_sum.get("final_haplotypes")
         read_details = call_sum.get("read_details")
         alleles = call_sum.get("alleles_final")
         if alleles is None:
@@ -243,19 +258,24 @@ class VcfGenerater:
 
     search_range = 200
 
-    def __init__(self, sample_id, outdir, config, call_sum):
+    def __init__(self, sample_id, outdir, config, call_sum, tmpdir=None):
         self.sample_id = sample_id
         self.outdir = outdir
+        self.tmpdir = tmpdir
+        if self.tmpdir is None:
+            self.tmpdir = self.outdir
         self.call_sum = call_sum
         self.gene = config["gene"]
         self.bam = os.path.join(
-            outdir, self.sample_id + f"_{self.gene}_realigned_tagged.bam"
+            tmpdir, self.sample_id + f"_{self.gene}_realigned_tagged.bam"
         )
         self.vcf_dir = os.path.join(self.outdir, f"{self.sample_id}_vcfs")
-        self.nchr = config["coordinates"]["hg38"]["nchr"]
-        self.nchr_old = config["coordinates"]["hg38"]["nchr_old"]
+        if os.path.exists(self.vcf_dir) is False:
+            os.makedirs(self.vcf_dir)
+        self.nchr = config["nchr"]
+        self.nchr_old = config["nchr_old"]
         self.offset = int(self.nchr_old.split("_")[1]) - 1
-        self.nchr_length = config["coordinates"]["hg38"]["nchr_length"]
+        self.nchr_length = config["nchr_length"]
         self.ref = config["data"]["reference"]
         self.samtools = config["tools"]["samtools"]
         self.minimap2 = config["tools"]["minimap2"]
@@ -470,7 +490,7 @@ class VcfGenerater:
                     self.get_range_in_other_gene(hap_bound[3]),
                 ]
             hap_bam = os.path.join(
-                self.outdir, self.sample_id + f"_{self.gene}_{hap_name}.bam"
+                self.tmpdir, self.sample_id + f"_{self.gene}_{hap_name}.bam"
             )
 
             realign_cmd = (
@@ -507,10 +527,11 @@ class VcfGenerater:
     def run(self):
         """Process haplotypes one by one"""
         call_sum = self.call_sum
-        if call_sum is None:
+        final_haps = call_sum.get("final_haplotypes")
+        if final_haps is None:
             return
         vars = self.run_step(
-            call_sum["final_haplotypes"],
+            final_haps,
             self.ref,
             self.offset,
         )
@@ -608,9 +629,9 @@ class VcfGenerater:
         i.e. no need to realign to pseudogene reference.
         """
         call_sum = self.call_sum
-        if call_sum is None:
+        final_haps = call_sum.get("final_haplotypes")
+        if final_haps is None:
             return
-        final_haps = call_sum["final_haplotypes"]
         uniq_reads = []
         for read_set in self.call_sum["unique_supporting_reads"].values():
             for read_name in read_set:
@@ -742,9 +763,9 @@ class TwoGeneVcfGenerater(VcfGenerater):
     Make vcf for two-gene scenario
     """
 
-    def __init__(self, sample_id, outdir, config, call_sum):
-        VcfGenerater.__init__(self, sample_id, outdir, config, call_sum)
-        self.nchr_old_gene2 = config["coordinates"]["hg38"]["nchr_old_smn2"]
+    def __init__(self, sample_id, outdir, config, call_sum, tmpdir=None):
+        VcfGenerater.__init__(self, sample_id, outdir, config, call_sum, tmpdir)
+        self.nchr_old_gene2 = config["nchr_old_smn2"]
         self.offset_gene2 = int(self.nchr_old_gene2.split("_")[1]) - 1
         self.ref_gene2 = config["data"]["reference_smn2"]
         self.position_match = config["data"]["smn_match"]
@@ -759,7 +780,7 @@ class TwoGeneVcfGenerater(VcfGenerater):
         in this two-gene scenario
         """
         call_sum = self.call_sum
-        if call_sum is None:
+        if call_sum.get("smn1_haplotypes") is None:
             return
         vars_smn1 = self.run_step(
             call_sum["smn1_haplotypes"],

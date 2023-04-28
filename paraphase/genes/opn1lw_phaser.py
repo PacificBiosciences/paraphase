@@ -25,10 +25,10 @@ class Opn1lwPhaser(Phaser):
     }
     pathogenic_haps = ["LIAVA", "LVAVA", "LIAVS", "MIAVA", "MVVVA", "MVAVA", "LIAIA"]
 
-    def __init__(self, sample_id, outdir, wgs_depth=None, sample_sex=None):
-        Phaser.__init__(
-            self, sample_id, outdir, wgs_depth=wgs_depth, sample_sex=sample_sex
-        )
+    def __init__(
+        self, sample_id, outdir, genome_depth=None, genome_bam=None, sample_sex=None
+    ):
+        Phaser.__init__(self, sample_id, outdir, genome_depth, genome_bam, sample_sex)
 
     def set_parameter(self, config):
         super().set_parameter(config)
@@ -251,7 +251,7 @@ class Opn1lwPhaser(Phaser):
                 new_links,
                 directional_links,
                 directional_links_loose,
-            ) = self.get_alleles_directional(
+            ) = self.phase_alleles(
                 uniquely_supporting_reads,
                 nonuniquely_supporting_reads,
                 raw_read_haps,

@@ -2,30 +2,32 @@
 # Author: Xiao Chen <xchen@pacificbiosciences.com>
 
 
+import copy
 from collections import namedtuple
-from .rccx_phaser import RccxPhaser
 from ..phaser import Phaser
 
 
 class NebPhaser(Phaser):
+    new_fields = copy.deepcopy(Phaser.fields)
+    new_fields.remove("gene_cn")
+    new_fields.insert(5, "repeat_name")
     GeneCall = namedtuple(
         "GeneCall",
-        "total_cn final_haplotypes two_copy_haplotypes alleles_raw alleles_final \
-        repeat_name highest_total_cn assembled_haplotypes sites_for_phasing \
-        unique_supporting_reads het_sites_not_used_in_phasing homozygous_sites \
-        haplotype_details variant_genotypes nonunique_supporting_reads \
-        read_details genome_depth",
+        new_fields,
+        defaults=(None,) * len(new_fields),
     )
 
-    def __init__(self, sample_id, outdir, wgs_depth=None):
-        Phaser.__init__(self, sample_id, outdir, wgs_depth)
+    def __init__(
+        self, sample_id, outdir, genome_depth=None, genome_bam=None, sample_sex=None
+    ):
+        Phaser.__init__(self, sample_id, outdir, genome_depth, genome_bam, sample_sex)
 
     def set_parameter(self, config):
         super().set_parameter(config)
 
     def call(self):
         if self.check_coverage_before_analysis() is False:
-            return None
+            return self.GeneCall()
         self.get_homopolymer()
         self.get_candidate_pos()
         self.het_sites = sorted(list(self.candidate_pos))
@@ -80,7 +82,7 @@ class NebPhaser(Phaser):
         two_cp_haps = []
         if len(ass_haps) == 3 and len(tri1) == 1 and len(tri2) == 1 and len(tri3) == 1:
             two_cp_haps = list(ass_haps.values())
-        elif len(ass_haps) < 6:
+        elif len(ass_haps) < 6 and len(ass_haps) > 1:
             two_cp_haps = self.compare_depth(haplotypes, loose=True)
             if two_cp_haps == [] and read_counts is not None:
                 # check if one haplotype has more reads than others
@@ -108,24 +110,36 @@ class NebPhaser(Phaser):
             tri3.append(tri3[0])
 
         alleles = []
-        new_alleles = []
+        hap_links = {}
         if two_cp_haps == []:
-            alleles, links = RccxPhaser.get_alleles(uniquely_supporting_reads)
-            for allele in alleles:
-                new_allele = []
-                for hap in allele:
-                    new_allele.append(ass_haps[hap])
-                new_alleles.append(new_allele)
+            (alleles, hap_links, _, _,) = self.phase_alleles(
+                uniquely_supporting_reads,
+                nonuniquely_supporting_reads,
+                raw_read_haps,
+                ass_haps,
+                reverse=self.is_reverse,
+            )
+
         total_cn = len(ass_haps) + len(two_cp_haps)
-        # incorract phasing suggests haplotypes with cn > 1
-        if len(new_alleles) == 1 and sorted(new_alleles[0]) == sorted(
-            ass_haps.values()
-        ):
-            new_alleles = []
+        # incorrect phasing suggests haplotypes with cn > 1
+        if len(alleles) == 1 and sorted(alleles[0]) == sorted(ass_haps.values()):
+            alleles = []
             total_cn = None
         elif len(tri1) > 2 or len(tri3) > 2:
             total_cn = None
-            new_alleles = []
+            alleles = []
+
+        # if tri2 has links to both haps in tri1 or tri3
+        if two_cp_haps == [] and len(tri2) == 1 and len(tri1) == 2 and len(tri3) == 2:
+            tri2_links = hap_links.get(tri2[0])
+            if tri2_links is not None:
+                if (
+                    len(set(tri2_links).intersection(set(tri1))) > 1
+                    or len(set(tri2_links).intersection(set(tri3))) > 1
+                ):
+                    total_cn = 6
+                    two_cp_haps = [tri2[0]]
+                    alleles = []
 
         # homozygous case
         if total_cn == 0:
@@ -138,7 +152,7 @@ class NebPhaser(Phaser):
             ass_haps,
             two_cp_haps,
             alleles,
-            new_alleles,
+            hap_links,
             {"tri1": tri1, "tri2": tri2, "tri3": tri3},
             hcn,
             original_haps,
