@@ -49,4 +49,4 @@ class TestParaphase(object):
         try:
             gene_list = app.get_gene_list(gene_input)
         finally:
-            assert gene_list == ["smn1", "ncf1"]
+            assert gene_list == []

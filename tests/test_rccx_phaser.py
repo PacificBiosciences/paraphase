@@ -1,5 +1,4 @@
 import pytest
-import yaml
 import os
 from paraphase.genes.rccx_phaser import RccxPhaser
 
@@ -10,7 +9,6 @@ class TestRccxPhaser(object):
     sample_dir = os.path.join(cur_dir, "test_data")
     sample_id = "HG00733"
     phaser = RccxPhaser(sample_id, sample_dir)
-    # phaser.set_parameter(config)
 
     def test_annotate_var(self):
         allele_var = [[], []]
@@ -77,3 +75,62 @@ class TestRccxPhaser(object):
         ]
         annotated_allele = self.phaser.annotate_var(allele_var)
         assert annotated_allele is None
+
+    def test_annotate_alleles(self):
+        ending_copies = []
+        ass_haps = ["hap1", "hap2", "hap3", "hap4"]
+        two_cp_haplotypes = []
+        alleles = [["hap1", "hap2"], ["hap3", "hap4"]]
+        hap_variants = {
+            "hap1": [],
+            "hap2": [],
+            "hap3": [],
+            "hap4": [],
+        }
+        annotated_alleles = self.phaser.annotate_alleles(
+            True,
+            alleles,
+            hap_variants,
+            ending_copies,
+            ass_haps,
+            two_cp_haplotypes,
+        )
+        assert annotated_alleles == ["WT", "WT"]
+
+        annotated_alleles = self.phaser.annotate_alleles(
+            False,
+            alleles,
+            hap_variants,
+            ending_copies,
+            ass_haps,
+            two_cp_haplotypes,
+        )
+        assert annotated_alleles == []
+
+        ending_copies = ["hap1", "hap2"]
+        annotated_alleles = self.phaser.annotate_alleles(
+            False,
+            alleles,
+            hap_variants,
+            ending_copies,
+            ass_haps,
+            two_cp_haplotypes,
+        )
+        assert annotated_alleles == ["WT", "WT"]
+
+        hap_variants = {
+            "hap1": ["var1"],
+            "hap2": [],
+            "hap3": [],
+            "hap4": [],
+        }
+        ending_copies = ["hap1", "hap2"]
+        annotated_alleles = self.phaser.annotate_alleles(
+            False,
+            alleles,
+            hap_variants,
+            ending_copies,
+            ass_haps,
+            two_cp_haplotypes,
+        )
+        assert annotated_alleles == ["var1", "WT"]

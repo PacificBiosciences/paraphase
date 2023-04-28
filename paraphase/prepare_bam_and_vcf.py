@@ -258,20 +258,14 @@ class VcfGenerater:
 
     search_range = 200
 
-    def __init__(self, sample_id, outdir, config, call_sum, tmpdir=None):
+    def __init__(self, sample_id, outdir, call_sum):
         self.sample_id = sample_id
         self.outdir = outdir
-        self.tmpdir = tmpdir
-        if self.tmpdir is None:
-            self.tmpdir = self.outdir
         self.call_sum = call_sum
+        self.match = {}
+
+    def set_parameter(self, config, tmpdir=None):
         self.gene = config["gene"]
-        self.bam = os.path.join(
-            tmpdir, self.sample_id + f"_{self.gene}_realigned_tagged.bam"
-        )
-        self.vcf_dir = os.path.join(self.outdir, f"{self.sample_id}_vcfs")
-        if os.path.exists(self.vcf_dir) is False:
-            os.makedirs(self.vcf_dir)
         self.nchr = config["nchr"]
         self.nchr_old = config["nchr_old"]
         self.offset = int(self.nchr_old.split("_")[1]) - 1
@@ -282,7 +276,18 @@ class VcfGenerater:
         self.use_supplementary = False
         if "use_supplementary" in config:
             self.use_supplementary = config["use_supplementary"]
-        self.match = {}
+
+        self.tmpdir = tmpdir
+        if self.tmpdir is None:
+            self.tmpdir = self.outdir
+        self.bam = os.path.join(
+            tmpdir, self.sample_id + f"_{self.gene}_realigned_tagged.bam"
+        )
+        if os.path.exists(self.bam) is False:
+            raise Exception(f"{self.bam} does not exist. VCFs are not generated...")
+        self.vcf_dir = os.path.join(self.outdir, f"{self.sample_id}_vcfs")
+        if os.path.exists(self.vcf_dir) is False:
+            os.makedirs(self.vcf_dir)
 
     def get_range_in_other_gene(self, pos):
         """

@@ -85,15 +85,6 @@ class Paraphase:
                                 "Due to low or highly variable genome coverage, genome coverage is not used for depth correction."
                             )
                             gdepth = None
-                if query_genes.intersection(set(self.check_sex_genes)) != set():
-                    logging.info(f"Checking sample sex at {datetime.datetime.now()}...")
-                    depth = GenomeDepth(
-                        bam,
-                        os.path.join(
-                            os.path.dirname(__file__), "data", "sex_region.bed"
-                        ),
-                    )
-                    sample_sex = depth.check_sex()
 
                 phasers = {
                     "smn1": genes.Smn1Phaser(
@@ -119,9 +110,6 @@ class Paraphase:
                         sample_id, tmpdir, gdepth, bam, sample_sex
                     ),
                     "f8": genes.F8Phaser(sample_id, tmpdir, gdepth, bam, sample_sex),
-                    "opn1lw": genes.Opn1lwPhaser(
-                        sample_id, tmpdir, gdepth, bam, sample_sex
-                    ),
                 }
                 for gene in configs:
                     config = configs[gene]
@@ -159,19 +147,17 @@ class Paraphase:
                             vcf_generater = TwoGeneVcfGenerater(
                                 sample_id,
                                 outdir,
-                                config,
                                 phaser_call,
-                                tmpdir=tmpdir,
                             )
+                            vcf_generater.set_parameter(config, tmpdir=tmpdir)
                             vcf_generater.run()
                         else:
                             vcf_generater = VcfGenerater(
                                 sample_id,
                                 outdir,
-                                config,
                                 phaser_call,
-                                tmpdir=tmpdir,
                             )
+                            vcf_generater.set_parameter(config, tmpdir=tmpdir)
                             vcf_generater.run_without_realign()
 
                     sample_out.setdefault(gene, phaser_call)
@@ -289,18 +275,19 @@ class Paraphase:
 
     def get_gene_list(self, gene_input):
         """Get a list of genes to analyze"""
-        all_genes_joined = ",".join(self.accepted_genes)
         if gene_input is None:
             if self.genes_to_call is not None and self.genes_to_call != []:
                 return self.genes_to_call
         else:
-            gene_list = [a for a in gene_input.split(",") if a in self.accepted_genes]
-            if gene_list != []:
-                return gene_list
-            else:
-                logging.warning(
-                    f"Gene names not recognized. Accepted genes are {all_genes_joined}. Running all genes now..."
-                )
+            gene_list = set()
+            for gene in gene_input.split(","):
+                if gene in self.accepted_genes:
+                    gene_list.add(gene)
+                else:
+                    logging.warning(
+                        f"{gene} is not a valid gene name and will be skipped..."
+                    )
+            return list(gene_list)
         return self.accepted_genes
 
     def load_parameters(self):
@@ -334,19 +321,18 @@ class Paraphase:
             required=True,
         )
         parser.add_argument(
-            "-c",
-            "--config",
-            help="Optional path to a user-defined file listing regions to analyze.\n"
-            + "By default Paraphase uses the config file in paraphase/data/config.yaml",
-            required=False,
-        )
-        parser.add_argument(
             "-g",
             "--gene",
             help="Optionally specify which gene(s) to run (separated by comma).\n"
             + "Will run all genes if not specified.\n"
-            + "The full set of accepted genes are defined in the config file.\n"
-            + "Genes to be analyzed can also be defined in paraphase/data/genes.yaml",
+            + "The full set of accepted genes are defined in the config file.\n",
+            required=False,
+        )
+        parser.add_argument(
+            "-c",
+            "--config",
+            help="Optional path to a user-defined config file listing the full set of regions to analyze.\n"
+            + "By default Paraphase uses the config file in paraphase/data/config.yaml",
             required=False,
         )
         parser.add_argument(
@@ -396,6 +382,11 @@ class Paraphase:
             self.parse_configs(region_config=args.config)
             self.get_samtools_minimap2_path(args)
             gene_list = self.get_gene_list(args.gene)
+            if gene_list == []:
+                all_genes_joined = ",".join(self.accepted_genes)
+                raise Exception(
+                    f"Please provide valid gene name(s). Accepted genes are {all_genes_joined}."
+                )
             configs = self.update_config(gene_list, tmpdir, args.reference)
 
             # parse depth file
@@ -420,7 +411,7 @@ class Paraphase:
                         args.novcf,
                     )
                 else:
-                    print(f"{args.bam} bam or bai file doesn't exist")
+                    logging.warning(f"{args.bam} bam or bai file doesn't exist")
             elif args.list is not None:
                 with open(args.list) as f:
                     for line in f:
@@ -428,7 +419,7 @@ class Paraphase:
                         if os.path.exists(bam) and os.path.exists(bam + ".bai"):
                             bamlist.append(bam)
                         else:
-                            print(f"{bam} bam or bai file doesn't exist")
+                            logging.warning(f"{bam} bam or bai file doesn't exist")
 
                 num_threads = args.threads
                 process_sample_partial = partial(

@@ -7,4 +7,3 @@ from .cfc1_phaser import Cfc1Phaser
 from .neb_phaser import NebPhaser
 from .ikbkg_phaser import IkbkgPhaser
 from .f8_phaser import F8Phaser
-from .opn1lw_phaser import Opn1lwPhaser

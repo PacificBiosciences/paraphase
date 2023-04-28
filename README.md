@@ -53,17 +53,18 @@ python setup.py install
 ## Running the program
 
 ```bash
-paraphase -b input.bam -o output_directory
+paraphase -b input.bam -o output_directory -r genome_fasta
 ```
 
 Alternatively when you have a list of bam files
 ```bash
-paraphase -l list.txt -o output_directory
+paraphase -l list.txt -o output_directory -r genome_fasta
 ```
 
 Required parameters:
 - `-b`: Input BAM file or `-l`: text file listing BAM files one per line
 - `-o`: Output directory
+- `-r`: Path to the reference genome fasta file
 
 Optional parameters:
 - `-g`: Gene(s) to analyze. All supported genes will be analyzed if not specified.
