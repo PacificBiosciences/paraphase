@@ -18,6 +18,8 @@ class BamRealigner:
 
     min_mapq = 50
     min_aln = 800
+    deletion = r"\d+D"
+    insertion = r"\d+I"
 
     def __init__(self, bam, outdir, config):
         self.bam = bam
@@ -43,14 +45,12 @@ class BamRealigner:
             self.outdir, self.sample_id + f"_{self.gene}_realigned.bam"
         )
 
-    @staticmethod
-    def get_nm(read, min_size=300):
-        deletion = r"\d+D"
-        insertion = r"\d+I"
+    def get_nm(self, read, min_size=300):
+        """Get number of mismatches excluding big deletions or insertions"""
         cigar = read.cigarstring
-        deletions_on_read = [int(a[:-1]) for a in re.findall(deletion, cigar)]
+        deletions_on_read = [int(a[:-1]) for a in re.findall(self.deletion, cigar)]
         large_deletions = [a for a in deletions_on_read if a > min_size]
-        insertions_on_read = [int(a[:-1]) for a in re.findall(insertion, cigar)]
+        insertions_on_read = [int(a[:-1]) for a in re.findall(self.insertion, cigar)]
         large_insertions = [a for a in insertions_on_read if a > min_size]
         return read.get_tag("NM") - sum(large_deletions + large_insertions)
 
@@ -768,8 +768,11 @@ class TwoGeneVcfGenerater(VcfGenerater):
     Make vcf for two-gene scenario
     """
 
-    def __init__(self, sample_id, outdir, config, call_sum, tmpdir=None):
-        VcfGenerater.__init__(self, sample_id, outdir, config, call_sum, tmpdir)
+    def __init__(self, sample_id, outdir, call_sum):
+        VcfGenerater.__init__(self, sample_id, outdir, call_sum)
+
+    def set_parameter(self, config, tmpdir=None):
+        super().set_parameter(config, tmpdir)
         self.nchr_old_gene2 = config["nchr_old_smn2"]
         self.offset_gene2 = int(self.nchr_old_gene2.split("_")[1]) - 1
         self.ref_gene2 = config["data"]["reference_smn2"]

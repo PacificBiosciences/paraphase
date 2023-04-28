@@ -1074,6 +1074,7 @@ class Phaser:
 
     @staticmethod
     def check_linking_read(aln1, aln2, reverse=False):
+        """Determine the direction of links between two alignments"""
         if reverse is False:
             if aln1[-1] != "x" and aln2[0] != "x":
                 return "1-2"
