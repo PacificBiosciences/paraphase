@@ -8,7 +8,7 @@ def readme():
 
 setup(
     name="paraphase",
-    version="2.2.0",
+    version="2.2.1",
     description="paraphase: HiFi-based caller for highly homologous genes",
     long_description=readme(),
     url="https://github.com/PacificBiosciences/paraphase",
@@ -20,6 +20,6 @@ setup(
     install_requires=["pysam", "numpy", "scipy", "networkx", "matplotlib", "pyyaml"],
     setup_requires=["pytest-runner"],
     tests_require=["pytest"],
-    entry_points={"console_scripts": ["paraphase=paraphase.paraphase:main"]},
+    entry_points={"console_scripts": ["paraphase=paraphase.__main__:main"]},
     long_description_content_type="text/markdown",
 )
