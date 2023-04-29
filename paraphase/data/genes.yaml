@@ -1,0 +1,4 @@
+genes_to_call: []
+genome_depth_genes: ["smn1", "strc", "ncf1"]
+no_vcf_genes: ["f8"]
+check_sex_genes: []

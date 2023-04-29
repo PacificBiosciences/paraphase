@@ -2,26 +2,18 @@
 # Author: Xiao Chen <xchen@pacificbiosciences.com>
 
 
-from collections import namedtuple
 from ..phaser import Phaser
 
 
 class Cfc1Phaser(Phaser):
-    GeneCall = namedtuple(
-        "GeneCall",
-        "total_cn final_haplotypes two_copy_haplotypes \
-        highest_total_cn assembled_haplotypes sites_for_phasing \
-        unique_supporting_reads het_sites_not_used_in_phasing homozygous_sites \
-        haplotype_details variant_genotypes nonunique_supporting_reads \
-        read_details genome_depth",
-    )
-
-    def __init__(self, sample_id, outdir, wgs_depth=None):
-        Phaser.__init__(self, sample_id, outdir, wgs_depth)
+    def __init__(
+        self, sample_id, outdir, genome_depth=None, genome_bam=None, sample_sex=None
+    ):
+        Phaser.__init__(self, sample_id, outdir, genome_depth, genome_bam, sample_sex)
 
     def call(self):
         if self.check_coverage_before_analysis() is False:
-            return None
+            return self.GeneCall()
         self.get_homopolymer()
         self.get_candidate_pos()
         self.het_sites = sorted(list(self.candidate_pos))
@@ -77,8 +69,11 @@ class Cfc1Phaser(Phaser):
 
         return self.GeneCall(
             total_cn,
+            None,
             ass_haps,
             two_cp_haps,
+            None,
+            None,
             hcn,
             original_haps,
             self.het_sites,

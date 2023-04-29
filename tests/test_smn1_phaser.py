@@ -10,14 +10,22 @@ class TestSmn1Phaser(object):
     sample_dir = os.path.join(cur_dir, "test_data")
     sample_id = "HG00733"
     data_dir = os.path.join(os.path.dirname(cur_dir), "paraphase", "data")
-    config_file = os.path.join(data_dir, "smn1", "smn1_config.yaml")
+    config_file = os.path.join(data_dir, "config.yaml")
     with open(config_file, "r") as f:
         config = yaml.safe_load(f)
+    config = config["smn1"]
+    config.setdefault("gene", "smn1")
+    realign_region = config["realign_region"]
+    nchr = realign_region.split(":")[0]
+    nchr_old = realign_region.replace(":", "_").replace("-", "_")
+    config.setdefault("nchr", nchr)
+    config.setdefault("nchr_old", nchr_old)
     data_paths = config.get("data")
     for data_entry in data_paths:
         old_data_file = data_paths[data_entry]
         new_data_file = os.path.join(data_dir, "smn1", old_data_file)
         data_paths[data_entry] = new_data_file
+    data_paths.setdefault("reference", os.path.join(sample_dir, "ref.fa"))
     phaser = Smn1Phaser(sample_id, sample_dir)
     phaser.set_parameter(config)
 
@@ -170,10 +178,17 @@ class TestSmn1Phaser(object):
         smn2_cn, _ = self.phaser.adjust_smn2_cn(1, 1, smn2_haps)
         assert smn2_cn == 2
 
-        # smn2, when there is smn2_del
+        # smn2, when there is smn2_del, only one read
         self.phaser.mdepth = 30
         self.phaser.smn2_reads_splice = 30
         self.phaser.smn2_del_reads_partial = {"r1"}
+        smn2_cn, _ = self.phaser.adjust_smn2_cn(1, 1, smn2_haps)
+        assert smn2_cn == 2
+
+        # smn2, when there is smn2_del, more than one read
+        self.phaser.mdepth = 30
+        self.phaser.smn2_reads_splice = 30
+        self.phaser.smn2_del_reads_partial = {"r1", "r2"}
         smn2_cn, _ = self.phaser.adjust_smn2_cn(1, 1, smn2_haps)
         assert smn2_cn == 1
 

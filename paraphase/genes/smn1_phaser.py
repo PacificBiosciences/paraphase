@@ -9,19 +9,41 @@ from ..phaser import Phaser
 
 
 class Smn1Phaser(Phaser):
-    SmnCall = namedtuple(
-        "SmnCall",
-        "smn1_cn smn2_cn smn2_del78_cn smn1_read_number smn2_read_number \
-        smn2_del78_read_number highest_total_cn smn1_haplotypes smn2_haplotypes \
-        smn2_del78_haplotypes assembled_haplotypes two_copy_haplotypes sites_for_phasing \
-        unique_supporting_reads het_sites_not_used_in_phasing homozygous_sites \
-        haplotype_details variant_genotypes nonunique_supporting_reads \
-        read_details final_haplotypes genome_depth",
+    fields = (
+        "smn1_cn",
+        "smn2_cn",
+        "smn2_del78_cn",
+        "smn1_read_number",
+        "smn2_read_number",
+        "smn2_del78_read_number",
+        "highest_total_cn",
+        "smn1_haplotypes",
+        "smn2_haplotypes",
+        "smn2_del78_haplotypes",
+        "assembled_haplotypes",
+        "two_copy_haplotypes",
+        "sites_for_phasing",
+        "unique_supporting_reads",
+        "het_sites_not_used_in_phasing",
+        "homozygous_sites",
+        "haplotype_details",
+        "variant_genotypes",
+        "nonunique_supporting_reads",
+        "read_details",
+        "final_haplotypes",
+        "genome_depth",
+    )
+    GeneCall = namedtuple(
+        "GeneCall",
+        fields,
+        defaults=(None,) * len(fields),
     )
     HaplotypeInfo = namedtuple("HaplotypeInfo", "variants boundary haplogroup")
 
-    def __init__(self, sample_id, outdir, wgs_depth=None):
-        Phaser.__init__(self, sample_id, outdir, wgs_depth)
+    def __init__(
+        self, sample_id, outdir, genome_depth=None, genome_bam=None, sample_sex=None
+    ):
+        Phaser.__init__(self, sample_id, outdir, genome_depth, genome_bam, sample_sex)
         self.has_smn1 = False
         self.has_smn2 = False
         self.smn1_reads = set()
@@ -35,20 +57,18 @@ class Smn1Phaser(Phaser):
 
     def set_parameter(self, config):
         super().set_parameter(config)
-        self.deletion1_size = config["coordinates"]["hg38"]["deletion1_size"]
-        self.deletion2_size = config["coordinates"]["hg38"]["deletion2_size"]
-        self.del2_3p_pos1 = config["coordinates"]["hg38"]["del2_3p_pos1"]
-        self.del2_3p_pos2 = config["coordinates"]["hg38"]["del2_3p_pos2"]
-        self.del2_5p_pos1 = config["coordinates"]["hg38"]["del2_5p_pos1"]
-        self.del2_5p_pos2 = config["coordinates"]["hg38"]["del2_5p_pos2"]
-        self.del1_3p_pos1 = config["coordinates"]["hg38"]["del1_3p_pos1"]
-        self.del1_3p_pos2 = config["coordinates"]["hg38"]["del1_3p_pos2"]
-        self.del1_5p_pos1 = config["coordinates"]["hg38"]["del1_5p_pos1"]
-        self.del1_5p_pos2 = config["coordinates"]["hg38"]["del1_5p_pos2"]
-        self.strip_c_region_start = config["coordinates"]["hg38"][
-            "strip_c_region_start"
-        ]
-        self.strip_c_region_end = config["coordinates"]["hg38"]["strip_c_region_end"]
+        self.deletion1_size = config["deletion1_size"]
+        self.deletion2_size = config["deletion2_size"]
+        self.del2_3p_pos1 = config["del2_3p_pos1"]
+        self.del2_3p_pos2 = config["del2_3p_pos2"]
+        self.del2_5p_pos1 = config["del2_5p_pos1"]
+        self.del2_5p_pos2 = config["del2_5p_pos2"]
+        self.del1_3p_pos1 = config["del1_3p_pos1"]
+        self.del1_3p_pos2 = config["del1_3p_pos2"]
+        self.del1_5p_pos1 = config["del1_5p_pos1"]
+        self.del1_5p_pos2 = config["del1_5p_pos2"]
+        self.strip_c_region_start = config["strip_c_region_start"]
+        self.strip_c_region_end = config["strip_c_region_end"]
         with open(config["data"]["known_haplotypes"]) as f:
             self.known_haps = json.load(f)
 
@@ -367,7 +387,7 @@ class Smn1Phaser(Phaser):
             # if smn1 cn is 3, then no need to adjust smn2 cn
             if (
                 smn2_cn == 1
-                and self.smn2_del_reads_partial == set()
+                and len(self.smn2_del_reads_partial) <= 1
                 and (smn1_cn is None or smn1_cn <= 2)
             ):
                 # when there is only one haplotype, check if depth is
@@ -379,7 +399,7 @@ class Smn1Phaser(Phaser):
                         two_cp_haps = list(smn2_haps.values())
                         return 2, two_cp_haps
         if smn1_cn is not None:
-            if smn2_cn == 1 and smn1_cn == 2 and self.smn2_del_reads_partial == set():
+            if smn2_cn == 1 and smn1_cn == 2 and len(self.smn2_del_reads_partial) <= 1:
                 haploid_depth = self.smn1_reads_splice / smn1_cn
                 if haploid_depth > 10:
                     depth1 = self.smn2_reads_splice
@@ -478,6 +498,8 @@ class Smn1Phaser(Phaser):
         """
         Main function that calls SMN1/SMN2 copy number and variants
         """
+        if self.check_coverage_before_analysis() is False:
+            return self.GeneCall()
         self.get_homopolymer()
         # find known deletions
         self.smn2_del_reads, self.smn2_del_reads_partial = self.get_long_del_reads(
@@ -513,11 +535,12 @@ class Smn1Phaser(Phaser):
         self.get_candidate_pos(regions_to_check=regions_to_check)
 
         self.het_sites = sorted(list(self.candidate_pos))
+        self.remove_noisy_sites()
         raw_read_haps = self.get_haplotypes_from_reads(add_sites=["70951946_C_T"])
 
         # update reads for those overlapping known deletions
         het_sites = self.het_sites
-        if self.smn2_del_reads_partial != set():
+        if len(self.smn2_del_reads_partial) > 1:
             raw_read_haps, het_sites = self.update_reads_for_deletions(
                 raw_read_haps,
                 het_sites,
@@ -527,7 +550,7 @@ class Smn1Phaser(Phaser):
                 "3",
                 "70948286_smn2_del",
             )
-        if self.smn1_del_reads_partial != set():
+        if len(self.smn1_del_reads_partial) > 1:
             raw_read_haps, het_sites = self.update_reads_for_deletions(
                 raw_read_haps,
                 het_sites,
@@ -603,7 +626,7 @@ class Smn1Phaser(Phaser):
 
         self.close_handle()
 
-        return self.SmnCall(
+        return self.GeneCall(
             smn1_cn,
             smn2_cn,
             smn2_del_cn,

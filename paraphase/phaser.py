@@ -19,17 +19,40 @@ class Phaser:
     clip_5p = r"^\d+S|^\d+H"
     clip_3p = r"\d+S$|\d+H$"
     deletion = r"\d+D"
+    fields = [
+        "total_cn",
+        "gene_cn",
+        "final_haplotypes",
+        "two_copy_haplotypes",
+        "alleles_final",
+        "hap_links",
+        "highest_total_cn",
+        "assembled_haplotypes",
+        "sites_for_phasing",
+        "unique_supporting_reads",
+        "het_sites_not_used_in_phasing",
+        "homozygous_sites",
+        "haplotype_details",
+        "variant_genotypes",
+        "nonunique_supporting_reads",
+        "read_details",
+        "genome_depth",
+    ]
     GeneCall = namedtuple(
         "GeneCall",
-        "total_cn final_haplotypes two_copy_haplotypes \
-        highest_total_cn assembled_haplotypes sites_for_phasing \
-        unique_supporting_reads het_sites_not_used_in_phasing homozygous_sites \
-        haplotype_details variant_genotypes nonunique_supporting_reads \
-        read_details genome_depth",
+        fields,
+        defaults=(None,) * len(fields),
     )
     MEAN_BASE_QUAL = 25
 
-    def __init__(self, sample_id, outdir, wgs_depth=None, genome_bam=None):
+    def __init__(
+        self,
+        sample_id,
+        outdir,
+        wgs_depth=None,
+        genome_bam=None,
+        sample_sex=None,
+    ):
         self.outdir = outdir
         self.sample_id = sample_id
         self.homopolymer_sites = {}
@@ -39,6 +62,7 @@ class Phaser:
         self.candidate_pos = set()
         self.mdepth = wgs_depth
         self.genome_bam = genome_bam
+        self.sample_sex = sample_sex
 
     def set_parameter(self, config):
         self.gene = config["gene"]
@@ -48,29 +72,38 @@ class Phaser:
         if os.path.exists(self.bam) is False:
             raise Exception(f"File {self.bam} not found.")
         self._bamh = pysam.AlignmentFile(self.bam, "rb")
-        self.homopolymer_file = config["data"]["homopolymer"]
-        self.nchr = config["coordinates"]["hg38"]["nchr"]
+        self.nchr = config["nchr"]
         self.ref = config["data"]["reference"]
         self._refh = pysam.FastaFile(self.ref)
-        self.left_boundary = config["coordinates"]["hg38"]["left_boundary"]
-        self.right_boundary = config["coordinates"]["hg38"]["right_boundary"]
+        self.left_boundary = config.get("left_boundary")
+        self.right_boundary = config.get("right_boundary")
         self.pivot_site = None
-        if "pivot_site" in config["coordinates"]["hg38"]:
-            self.pivot_site = config["coordinates"]["hg38"]["pivot_site"]
-        self.nchr_old = config["coordinates"]["hg38"]["nchr_old"]
+        if "pivot_site" in config:
+            self.pivot_site = config["pivot_site"]
+        self.nchr_old = config["nchr_old"]
         self.offset = int(self.nchr_old.split("_")[1]) - 1
+        if self.left_boundary is None:
+            self.left_boundary = int(self.nchr_old.split("_")[1])
+        if self.right_boundary is None:
+            self.right_boundary = int(self.nchr_old.split("_")[2])
         self.use_supplementary = False
         if "use_supplementary" in config:
             self.use_supplementary = config["use_supplementary"]
+        self.to_phase = False
+        if "to_phase" in config:
+            self.to_phase = config["to_phase"]
+        self.is_reverse = False
+        if "is_reverse" in config:
+            self.is_reverse = config["is_reverse"]
         self.clip_3p_positions = []
         self.clip_5p_positions = []
-        if "clip_3p_positions" in config["coordinates"]["hg38"]:
-            self.clip_3p_positions = config["coordinates"]["hg38"]["clip_3p_positions"]
-        if "clip_5p_positions" in config["coordinates"]["hg38"]:
-            self.clip_5p_positions = config["coordinates"]["hg38"]["clip_5p_positions"]
+        if "clip_3p_positions" in config:
+            self.clip_3p_positions = config["clip_3p_positions"]
+        if "clip_5p_positions" in config:
+            self.clip_5p_positions = config["clip_5p_positions"]
         self.noisy_region = []
-        if "noisy_region" in config["coordinates"]["hg38"]:
-            self.noisy_region = config["coordinates"]["hg38"]["noisy_region"]
+        if "noisy_region" in config:
+            self.noisy_region = config["noisy_region"]
 
     def get_regional_depth(self, bam_handle, query_region, ninterval=100):
         """Get depth of the query regions"""
@@ -99,11 +132,29 @@ class Phaser:
         return True
 
     def get_homopolymer(self):
-        """Parse the homopolymer site file"""
-        with open(self.homopolymer_file) as f:
-            for line in f:
-                at = line.split()
-                self.homopolymer_sites.setdefault(int(at[1]), at[-1])
+        """Get the homopolymer sites"""
+        seq = self._refh.fetch(self.nchr_old).upper()
+        nstart = self.offset
+        exclude = {}
+        for i in range(len(seq) - 5):
+            for nu in ["A", "C", "G", "T"]:
+                if seq[i : i + 5].count(nu) >= 5:
+                    for pos in range(i + nstart, i + 7 + nstart):
+                        exclude.setdefault(pos, [])
+                    # position before homopolymer
+                    if seq[i - 1] != nu:
+                        exclude[i + nstart].append(nu)
+                        exclude[i + 1 + nstart] = ["A", "C", "G", "T"]
+                    # position after homopolymer
+                    if seq[i + 5] != nu:
+                        exclude[i + 6 + nstart].append(nu)
+                        exclude[i + 6 + nstart].append("1")
+        exclude = dict(sorted(exclude.items()))
+        for pos in exclude:
+            bases = ",".join(list(set(exclude[pos])))
+            if exclude[pos] == []:
+                bases = "0"
+            self.homopolymer_sites.setdefault(pos, bases)
 
     @staticmethod
     def depth_prob(nread, haploid_depth):
@@ -753,6 +804,8 @@ class Phaser:
         """
         Get unique supporting read counts for each haplotype
         """
+        if uniquely_supporting_haps == {}:
+            return {}
         nhap = len(uniquely_supporting_haps)
         nvar = len(self.het_sites)
         hap_bases = []
@@ -813,6 +866,9 @@ class Phaser:
                 raw_read_haps, pivot_index, figure_id=self.sample_id
             )
             ass_haps, original_haps, hcn = hap_graph.run(debug=debug, make_plot=debug)
+
+        if ass_haps == []:
+            return (ass_haps, original_haps, hcn, {}, {}, raw_read_haps, None)
 
         (
             uniquely_supporting_reads,
@@ -1016,10 +1072,194 @@ class Phaser:
                 passing_haplotypes.remove(hap2)
         return passing_haplotypes
 
+    @staticmethod
+    def check_linking_read(aln1, aln2, reverse=False):
+        """Determine the direction of links between two alignments"""
+        if reverse is False:
+            if aln1[-1] != "x" and aln2[0] != "x":
+                return "1-2"
+            if aln2[-1] != "x" and aln1[0] != "x":
+                return "2-1"
+        else:
+            if aln1[-1] != "x" and aln2[-1] != "x":
+                return "0-0"
+            if aln1[0] != "x" and aln2[0] != "x":
+                return "0-0"
+        return None
+
+    def phase_alleles(
+        self,
+        uniq_reads,
+        nonuniquely_supporting_reads,
+        raw_read_haps,
+        ass_haps,
+        reverse=False,
+        min_read=2,
+    ):
+        """
+        Phase haplotypes into alleles using read evidence
+        """
+        new_reads = {}
+        # unique
+        for hap in uniq_reads:
+            for read in uniq_reads[hap]:
+                short_name = read.split("_sup")[0]
+                new_reads.setdefault(short_name, []).append({read: [hap]})
+        # nonunique
+        for read, supported_haps in nonuniquely_supporting_reads.items():
+            short_name = read.split("_sup")[0]
+            new_reads.setdefault(short_name, []).append({read: supported_haps})
+
+        (
+            nondirected_links,
+            directed_links,
+            directed_links_loose,
+        ) = self.get_directed_links(new_reads, raw_read_haps, ass_haps, reverse)
+
+        read_links = {}
+        for hap_link in nondirected_links:
+            if len(nondirected_links[hap_link]) >= min_read:
+                hap1, hap2 = hap_link.split("-")
+                read_links.setdefault(hap1, []).append(hap2)
+                read_links.setdefault(hap2, []).append(hap1)
+        read_links = dict(
+            sorted(read_links.items(), key=lambda item: len(item[1]), reverse=True)
+        )
+        alleles = Phaser.get_alleles_from_links(read_links, ass_haps.values())
+        return (
+            alleles,
+            read_links,
+            {a: len(b) for a, b in directed_links.items()},
+            {a: Counter(b) for a, b in directed_links_loose.items()},
+        )
+
+    def get_directed_links(self, new_reads, raw_read_haps, ass_haps, reverse):
+        """Get links between haplotypes from reads"""
+        nondirected_links = {}
+        directed_links = {}
+        directed_links_loose = {}
+        for read, hap_info in new_reads.items():
+            nsegment = len(hap_info)
+            if nsegment >= 2:
+                links_found = set()
+                for i in range(nsegment):
+                    for j in range(i + 1, nsegment):
+                        hap_info1 = hap_info[i]
+                        hap_info2 = hap_info[j]
+                        read1, haps1 = list(hap_info1.items())[0]
+                        read2, haps2 = list(hap_info2.items())[0]
+                        aln1 = raw_read_haps[read1]
+                        aln2 = raw_read_haps[read2]
+                        check_link = self.check_linking_read(aln1, aln2, reverse)
+                        if len(haps1) == 1 and len(haps2) == 1:
+                            hap1 = haps1[0]
+                            hap2 = haps2[0]
+                            if hap1 != hap2:
+                                hap1_renamed = ass_haps[hap1]
+                                hap2_renamed = ass_haps[hap2]
+                                link_to_add = f"{hap1_renamed}-{hap2_renamed}"
+                                if link_to_add not in links_found:
+                                    links_found.add(link_to_add)
+                                    nondirected_links.setdefault(
+                                        link_to_add, []
+                                    ).append(1)
+                                if check_link is not None and check_link in [
+                                    "1-2",
+                                    "0-0",
+                                ]:
+                                    directed_links.setdefault(
+                                        f"{hap1_renamed}-{hap2_renamed}", []
+                                    ).append(1)
+                                    directed_links_loose.setdefault(
+                                        hap1_renamed, []
+                                    ).append(hap2_renamed)
+                                elif check_link is not None and check_link in [
+                                    "2-1",
+                                    "0-0",
+                                ]:
+                                    directed_links.setdefault(
+                                        f"{hap2_renamed}-{hap1_renamed}", []
+                                    ).append(1)
+                                    directed_links_loose.setdefault(
+                                        hap2_renamed, []
+                                    ).append(hap1_renamed)
+                        elif len(haps1) == 1 or len(haps2) == 1:
+                            for hap1 in haps1:
+                                for hap2 in haps2:
+                                    if hap1 != hap2:
+                                        hap1_renamed = ass_haps[hap1]
+                                        hap2_renamed = ass_haps[hap2]
+                                        if check_link is not None and check_link in [
+                                            "1-2",
+                                            "0-0",
+                                        ]:
+                                            directed_links_loose.setdefault(
+                                                hap1_renamed, []
+                                            ).append(hap2_renamed)
+                                        elif check_link is not None and check_link in [
+                                            "2-1",
+                                            "0-0",
+                                        ]:
+                                            directed_links_loose.setdefault(
+                                                hap2_renamed, []
+                                            ).append(hap1_renamed)
+        return nondirected_links, directed_links, directed_links_loose
+
+    @staticmethod
+    def get_alleles_from_links(read_links, total_haps):
+        """phase alleles from read_links between reads"""
+        alleles = []
+        if read_links != {}:
+            alleles = [[list(read_links.keys())[0]] + list(read_links.values())[0]]
+            for hap1 in read_links:
+                for hap2 in read_links[hap1]:
+                    hap1_in = sum([hap1 in a for a in alleles])
+                    hap2_in = sum([hap2 in a for a in alleles])
+                    if hap1_in == 0 and hap2_in == 0:
+                        alleles.append([hap1, hap2])
+                    elif hap1_in == 0:
+                        for a in alleles:
+                            if hap2 in a:
+                                a_index = alleles.index(a)
+                                if hap1 not in alleles[a_index]:
+                                    alleles[a_index].append(hap1)
+                                if hap2 not in alleles[a_index]:
+                                    alleles[a_index].append(hap2)
+                    else:
+                        for a in alleles:
+                            if hap1 in a:
+                                a_index = alleles.index(a)
+                                if hap2 not in alleles[a_index]:
+                                    alleles[a_index].append(hap2)
+                                if hap1 not in alleles[a_index]:
+                                    alleles[a_index].append(hap1)
+        # merge alleles
+        while True:
+            to_merge = []
+            for hap in total_haps:
+                hap_found_in_alleles = [hap in a for a in alleles]
+                if hap_found_in_alleles.count(True) > 1:
+                    to_merge.append(hap)
+                    break
+            if to_merge == []:
+                break
+            new_alleles = []
+            hap = to_merge[0]
+            merged = []
+            for each_allele in alleles:
+                if hap not in each_allele:
+                    new_alleles.append(each_allele)
+                else:
+                    merged += each_allele
+            merged = list(set(merged))
+            new_alleles.append(merged)
+            alleles = new_alleles
+        return alleles
+
     def call(self):
         """Main function to phase haplotypes and call copy numbers"""
         if self.check_coverage_before_analysis() is False:
-            return None
+            return self.GeneCall()
         self.get_homopolymer()
         self.get_candidate_pos()
         self.het_sites = sorted(list(self.candidate_pos))
@@ -1044,7 +1284,7 @@ class Phaser:
 
         haplotypes = None
         dvar = None
-        if self.het_sites != []:
+        if ass_haps != {}:
             haplotypes, dvar = self.output_variants_in_haplotypes(
                 ass_haps,
                 uniquely_supporting_reads,
@@ -1054,12 +1294,26 @@ class Phaser:
         two_cp_haps = self.compare_depth(haplotypes)
         total_cn = len(ass_haps) + len(two_cp_haps)
 
+        # phase
+        alleles = []
+        hap_links = {}
+        if self.to_phase is True:
+            (alleles, hap_links, _, _,) = self.phase_alleles(
+                uniquely_supporting_reads,
+                nonuniquely_supporting_reads,
+                raw_read_haps,
+                ass_haps,
+                reverse=self.is_reverse,
+            )
         self.close_handle()
 
         return self.GeneCall(
             total_cn,
+            None,
             ass_haps,
             two_cp_haps,
+            alleles,
+            hap_links,
             hcn,
             original_haps,
             self.het_sites,

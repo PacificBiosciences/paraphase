@@ -8,18 +8,40 @@ from ..phaser import Phaser
 
 
 class RccxPhaser(Phaser):
+    fields = (
+        "total_cn",
+        "final_haplotypes",
+        "two_copy_haplotypes",
+        "starting_hap",
+        "ending_hap",
+        "deletion_hap",
+        "phasing_success",
+        "alleles_final",
+        "annotated_alleles",
+        "hap_variants",
+        "hap_links",
+        "highest_total_cn",
+        "assembled_haplotypes",
+        "sites_for_phasing",
+        "unique_supporting_reads",
+        "het_sites_not_used_in_phasing",
+        "homozygous_sites",
+        "haplotype_details",
+        "variant_genotypes",
+        "nonunique_supporting_reads",
+        "read_details",
+        "genome_depth",
+    )
     GeneCall = namedtuple(
         "GeneCall",
-        "total_cn final_haplotypes two_copy_haplotypes starting_hap ending_hap deletion_hap \
-        phasing_success alleles_final annotated_alleles hap_variants alleles_raw hap_links \
-        highest_total_cn assembled_haplotypes sites_for_phasing \
-        unique_supporting_reads het_sites_not_used_in_phasing homozygous_sites \
-        haplotype_details variant_genotypes nonunique_supporting_reads \
-        read_details genome_depth",
+        fields,
+        defaults=(None,) * len(fields),
     )
 
-    def __init__(self, sample_id, outdir, wgs_depth=None):
-        Phaser.__init__(self, sample_id, outdir, wgs_depth)
+    def __init__(
+        self, sample_id, outdir, genome_depth=None, genome_bam=None, sample_sex=None
+    ):
+        Phaser.__init__(self, sample_id, outdir, genome_depth, genome_bam, sample_sex)
         self.has_gene1 = False
         self.has_gene2 = False
         self.gene1_reads = set()
@@ -40,16 +62,16 @@ class RccxPhaser(Phaser):
                     "_".join([split_line[1], split_line[2], split_line[3]]),
                     split_line[-1],
                 )
-        self.deletion1_size = config["coordinates"]["hg38"]["deletion1_size"]
-        self.deletion2_size = config["coordinates"]["hg38"]["deletion2_size"]
-        self.del2_3p_pos1 = config["coordinates"]["hg38"]["del2_3p_pos1"]
-        self.del2_3p_pos2 = config["coordinates"]["hg38"]["del2_3p_pos2"]
-        self.del2_5p_pos1 = config["coordinates"]["hg38"]["del2_5p_pos1"]
-        self.del2_5p_pos2 = config["coordinates"]["hg38"]["del2_5p_pos2"]
-        self.del1_3p_pos1 = config["coordinates"]["hg38"]["del1_3p_pos1"]
-        self.del1_3p_pos2 = config["coordinates"]["hg38"]["del1_3p_pos2"]
-        self.del1_5p_pos1 = config["coordinates"]["hg38"]["del1_5p_pos1"]
-        self.del1_5p_pos2 = config["coordinates"]["hg38"]["del1_5p_pos2"]
+        self.deletion1_size = config["deletion1_size"]
+        self.deletion2_size = config["deletion2_size"]
+        self.del2_3p_pos1 = config["del2_3p_pos1"]
+        self.del2_3p_pos2 = config["del2_3p_pos2"]
+        self.del2_5p_pos1 = config["del2_5p_pos1"]
+        self.del2_5p_pos2 = config["del2_5p_pos2"]
+        self.del1_3p_pos1 = config["del1_3p_pos1"]
+        self.del1_3p_pos2 = config["del1_3p_pos2"]
+        self.del1_5p_pos1 = config["del1_5p_pos1"]
+        self.del1_5p_pos2 = config["del1_5p_pos2"]
 
     def allow_del_bases(self, pos):
         """
@@ -67,61 +89,6 @@ class RccxPhaser(Phaser):
         ):
             return True
         return False
-
-    @staticmethod
-    def get_alleles(reads):
-        """
-        Phase haplotypes into alleles using read evidence
-        """
-        new_reads = {}
-        for hap in reads:
-            hap_reads = set()
-            for read in reads[hap]:
-                if "sup" not in read:
-                    hap_reads.add(read)
-                else:
-                    hap_reads.add(read.split("_sup")[0])
-            new_reads.setdefault(hap, hap_reads)
-        links = {}
-        checked = set()
-        for hap1 in new_reads:
-            r1 = new_reads[hap1]
-            for hap2 in new_reads:
-                hap_pair = "_".join(sorted([hap1, hap2]))
-                if hap_pair not in checked and hap1 != hap2:
-                    checked.add(hap_pair)
-                    r2 = new_reads[hap2]
-                    read_overlap = r1.intersection(r2)
-                    if len(read_overlap) >= 2:
-                        links.setdefault(hap1, []).append(hap2)
-                        links.setdefault(hap2, []).append(hap1)
-        links = dict(sorted(links.items(), key=lambda item: len(item[1]), reverse=True))
-        alleles = []
-        if links != {}:
-            alleles = [[list(links.keys())[0]] + list(links.values())[0]]
-            for hap1 in links:
-                for hap2 in links[hap1]:
-                    hap1_in = sum([hap1 in a for a in alleles])
-                    hap2_in = sum([hap2 in a for a in alleles])
-                    if hap1_in == 0 and hap2_in == 0:
-                        alleles.append([hap1, hap2])
-                    elif hap1_in == 0:
-                        for a in alleles:
-                            if hap2 in a:
-                                a_index = alleles.index(a)
-                                if hap1 not in alleles[a_index]:
-                                    alleles[a_index].append(hap1)
-                                if hap2 not in alleles[a_index]:
-                                    alleles[a_index].append(hap2)
-                    else:
-                        for a in alleles:
-                            if hap1 in a:
-                                a_index = alleles.index(a)
-                                if hap2 not in alleles[a_index]:
-                                    alleles[a_index].append(hap2)
-                                if hap1 not in alleles[a_index]:
-                                    alleles[a_index].append(hap1)
-        return alleles, links
 
     def output_variants_in_haplotypes(self, haps, reads, nonunique, two_cp_haps=[]):
         """
@@ -221,7 +188,8 @@ class RccxPhaser(Phaser):
             var: "|".join(dvar[var]) for var in dict(sorted(dvar.items()))
         }
 
-    def annotate_var(self, allele_var):
+    @staticmethod
+    def annotate_var(allele_var):
         """annotate an allele with variants"""
         annotated_allele = None
         if len(allele_var) == 2:
@@ -457,7 +425,7 @@ class RccxPhaser(Phaser):
 
     def call(self):
         if self.check_coverage_before_analysis() is False:
-            return None
+            return self.GeneCall()
         self.get_homopolymer()
         self.del2_reads, self.del2_reads_partial = self.get_long_del_reads(
             self.del2_3p_pos1,
@@ -550,13 +518,11 @@ class RccxPhaser(Phaser):
             read_counts,
         ) = self.phase_haps(raw_read_haps)
 
-        tmp1 = {}
-        tmp2 = {}
+        tmp = {}
         for i, hap in enumerate(ass_haps):
             hap_name = f"hap{i+1}"
-            tmp1.setdefault(hap, hap_name)
-            tmp2.setdefault(hap_name, hap)
-        final_haps = tmp1
+            tmp.setdefault(hap, hap_name)
+        final_haps = tmp
         # get haps that extend into tnxb
         ending_copies = [
             final_haps[a]
@@ -572,7 +538,7 @@ class RccxPhaser(Phaser):
 
         haplotypes = None
         dvar = None
-        if self.het_sites != []:
+        if final_haps != {}:
             haplotypes, dvar = self.output_variants_in_haplotypes(
                 final_haps,
                 uniquely_supporting_reads,
@@ -580,22 +546,16 @@ class RccxPhaser(Phaser):
             )
 
         # phase haplotypes into alleles
-        alleles, links = self.get_alleles(uniquely_supporting_reads)
-        # switch to hap name
-        new_alleles = []
-        for pair in alleles:
-            new_pair = []
-            for hap1 in pair:
-                new_pair.append(final_haps[hap1])
-            new_alleles.append(new_pair)
-        new_links = {}
-        for hap in links:
-            hap_links = [final_haps[a] for a in links[hap]]
-            new_links.setdefault(final_haps[hap], []).append(hap_links)
-        links = new_links
+        (alleles, hap_links, _, _,) = self.phase_alleles(
+            uniquely_supporting_reads,
+            nonuniquely_supporting_reads,
+            raw_read_haps,
+            final_haps,
+            reverse=self.is_reverse,
+        )
 
-        successful_phasing, new_alleles, two_cp_haplotypes = self.update_alleles(
-            new_alleles,
+        successful_phasing, alleles, two_cp_haplotypes = self.update_alleles(
+            alleles,
             haplotypes,
             final_haps,
             single_copies,
@@ -622,7 +582,7 @@ class RccxPhaser(Phaser):
 
         annotated_alleles = self.annotate_alleles(
             successful_phasing,
-            new_alleles,
+            alleles,
             hap_variants,
             ending_copies,
             ass_haps,
@@ -639,11 +599,10 @@ class RccxPhaser(Phaser):
             ending_copies,
             single_copies,
             successful_phasing,
-            new_alleles,
+            alleles,
             annotated_alleles,
             hap_variants,
-            alleles,
-            new_links,
+            hap_links,
             hcn,
             original_haps,
             self.het_sites,
