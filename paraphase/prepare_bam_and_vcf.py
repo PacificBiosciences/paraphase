@@ -283,8 +283,6 @@ class VcfGenerater:
         self.bam = os.path.join(
             tmpdir, self.sample_id + f"_{self.gene}_realigned_tagged.bam"
         )
-        if os.path.exists(self.bam) is False:
-            raise Exception(f"{self.bam} does not exist. VCFs are not generated...")
         self.vcf_dir = os.path.join(self.outdir, f"{self.sample_id}_vcfs")
         if os.path.exists(self.vcf_dir) is False:
             os.makedirs(self.vcf_dir)
