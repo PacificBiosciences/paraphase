@@ -1,4 +1,5 @@
 from setuptools import setup
+import paraphase
 
 
 def readme():
@@ -8,7 +9,7 @@ def readme():
 
 setup(
     name="paraphase",
-    version="2.2.1",
+    version=paraphase.__version__,
     description="paraphase: HiFi-based caller for highly homologous genes",
     long_description=readme(),
     url="https://github.com/PacificBiosciences/paraphase",

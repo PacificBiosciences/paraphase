@@ -33,6 +33,14 @@ class Paraphase:
         self.samtools = None
         self.minimap2 = None
 
+    @staticmethod
+    def get_version():
+        with open(os.path.join(os.path.dirname(__file__), "__init__.py")) as f:
+            for line in f:
+                if "version" in line:
+                    return line.split('"')[1]
+        return None
+
     def parse_configs(self, region_config=None):
         """
         Parse config files
@@ -364,6 +372,9 @@ class Paraphase:
             "--minimap2",
             help="Optional path to minimap2",
             required=False,
+        )
+        parser.add_argument(
+            "-v", "--version", action="version", version=f"{self.get_version()}"
         )
         return parser
 
