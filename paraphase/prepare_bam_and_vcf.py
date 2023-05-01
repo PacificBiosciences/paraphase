@@ -18,6 +18,7 @@ class BamRealigner:
 
     min_mapq = 50
     min_aln = 800
+    max_mismatch = 0.1
     deletion = r"\d+D"
     insertion = r"\d+I"
 
@@ -33,7 +34,6 @@ class BamRealigner:
         self.extract_regions = config["extract_regions"]
         self.samtools = config["tools"]["samtools"]
         self.minimap2 = config["tools"]["minimap2"]
-        self.max_mismatch = 1
         if "check_nm" in config:
             self.max_mismatch = config["check_nm"]
         self._bamh = pysam.AlignmentFile(bam, "rb")
@@ -283,8 +283,6 @@ class VcfGenerater:
         self.bam = os.path.join(
             tmpdir, self.sample_id + f"_{self.gene}_realigned_tagged.bam"
         )
-        if os.path.exists(self.bam) is False:
-            raise Exception(f"{self.bam} does not exist. VCFs are not generated...")
         self.vcf_dir = os.path.join(self.outdir, f"{self.sample_id}_vcfs")
         if os.path.exists(self.vcf_dir) is False:
             os.makedirs(self.vcf_dir)

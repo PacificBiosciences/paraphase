@@ -33,6 +33,14 @@ class Paraphase:
         self.samtools = None
         self.minimap2 = None
 
+    @staticmethod
+    def get_version():
+        with open(os.path.join(os.path.dirname(__file__), "__init__.py")) as f:
+            for line in f:
+                if "version" in line:
+                    return line.split('"')[1]
+        return None
+
     def parse_configs(self, region_config=None):
         """
         Parse config files
@@ -86,6 +94,16 @@ class Paraphase:
                             )
                             gdepth = None
 
+                if query_genes.intersection(set(self.check_sex_genes)) != set():
+                    logging.info(f"Checking sample sex at {datetime.datetime.now()}...")
+                    depth = GenomeDepth(
+                        bam,
+                        os.path.join(
+                            os.path.dirname(__file__), "data", "sex_region.bed"
+                        ),
+                    )
+                    sample_sex = depth.check_sex()
+
                 phasers = {
                     "smn1": genes.Smn1Phaser(
                         sample_id, tmpdir, gdepth, bam, sample_sex
@@ -110,6 +128,9 @@ class Paraphase:
                         sample_id, tmpdir, gdepth, bam, sample_sex
                     ),
                     "f8": genes.F8Phaser(sample_id, tmpdir, gdepth, bam, sample_sex),
+                    "opn1lw": genes.Opn1lwPhaser(
+                        sample_id, tmpdir, gdepth, bam, sample_sex
+                    ),
                 }
                 for gene in configs:
                     config = configs[gene]
@@ -364,6 +385,9 @@ class Paraphase:
             "--minimap2",
             help="Optional path to minimap2",
             required=False,
+        )
+        parser.add_argument(
+            "-v", "--version", action="version", version=f"{self.get_version()}"
         )
         return parser
 

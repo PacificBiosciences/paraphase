@@ -110,3 +110,57 @@ f8:
   clip_3p_positions: [155386059, 155386727]
   left_boundary: 155376507
   right_boundary: 155386059
+
+opn1lw: 
+  use_supplementary: True
+  realign_region: chrX:154140047-154182441
+  extract_regions: chrX:154144047-154294510
+  noisy_region: [[154165300, 154165800]]
+  left_boundary: 154144243
+  right_boundary: 154182200
+  pivot_site: 154143410
+  clip_5p_positions: [154144048]
+otoa: 
+  realign_region: chr16:21729103-21760729
+  extract_regions: chr16:22545231-22576871 chr16:21729103-21760729
+h4c15: 
+  realign_region: chr1:149850000-149865000
+  extract_regions: chr1:149828816-149843518 chr1:149850000-149865000
+rsph10b: 
+  realign_region: chr7:5926100-5981000
+  extract_regions: chr7:5926100-5981000 chr7:6743796-6798811
+ssx2: 
+  check_nm: 0.1
+  use_supplementary: True
+  is_reverse: True
+  to_phase: True
+  realign_region: chrX:52696000-52729000
+  extract_regions: chrX:52696000-52762432
+ssx4: 
+  check_nm: 0.05
+  use_supplementary: True
+  is_reverse: True
+  to_phase: True
+  realign_region: chrX:48380000-48396314
+  extract_regions: chrX:48380000-48417000
+  left_boundary: 48380500
+ccz1:
+  realign_region: chr7:5898000-5930000
+  extract_regions: chr7:5898000-5930000 chr7:6794958-6827006
+cfh:
+  realign_region: chr1:196830181-196850000
+  extract_regions: chr1:196745498-196765000 chr1:196830181-196850000
+csag2:
+  realign_region: chrX:152695000-152725000
+  extract_regions: chrX:152695000-152725000 chrX:152743472-152773471
+  check_nm: 0.05
+magea9b:
+  realign_region: chrX:149573131-149602236
+  extract_regions: chrX:149573131-149602236  chrX:149767138-149796257
+spanxa1:
+  realign_region: chrX:141574145-141585260
+  extract_regions: chrX:141574145-141585260  chrX:141589190-141600285
+  use_supplementary: True
+  is_reverse: True
+  to_phase: True
+  
