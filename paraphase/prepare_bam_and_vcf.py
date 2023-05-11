@@ -18,7 +18,7 @@ class BamRealigner:
 
     min_mapq = 50
     min_aln = 800
-    max_mismatch = 0.1
+    max_mismatch = 0.04
     deletion = r"\d+D"
     insertion = r"\d+I"
 
