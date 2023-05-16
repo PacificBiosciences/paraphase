@@ -62,7 +62,107 @@ class Paraphase:
         self.no_vcf_genes = gene_config_parsed.get("no_vcf_genes")
         self.check_sex_genes = gene_config_parsed.get("check_sex_genes")
 
-    def process_sample(self, bamlist, outdir, configs, tmpdir, dcov={}, novcf=False):
+    def process_gene(self, gene_list, configs, sample_id, outdir, tmpdir, gdepth, bam, sample_sex, novcf):
+        """Workflow for each region"""
+        phaser_calls = {}
+        for gene in gene_list:
+            try:
+                if gene == "smn1":
+                    phaser = genes.Smn1Phaser(
+                                sample_id, tmpdir, gdepth, bam, sample_sex
+                            )
+                elif gene == "rccx":
+                    phaser = genes.RccxPhaser(
+                                sample_id, tmpdir, gdepth, bam, sample_sex
+                            )
+                elif gene == "pms2":
+                    phaser = genes.Pms2Phaser(
+                                sample_id, tmpdir, gdepth, bam, sample_sex
+                            )
+                elif gene == "strc":
+                    phaser = genes.StrcPhaser(
+                                sample_id, tmpdir, gdepth, bam, sample_sex
+                            )
+                elif gene == "ncf1":
+                    phaser = genes.Ncf1Phaser(
+                                sample_id, tmpdir, gdepth, bam, sample_sex
+                            )
+                elif gene == "cfc1":
+                    phaser = genes.Cfc1Phaser(
+                                sample_id, tmpdir, gdepth, bam, sample_sex
+                            )
+                elif gene == "neb":
+                    phaser = genes.NebPhaser(
+                                sample_id, tmpdir, gdepth, bam, sample_sex
+                            )
+                elif gene == "ikbkg":
+                    phaser = genes.IkbkgPhaser(
+                                sample_id, tmpdir, gdepth, bam, sample_sex
+                            )
+                elif gene == "f8":
+                    phaser = genes.F8Phaser(
+                                sample_id, tmpdir, gdepth, bam, sample_sex
+                            )
+                elif gene == "opn1lw":
+                    phaser = genes.Opn1lwPhaser(
+                                sample_id, tmpdir, gdepth, bam, sample_sex
+                            )
+                else:
+                    phaser = Phaser(
+                                sample_id, tmpdir
+                            )
+                
+                config = configs[gene]
+                logging.info(
+                    f"Running analysis for {gene} at {datetime.datetime.now()}..."
+                )
+                logging.info(
+                    f"Realigning reads for {gene} at {datetime.datetime.now()}..."
+                )
+                bam_realigner = BamRealigner(bam, tmpdir, config)
+                bam_realigner.write_realign_bam()
+
+                logging.info(
+                    f"Phasing haplotypes for {gene} at {datetime.datetime.now()}..."
+                )
+
+                phaser.set_parameter(config)
+                phaser_call = phaser.call()._asdict()
+                phaser_calls.setdefault(gene, phaser_call)
+
+                logging.info(
+                    f"Tagging reads for {gene} at {datetime.datetime.now()}..."
+                )
+                bam_tagger = BamTagger(sample_id, tmpdir, config, phaser_call)
+                bam_tagger.write_bam(random_assign=True)
+
+                if novcf is False and gene not in self.no_vcf_genes:
+                    logging.info(
+                        f"Generating VCFs for {gene} at {datetime.datetime.now()}..."
+                    )
+                    if gene == "smn1":
+                        vcf_generater = TwoGeneVcfGenerater(
+                            sample_id,
+                            outdir,
+                            phaser_call,
+                        )
+                        vcf_generater.set_parameter(config, tmpdir=tmpdir)
+                        vcf_generater.run()
+                    else:
+                        vcf_generater = VcfGenerater(
+                            sample_id,
+                            outdir,
+                            phaser_call,
+                        )
+                        vcf_generater.set_parameter(config, tmpdir=tmpdir)
+                        vcf_generater.run_without_realign()
+            except Exception:
+                logging.error(f"Error running {gene}...See error message below")
+                traceback.print_exc()
+                phaser_calls.setdefault(gene, None)
+        return phaser_calls
+
+    def process_sample(self, bamlist, outdir, configs, tmpdir, num_threads=1, dcov={}, novcf=False):
         """Main workflow"""
         for bam in bamlist:
             try:
@@ -104,84 +204,26 @@ class Paraphase:
                     )
                     sample_sex = depth.check_sex()
 
-                phasers = {
-                    "smn1": genes.Smn1Phaser(
-                        sample_id, tmpdir, gdepth, bam, sample_sex
-                    ),
-                    "rccx": genes.RccxPhaser(
-                        sample_id, tmpdir, gdepth, bam, sample_sex
-                    ),
-                    "pms2": genes.Pms2Phaser(
-                        sample_id, tmpdir, gdepth, bam, sample_sex
-                    ),
-                    "strc": genes.StrcPhaser(
-                        sample_id, tmpdir, gdepth, bam, sample_sex
-                    ),
-                    "ncf1": genes.Ncf1Phaser(
-                        sample_id, tmpdir, gdepth, bam, sample_sex
-                    ),
-                    "cfc1": genes.Cfc1Phaser(
-                        sample_id, tmpdir, gdepth, bam, sample_sex
-                    ),
-                    "neb": genes.NebPhaser(sample_id, tmpdir, gdepth, bam, sample_sex),
-                    "ikbkg": genes.IkbkgPhaser(
-                        sample_id, tmpdir, gdepth, bam, sample_sex
-                    ),
-                    "f8": genes.F8Phaser(sample_id, tmpdir, gdepth, bam, sample_sex),
-                    "opn1lw": genes.Opn1lwPhaser(
-                        sample_id, tmpdir, gdepth, bam, sample_sex
-                    ),
-                }
-                for gene in configs:
-                    config = configs[gene]
-                    logging.info(
-                        f"Running analysis for {gene} at {datetime.datetime.now()}..."
-                    )
-                    logging.info(
-                        f"Realigning reads for {gene} at {datetime.datetime.now()}..."
-                    )
-                    bam_realigner = BamRealigner(bam, tmpdir, config)
-                    bam_realigner.write_realign_bam()
-
-                    logging.info(
-                        f"Phasing haplotypes for {gene} at {datetime.datetime.now()}..."
-                    )
-
-                    phaser = phasers.get(gene)
-                    # use default phaser for other genes
-                    if phaser is None:
-                        phaser = Phaser(sample_id, tmpdir)
-                    phaser.set_parameter(config)
-                    phaser_call = phaser.call()._asdict()
-
-                    logging.info(
-                        f"Tagging reads for {gene} at {datetime.datetime.now()}..."
-                    )
-                    bam_tagger = BamTagger(sample_id, tmpdir, config, phaser_call)
-                    bam_tagger.write_bam(random_assign=True)
-
-                    if novcf is False and gene not in self.no_vcf_genes:
-                        logging.info(
-                            f"Generating VCFs for {gene} at {datetime.datetime.now()}..."
-                        )
-                        if gene == "smn1":
-                            vcf_generater = TwoGeneVcfGenerater(
-                                sample_id,
-                                outdir,
-                                phaser_call,
-                            )
-                            vcf_generater.set_parameter(config, tmpdir=tmpdir)
-                            vcf_generater.run()
-                        else:
-                            vcf_generater = VcfGenerater(
-                                sample_id,
-                                outdir,
-                                phaser_call,
-                            )
-                            vcf_generater.set_parameter(config, tmpdir=tmpdir)
-                            vcf_generater.run_without_realign()
-
-                    sample_out.setdefault(gene, phaser_call)
+                process_gene_partial = partial(
+                    self.process_gene,
+                    configs=configs,
+                    sample_id=sample_id,
+                    outdir=outdir,
+                    tmpdir=tmpdir,
+                    gdepth=gdepth,
+                    bam=bam,
+                    sample_sex=sample_sex,
+                    novcf=novcf,
+                )
+                gene_list = list(configs.keys())
+                gene_groups = [gene_list[i::num_threads] for i in range(num_threads)]
+                pool = mp.Pool(num_threads)
+                phaser_calls = pool.map(process_gene_partial, gene_groups)
+                pool.close()
+                pool.join() 
+                for phaser_call_set in phaser_calls:
+                    sample_out.update(phaser_call_set)
+                sample_out = dict(sorted(sample_out.items()))
 
                 logging.info(f"Merging all bams at {datetime.datetime.now()}...")
                 self.merge_bams(query_genes, outdir, tmpdir, sample_id)
@@ -365,7 +407,7 @@ class Paraphase:
         parser.add_argument(
             "-t",
             "--threads",
-            help="Optional number of threads. Only used together with -l",
+            help="Optional number of threads.",
             required=False,
             type=int,
             default=1,
@@ -394,6 +436,7 @@ class Paraphase:
     def run(self):
         parser = self.load_parameters()
         args = parser.parse_args()
+        num_threads = args.threads
         outdir = args.out
         if os.path.exists(outdir) is False:
             os.makedirs(outdir)
@@ -423,6 +466,7 @@ class Paraphase:
 
             # process sample(s)
             bamlist = []
+            # one bam, multithread by gene
             if args.bam is not None:
                 if os.path.exists(args.bam) and os.path.exists(args.bam + ".bai"):
                     bamlist = [args.bam]
@@ -431,11 +475,13 @@ class Paraphase:
                         outdir,
                         configs,
                         tmpdir,
+                        num_threads,
                         dcov,
                         args.novcf,
                     )
                 else:
                     logging.warning(f"{args.bam} bam or bai file doesn't exist")
+            # multiple bams, multithread by sample
             elif args.list is not None:
                 with open(args.list) as f:
                     for line in f:
@@ -445,7 +491,6 @@ class Paraphase:
                         else:
                             logging.warning(f"{bam} bam or bai file doesn't exist")
 
-                num_threads = args.threads
                 process_sample_partial = partial(
                     self.process_sample,
                     outdir=outdir,

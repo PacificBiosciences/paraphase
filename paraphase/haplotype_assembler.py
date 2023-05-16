@@ -791,7 +791,7 @@ class VariantGraph:
                 if node2 not in self.nodes:
                     self.nodes.append(node2)
 
-        for i in [1, 2]:
+        for i in range(5):
             for j in range(self.nvar):
                 node = f"{i}-{j}"
                 if node not in self.nodes:

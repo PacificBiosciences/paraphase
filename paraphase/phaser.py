@@ -425,11 +425,12 @@ class Phaser:
             this_var = self.het_sites[pos]
             if bases_x == len(bases):
                 sites_to_remove.append(this_var)
-            if bases_ref + bases_alt == len(bases) - bases_x and bases_alt <= 3:
+            elif bases_ref + bases_alt == len(bases) - bases_x and (bases_alt <= 3 or bases_ref <= 3):
                 if this_var not in kept_sites:
                     sites_to_remove.append(this_var)
         for var in sites_to_remove:
-            self.het_sites.remove(var)
+            if var in self.het_sites:
+                self.het_sites.remove(var)
 
     def allow_del_bases(self, pos):
         return False
@@ -1279,7 +1280,7 @@ class Phaser:
 
         tmp = {}
         for i, hap in enumerate(ass_haps):
-            tmp.setdefault(hap, f"hap{i+1}")
+            tmp.setdefault(hap, f"{self.gene}_hap{i+1}")
         ass_haps = tmp
 
         haplotypes = None
