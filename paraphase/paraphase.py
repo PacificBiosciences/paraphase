@@ -62,56 +62,61 @@ class Paraphase:
         self.no_vcf_genes = gene_config_parsed.get("no_vcf_genes")
         self.check_sex_genes = gene_config_parsed.get("check_sex_genes")
 
-    def process_gene(self, gene_list, configs, sample_id, outdir, tmpdir, gdepth, bam, sample_sex, novcf):
+    def process_gene(
+        self,
+        gene_list,
+        configs,
+        sample_id,
+        outdir,
+        tmpdir,
+        gdepth,
+        bam,
+        sample_sex,
+        novcf,
+    ):
         """Workflow for each region"""
         phaser_calls = {}
         for gene in gene_list:
             try:
                 if gene == "smn1":
                     phaser = genes.Smn1Phaser(
-                                sample_id, tmpdir, gdepth, bam, sample_sex
-                            )
+                        sample_id, tmpdir, gdepth, bam, sample_sex
+                    )
                 elif gene == "rccx":
                     phaser = genes.RccxPhaser(
-                                sample_id, tmpdir, gdepth, bam, sample_sex
-                            )
+                        sample_id, tmpdir, gdepth, bam, sample_sex
+                    )
                 elif gene == "pms2":
                     phaser = genes.Pms2Phaser(
-                                sample_id, tmpdir, gdepth, bam, sample_sex
-                            )
+                        sample_id, tmpdir, gdepth, bam, sample_sex
+                    )
                 elif gene == "strc":
                     phaser = genes.StrcPhaser(
-                                sample_id, tmpdir, gdepth, bam, sample_sex
-                            )
+                        sample_id, tmpdir, gdepth, bam, sample_sex
+                    )
                 elif gene == "ncf1":
                     phaser = genes.Ncf1Phaser(
-                                sample_id, tmpdir, gdepth, bam, sample_sex
-                            )
+                        sample_id, tmpdir, gdepth, bam, sample_sex
+                    )
                 elif gene == "cfc1":
                     phaser = genes.Cfc1Phaser(
-                                sample_id, tmpdir, gdepth, bam, sample_sex
-                            )
+                        sample_id, tmpdir, gdepth, bam, sample_sex
+                    )
                 elif gene == "neb":
-                    phaser = genes.NebPhaser(
-                                sample_id, tmpdir, gdepth, bam, sample_sex
-                            )
+                    phaser = genes.NebPhaser(sample_id, tmpdir, gdepth, bam, sample_sex)
                 elif gene == "ikbkg":
                     phaser = genes.IkbkgPhaser(
-                                sample_id, tmpdir, gdepth, bam, sample_sex
-                            )
+                        sample_id, tmpdir, gdepth, bam, sample_sex
+                    )
                 elif gene == "f8":
-                    phaser = genes.F8Phaser(
-                                sample_id, tmpdir, gdepth, bam, sample_sex
-                            )
+                    phaser = genes.F8Phaser(sample_id, tmpdir, gdepth, bam, sample_sex)
                 elif gene == "opn1lw":
                     phaser = genes.Opn1lwPhaser(
-                                sample_id, tmpdir, gdepth, bam, sample_sex
-                            )
+                        sample_id, tmpdir, gdepth, bam, sample_sex
+                    )
                 else:
-                    phaser = Phaser(
-                                sample_id, tmpdir
-                            )
-                
+                    phaser = Phaser(sample_id, tmpdir)
+
                 config = configs[gene]
                 logging.info(
                     f"Running analysis for {gene} at {datetime.datetime.now()}..."
@@ -162,7 +167,9 @@ class Paraphase:
                 phaser_calls.setdefault(gene, None)
         return phaser_calls
 
-    def process_sample(self, bamlist, outdir, configs, tmpdir, num_threads=1, dcov={}, novcf=False):
+    def process_sample(
+        self, bamlist, outdir, configs, tmpdir, num_threads=1, dcov={}, novcf=False
+    ):
         """Main workflow"""
         for bam in bamlist:
             try:
@@ -204,26 +211,41 @@ class Paraphase:
                     )
                     sample_sex = depth.check_sex()
 
-                process_gene_partial = partial(
-                    self.process_gene,
-                    configs=configs,
-                    sample_id=sample_id,
-                    outdir=outdir,
-                    tmpdir=tmpdir,
-                    gdepth=gdepth,
-                    bam=bam,
-                    sample_sex=sample_sex,
-                    novcf=novcf,
-                )
                 gene_list = list(configs.keys())
-                gene_groups = [gene_list[i::num_threads] for i in range(num_threads)]
-                pool = mp.Pool(num_threads)
-                phaser_calls = pool.map(process_gene_partial, gene_groups)
-                pool.close()
-                pool.join() 
-                for phaser_call_set in phaser_calls:
-                    sample_out.update(phaser_call_set)
-                sample_out = dict(sorted(sample_out.items()))
+                if num_threads == 1:
+                    sample_out = self.process_gene(
+                        gene_list,
+                        configs,
+                        sample_id,
+                        outdir,
+                        tmpdir,
+                        gdepth,
+                        bam,
+                        sample_sex,
+                        novcf,
+                    )
+                else:
+                    process_gene_partial = partial(
+                        self.process_gene,
+                        configs=configs,
+                        sample_id=sample_id,
+                        outdir=outdir,
+                        tmpdir=tmpdir,
+                        gdepth=gdepth,
+                        bam=bam,
+                        sample_sex=sample_sex,
+                        novcf=novcf,
+                    )
+                    gene_groups = [
+                        gene_list[i::num_threads] for i in range(num_threads)
+                    ]
+                    pool = mp.Pool(num_threads)
+                    phaser_calls = pool.map(process_gene_partial, gene_groups)
+                    pool.close()
+                    pool.join()
+                    for phaser_call_set in phaser_calls:
+                        sample_out.update(phaser_call_set)
+                    sample_out = dict(sorted(sample_out.items()))
 
                 logging.info(f"Merging all bams at {datetime.datetime.now()}...")
                 self.merge_bams(query_genes, outdir, tmpdir, sample_id)

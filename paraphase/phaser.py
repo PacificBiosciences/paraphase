@@ -1279,8 +1279,9 @@ class Phaser:
         ) = self.phase_haps(raw_read_haps)
 
         tmp = {}
+        mod_gene_name = ",".join(self.gene.split("-"))
         for i, hap in enumerate(ass_haps):
-            tmp.setdefault(hap, f"{self.gene}_hap{i+1}")
+            tmp.setdefault(hap, f"{mod_gene_name}_hap{i+1}")
         ass_haps = tmp
 
         haplotypes = None

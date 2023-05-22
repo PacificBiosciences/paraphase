@@ -150,7 +150,7 @@ CENPVL1-CENPVL2:
   is_reverse: True
   to_phase: True
   noisy_region: [[51691779, 51691984]]
-DMRTC1-DMRTC1B:
+DMRTC1-DMRTC1B-FAM236A-FAM236B-FAM236C-FAM236D:
   realign_region: chrX:72861525-72944337
   extract_regions: chrX:72861526-72944337 chrX:72776489-72859301
   left_boundary: 72861527
@@ -202,12 +202,14 @@ MBD3L2-MBD3L2B:
   is_reverse: True
   use_supplementary: True
   to_phase: True
-DEFA1-DEFA1B:
+DEFA1-DEFA1B-DEFA3:
   realign_region: chr8:6974238-6991000
-  extract_regions: chr8:6974238-7010103
-  left_boundary: 6975000
+  extract_regions: chr8:6974238-7010103 chr8:7012454-7022661
+  left_boundary: 6974300
   to_phase: True
   use_supplementary: True
+  check_nm: 0.1
+  noisy_region: [[6984000, 6985910]]
 CCZ1:
   realign_region: chr7:5898000-5930000
   extract_regions: chr7:5898000-5930000 chr7:6794958-6827006
@@ -216,10 +218,6 @@ CSAG2-CSAG3-MAGEA2-MAGEA2B-MAGEA3-MAGEA6:
   realign_region: chrX:152690000-152720620
   extract_regions: chrX:152690000-152720620 chrX:152747848-152778471
   is_reverse: True
-FAM86B1-FAM86B2:
-  realign_region: chr8:12180000-12200000
-  extract_regions: chr8:12180000-12200000 chr8:12422319-12442278
-  check_nm: 0.03
 OR4N4-OR4N4C:
   realign_region: chr15:22085192-22105192
   extract_regions: chr15:21642604-21662721 chr15:22085192-22105192 chr15_KI270727v1_random:376958-396966
@@ -227,34 +225,23 @@ OR4N4-OR4N4C:
 RIMBP3B-RIMBP3-RIMBP3C:
   realign_region: chr22:21380000-21390000
   extract_regions: chr22:21380000-21390000 chr22:21544835-21554839 chr22:18605293-18615282
-TBC1D3F-TBC1D3B-TBC1D3H-TBC1D3K:
-  realign_region: chr17:36424092-36444092
-  extract_regions: chr17:36424093-36443370 chr17:36161160-36180410 chr17:36373012-36392274 chr17:37920612-37937509
-  left_boundary: 36427000
-  right_boundary: 36442000
-  check_nm: 0.03
 
-AGAP9:
-  realign_region: chr10:47501354-47524138
-  extract_regions: chr10:47501355-47524138 chr10:48009452-48032211
-  left_boundary: 47501356
-  right_boundary: 47524137
 AMY2A:
   realign_region: chr1:103611603-103631603
   extract_regions: chr1:103621199-103631603 chr1:103715324-103725728
   left_boundary: 103621200
   right_boundary: 103631602
+AGAP9:
+  realign_region: chr10:47501354-47524138
+  extract_regions: chr10:47501355-47524138 chr10:48009452-48032211
+  left_boundary: 47501356
+  right_boundary: 47524137
 ANXA8-ANXA8L1:
   realign_region: chr10:47466054-47486054
   extract_regions: chr10:47466055-47484745 chr10:46375042-46393727
   left_boundary: 47466056
   right_boundary: 47484744
   is_reverse: True
-ARL17A-ARL17B:
-  realign_region: chr17:46552256-46580191
-  extract_regions: chr17:46552257-46580191 chr17:46334404-46362266
-  left_boundary: 46552258
-  right_boundary: 46580190
 BOLA2-BOLA2B:
   realign_region: chr16:29443972-29463972
   extract_regions: chr16:29449191-29463972 chr16:30188529-30203317
@@ -296,15 +283,15 @@ CTAG1A-CTAG1B:
   right_boundary: 154591326
   is_reverse: True
 CTAGE6-CTAGE15:
-  realign_region: chr7:143746392-143766392
-  extract_regions: chr7:143746393-143766392 chr7:143563074-143583072
+  realign_region: chr7:143746392-143762392
+  extract_regions: chr7:143746393-143762392 chr7:143563074-143579072
   left_boundary: 143746394
-  right_boundary: 143766391
+  right_boundary: 143762392
   is_reverse: True
-CTAGE8-CTAGE9:
-  realign_region: chr7:144257981-144277981
-  extract_regions: chr7:144257982-144272351 chr6:131699755-131714119
-  left_boundary: 144257983
+CTAGE8-CTAGE9-OR2A4-OR2A7-ENPP3:
+  realign_region: chr7:144256000-144277981
+  extract_regions: chr7:144256421-144272351 chr6:131698188-131714119
+  left_boundary: 144256421
   right_boundary: 144272350
 CXorf49-CXorf49B:
   realign_region: chrX:71706328-71726328
@@ -312,17 +299,25 @@ CXorf49-CXorf49B:
   left_boundary: 71706330
   right_boundary: 71726327
   is_reverse: True
-DEFB103A-DEFB103B:
-  realign_region: chr8:7872027-7892027
-  extract_regions: chr8:7872028-7892027 chr8:7419516-7439523
-  left_boundary: 7872029
-  right_boundary: 7892026
+
+DEFB109B-USP17L1-USP17L3-USP17L4-USP17L8:
+  realign_region: chr8:7306409-7339183
+  extract_regions: chr8:7306410-7339183 chr8:7971187-8003955
+  left_boundary: 7306411
+  right_boundary: 7343183
   is_reverse: True
-DEFB104A-DEFB104B:
-  realign_region: chr8:7828839-7848839
-  extract_regions: chr8:7828840-7848839 chr8:7462711-7482717
-  left_boundary: 7828841
-  right_boundary: 7848838
+PRR23D1-PRR23D2:
+  realign_region: chr8:7531038-7546000
+  extract_regions: chr8:7531039-7551038 chr8:7770002-7790002
+  left_boundary: 7531040
+  right_boundary: 7546000
+  is_reverse: True
+
+DEFB107A:
+  realign_region: chr8:7803718-7823718
+  extract_regions: chr8:7803719-7823718 chr8:7487841-7517298
+  left_boundary: 7803720
+  right_boundary: 7823717
   is_reverse: True
 DEFB105A-DEFB105B:
   realign_region: chr8:7812442-7832442
@@ -336,34 +331,48 @@ DEFB106A-DEFB106B:
   left_boundary: 7817098
   right_boundary: 7837095
   is_reverse: True
-DEFB107A:
-  realign_region: chr8:7803718-7823718
-  extract_regions: chr8:7803719-7823718 chr8:7487841-7517298
-  left_boundary: 7803720
-  right_boundary: 7823717
+DEFB104A-DEFB104B:
+  realign_region: chr8:7828839-7848839
+  extract_regions: chr8:7828840-7848839 chr8:7462711-7482717
+  left_boundary: 7828841
+  right_boundary: 7848838
   is_reverse: True
-DEFB109B:
-  realign_region: chr8:7306409-7326409
-  extract_regions: chr8:7306410-7326409 chr8:7983965-8003955
-  left_boundary: 7306411
-  right_boundary: 7326408
+SPAG11A-SPAG11B:
+  realign_region: chr8:7844475-7864475
+  extract_regions: chr8:7844476-7864475 chr8:7447075-7467074
+  left_boundary: 7844477
+  right_boundary: 7864474
   is_reverse: True
-DEFB130A-DEFB130B:
-  realign_region: chr8:12304639-12324639
-  extract_regions: chr8:12304640-12323365 chr8:12058076-12076797
-  left_boundary: 12304641
-  right_boundary: 12323364
+DEFB103A-DEFB103B:
+  realign_region: chr8:7872027-7892027
+  extract_regions: chr8:7872028-7892027 chr8:7419516-7439523
+  left_boundary: 7872029
+  right_boundary: 7892026
+  is_reverse: True
 DEFB4A-DEFB4B:
   realign_region: chr8:7885696-7905696
   extract_regions: chr8:7885697-7905694 chr8:7405899-7425855
   left_boundary: 7885698
   right_boundary: 7905693
   is_reverse: True
-DGCR6:
-  realign_region: chr22:18899204-18919204
-  extract_regions: chr22:18899205-18919204 chr22_KI270734v1_random:124478-144502
-  left_boundary: 18899206
-  right_boundary: 18919203
+
+DEFB130A-DEFB130B:
+  realign_region: chr8:12304639-12324639
+  extract_regions: chr8:12304640-12323365 chr8:12058076-12076797
+  left_boundary: 12304641
+  right_boundary: 12323364
+ZNF705D:
+  realign_region: chr8:12088838-12116016
+  extract_regions: chr8:12088839-12116016 chr8:12335087-12362253 chr8:7930859-7955249
+  left_boundary: 12088840
+  right_boundary: 12116015
+  check_nm: 0.2
+  noisy_region: [[12091626, 12101750]]
+FAM86B1-FAM86B2:
+  realign_region: chr8:12180000-12200000
+  extract_regions: chr8:12180000-12200000 chr8:12422319-12442278 chr8:8222630-8237853
+  check_nm: 0.2
+
 DHX40:
   realign_region: chr17:59565110-59608845
   extract_regions: chr17:59572881-59600110 chr17:59975397-60002602
@@ -376,11 +385,6 @@ EIF3C-EIF3CL:
   left_boundary: 28710966
   right_boundary: 28736095
   is_reverse: True
-ENPP3:
-  realign_region: chr6:131636802-131747910
-  extract_regions: chr6:131698188-131714119 chr7:144256421-144272351
-  left_boundary: 131698189
-  right_boundary: 131714118
 ETDA-ETDB:
   realign_region: chrX:135242822-135262822
   extract_regions: chrX:135242823-135256413 chrX:135116125-135129713
@@ -393,62 +397,18 @@ FAM156A-FAM156B:
   left_boundary: 52942888
   right_boundary: 52962885
   is_reverse: True
-FAM236A-FAM236B:
-  realign_region: chrX:72928582-72948582
-  extract_regions: chrX:72928583-72948582 chrX:72772244-72792240
-  left_boundary: 72928584
-  right_boundary: 72948581
-  is_reverse: True
-FAM236C-FAM236D:
-  realign_region: chrX:72903008-72923008
-  extract_regions: chrX:72903009-72923008 chrX:72797815-72817816
-  left_boundary: 72903010
-  right_boundary: 72923007
-  is_reverse: True
 FAM246A-FAM246B:
   realign_region: chr22:21350950-21370950
   extract_regions: chr22:21350951-21370950 chr22:18624338-18644332
   left_boundary: 21350952
   right_boundary: 21370949
   is_reverse: True
-FAM90A10:
-  realign_region: chr8:7760482-7780482
-  extract_regions: chr8:7760483-7780482 chr8:7540559-7560559
-  left_boundary: 7760484
-  right_boundary: 7780481
-  is_reverse: True
-FAM90A12P:
-  realign_region: chr8:8019447-8039447
-  extract_regions: chr8:8019448-8039447 chr8:7571455-7591455
-  left_boundary: 8019449
-  right_boundary: 8039446
-FAM90A14:
-  realign_region: chr8:7706948-7726948
-  extract_regions: chr8:7706949-7726948 chr8:7248410-7268383
-  left_boundary: 7706950
-  right_boundary: 7726947
-FAM90A23:
-  realign_region: chr8:7571148-7591148
-  extract_regions: chr8:7571149-7591148 chr8:8019142-8039140
-  left_boundary: 7571150
-  right_boundary: 7591147
+
 FCGR2C:
   realign_region: chr1:161580571-161600571
   extract_regions: chr1:161580572-161594218 chr1:161662376-161676049
   left_boundary: 161580573
   right_boundary: 161594217
-FOXD4L3-FOXD4L6:
-  realign_region: chr9:68293975-68313975
-  extract_regions: chr9:68293976-68313975 chr9:41117361-41137343
-  left_boundary: 68293977
-  right_boundary: 68313974
-  is_reverse: True
-FOXD4L4-FOXD4L5:
-  realign_region: chr9:65727771-65747771
-  extract_regions: chr9:65727772-65747771 chr9:65273748-65293756
-  left_boundary: 65727773
-  right_boundary: 65747770
-  is_reverse: True
 FRG2-FRG2B:
   realign_region: chr4:190015811-190035811
   extract_regions: chr4:190023009-190033154 chr10:133622567-133632698
@@ -460,12 +420,26 @@ FRMPD2:
   left_boundary: 48156064
   right_boundary: 48181661
   is_reverse: True
+
+TRAPPC10:
+  realign_region: chr21:44011809-44107052
+  extract_regions: chr21:44095806-44107052 chr21:5155001-5166246
+  left_boundary: 44095807
+  right_boundary: 44107051
+  is_reverse: True
+PWP2:
+  realign_region: chr21:44106899-44131681
+  extract_regions: chr21:44106900-44131681 chr21:5130371-5155153
+  left_boundary: 44106901
+  right_boundary: 44131680
+  is_reverse: True
 GATD3:
   realign_region: chr21:44129697-44149697
   extract_regions: chr21:44129698-44147864 chr21:5114188-5132354
   left_boundary: 44129699
   right_boundary: 44147863
   is_reverse: True
+
 GOLGA6L1-GOLGA6L26:
   realign_region: chr15:23121944-23141944
   extract_regions: chr15:23123715-23141944 chr15:23321180-23339370
@@ -500,34 +474,11 @@ GPAT2:
   left_boundary: 96024400
   right_boundary: 96038430
   is_reverse: True
-GPR89A-GPR89B:
-  realign_region: chr1:145607488-145671150
-  extract_regions: chr1:145607489-145628375 chr1:147927892-147948760
-  left_boundary: 145607490
-  right_boundary: 145628374
-H2AB2-H2AB3:
-  realign_region: chrX:155371004-155391004
-  extract_regions: chrX:155371005-155386727 chrX:155453983-155469711
-  left_boundary: 155371006
-  right_boundary: 155386726
-  is_reverse: True
-H2BC12L:
-  realign_region: chr21:43555415-43575415
-  extract_regions: chr21:43555416-43571979 chr21:5966594-5983156
-  left_boundary: 43555417
-  right_boundary: 43571978
-  is_reverse: True
-HNRNPCL3-HNRNPCL4:
-  realign_region: chr1:13051823-13071823
-  extract_regions: chr1:13055781-13071823 chr1:13154966-13171013
-  left_boundary: 13055782
-  right_boundary: 13071822
-  is_reverse: True
-HSF2BP:
-  realign_region: chr21:43528686-43659988
+HSF2BP-H2BC12L:
+  realign_region: chr21:43528000-43659988
   extract_regions: chr21:43528687-43571979 chr21:5966594-6009880
   left_boundary: 43528688
-  right_boundary: 43571978
+  right_boundary: 43575415
   is_reverse: True
 HSFX1-HSFX2:
   realign_region: chrX:149765467-149785467
@@ -583,10 +534,11 @@ MRPL23:
   left_boundary: 1944689
   right_boundary: 1961965
 NOTCH2-NOTCH2NLR:
-  realign_region: chr1:119911053-120070162
+  realign_region: chr1:119980000-120070162
   extract_regions: chr1:120008822-120070162 chr1:120723414-120784768
   left_boundary: 120008823
-  right_boundary: 120070161
+  right_boundary: 120069700
+  noisy_region: [[120024344, 120024352]]
   is_reverse: True
 NPIPA1:
   realign_region: chr16:14934749-14954749
@@ -604,11 +556,6 @@ NPY4R-NPY4R2:
   left_boundary: 46453530
   right_boundary: 46473527
   is_reverse: True
-NSF:
-  realign_region: chr17:46590169-46757964
-  extract_regions: chr17:46590170-46707123 chr17:46372249-46489410
-  left_boundary: 46590171
-  right_boundary: 46707122
 NUDT4B:
   realign_region: chr1:148740594-148760594
   extract_regions: chr1:148740595-148760594 chr1:146289812-146309811
@@ -661,22 +608,6 @@ PDPK1:
   left_boundary: 2551665
   right_boundary: 2584850
   is_reverse: True
-PDZK1:
-  realign_region: chr1:145670485-145707868
-  extract_regions: chr1:145670486-145686998 chr1:147993363-148009863
-  left_boundary: 145670487
-  right_boundary: 145686997
-PLGLB1-PLGLB2:
-  realign_region: chr2:87006034-87026034
-  extract_regions: chr2:87006035-87026034 chr2:87743902-87763901
-  left_boundary: 87006036
-  right_boundary: 87026033
-  is_reverse: True
-POLR2J2-POLR2J3:
-  realign_region: chr7:102658854-102678854
-  extract_regions: chr7:102658855-102678854 chr7:102559768-102579794
-  left_boundary: 102658856
-  right_boundary: 102678853
 POTEE-POTEF:
   realign_region: chr2:131209036-131265778
   extract_regions: chr2:131209037-131265778 chr2:130073149-130129844
@@ -700,35 +631,12 @@ PPIP5K1:
   extract_regions: chr15:43558938-43590708 chr15:43658492-43690540
   left_boundary: 43558939
   right_boundary: 43590707
-PRAMEF13:
-  realign_region: chr1:13188798-13208798
-  extract_regions: chr1:13188799-13208798 chr1:13020162-13040136
-  left_boundary: 13188800
-  right_boundary: 13208797
-  is_reverse: True
-PRAMEF18:
-  realign_region: chr1:13214424-13234424
-  extract_regions: chr1:13214425-13224571 chr1:13004385-13014535
-  left_boundary: 13214426
-  right_boundary: 13224570
-  is_reverse: True
+
 PRAMEF10-PRAMEF33:
   realign_region: chr1:12885583-12905583
   extract_regions: chr1:12885584-12905583 chr1:13296209-13316218
   left_boundary: 12885585
   right_boundary: 12905582
-  is_reverse: True
-PRAMEF25-PRAMEF26:
-  realign_region: chr1:13064329-13084329
-  extract_regions: chr1:13064330-13084329 chr1:13142460-13162462
-  left_boundary: 13064331
-  right_boundary: 13084328
-  is_reverse: True
-PRAMEF5-PRAMEF6:
-  realign_region: chr1:13248816-13268816
-  extract_regions: chr1:13248817-13268816 chr1:12932973-12952975
-  left_boundary: 13248818
-  right_boundary: 13268815
   is_reverse: True
 PRAMEF7-PRAMEF8:
   realign_region: chr1:12908680-12928680
@@ -736,6 +644,31 @@ PRAMEF7-PRAMEF8:
   left_boundary: 12908682
   right_boundary: 12928679
   is_reverse: True
+PRAMEF5-PRAMEF6:
+  realign_region: chr1:13248816-13268816
+  extract_regions: chr1:13248817-13268816 chr1:12932973-12952975
+  left_boundary: 13248818
+  right_boundary: 13268815
+  is_reverse: True
+PRAMEF25-PRAMEF26-HNRNPCL3-HNRNPCL4:
+  realign_region: chr1:13058000-13084329
+  extract_regions: chr1:13058000-13084329 chr1:13142460-13171013
+  left_boundary: 13058000
+  right_boundary: 13084329
+  is_reverse: True
+PRAMEF13:
+  realign_region: chr1:13191500-13208798
+  extract_regions: chr1:13188799-13208798 chr1:13020162-13040136
+  left_boundary: 13191500
+  right_boundary: 13208797
+  is_reverse: True
+PRAMEF18:
+  realign_region: chr1:13220000-13234424
+  extract_regions: chr1:13220000-13234424 chr1:13004385-13014535
+  left_boundary: 13220900
+  right_boundary: 13234424
+  is_reverse: True
+
 POTED:
   realign_region: chr21:13609277-13646323
   extract_regions: chr21:13609278-13646288 chrUn_GL000213v1:103302-140211
@@ -747,23 +680,17 @@ PRODH:
   extract_regions: chr22:18912282-18936793 chr22_KI270734v1_random:137587-162092
   left_boundary: 18912283
   right_boundary: 18936792
-PRR23D1-PRR23D2:
-  realign_region: chr8:7531038-7551038
-  extract_regions: chr8:7531039-7551038 chr8:7770002-7790002
-  left_boundary: 7531040
-  right_boundary: 7551037
-  is_reverse: True
+DGCR6:
+  realign_region: chr22:18899204-18919204
+  extract_regions: chr22:18899205-18919204 chr22_KI270734v1_random:124478-144502
+  left_boundary: 18899206
+  right_boundary: 18919203
+
 PTPN20:
   realign_region: chr10:46910928-47002822
   extract_regions: chr10:46910929-46991847 chr10:48060017-48140915
   left_boundary: 46910930
   right_boundary: 46991846
-  is_reverse: True
-PWP2:
-  realign_region: chr21:44106899-44131681
-  extract_regions: chr21:44106900-44131681 chr21:5130371-5155153
-  left_boundary: 44106901
-  right_boundary: 44131680
   is_reverse: True
 PWWP4:
   realign_region: chrX:153262648-153282648
@@ -782,6 +709,12 @@ RGPD1-RGPD2:
   left_boundary: 86945217
   right_boundary: 87014475
   is_reverse: True
+PLGLB1-PLGLB2:
+  realign_region: chr2:87006034-87026034
+  extract_regions: chr2:87006035-87026034 chr2:87743902-87763901
+  left_boundary: 87006036
+  right_boundary: 87026033
+  is_reverse: True
 RGPD3-RGPD4:
   realign_region: chr2:106402906-106468913
   extract_regions: chr2:106402907-106466996 chr2:107828900-107893038
@@ -799,13 +732,7 @@ RMND5A:
   extract_regions: chr2:86719792-86743083 chr2:87053644-87076936
   left_boundary: 86719793
   right_boundary: 86743082
-  is_reverse: True
-RNF103:
-  realign_region: chr2:86505168-86721622
-  extract_regions: chr2:86708834-86721620 chr2:87075108-87087879
-  left_boundary: 86708835
-  right_boundary: 86721619
-  is_reverse: True
+  is_reverse: True  
 RSPH10B-RSPH10B2:
   realign_region: chr7:5925636-5971189
   extract_regions: chr7:5927074-5971189 chr7:6753603-6797888
@@ -823,11 +750,13 @@ SIK1:
   left_boundary: 43410809
   right_boundary: 43430806
   is_reverse: True
-SLX1A-SLX1B:
-  realign_region: chr16:30185718-30205718
-  extract_regions: chr16:30188529-30205718 chr16:29449191-29466369
+
+SLX1A-SLX1B-SULT1A3-SULT1A4:
+  realign_region: chr16:30185718-30211782
+  extract_regions: chr16:30188529-30211782 chr16:29449191-29472438
   left_boundary: 30188530
-  right_boundary: 30205717
+  right_boundary: 30211782
+
 SMIM11:
   realign_region: chr21:34372329-34392329
   extract_regions: chr21:34374240-34392329 chr21:7743711-7761805
@@ -838,17 +767,6 @@ SMIM34:
   extract_regions: chr21:34411334-34431333 chr21:7781322-7801320
   left_boundary: 34411335
   right_boundary: 34431332
-SPAG11A-SPAG11B:
-  realign_region: chr8:7844475-7864475
-  extract_regions: chr8:7844476-7864475 chr8:7447075-7467074
-  left_boundary: 7844477
-  right_boundary: 7864474
-  is_reverse: True
-SULT1A3-SULT1A4:
-  realign_region: chr16:30191782-30211782
-  extract_regions: chr16:30191783-30211782 chr16:29452441-29472438
-  left_boundary: 30191784
-  right_boundary: 30211781
 SYT15-SYT15B:
   realign_region: chr10:46575596-46595596
   extract_regions: chr10:46575597-46595596 chr10:47746227-47766206
@@ -856,10 +774,11 @@ SYT15-SYT15B:
   right_boundary: 46595595
   is_reverse: True
 TCAF1:
-  realign_region: chr7:143850875-143902676
+  realign_region: chr7:143850875-143880000
   extract_regions: chr7:143850970-143874696 chr7:143587138-143610973
   left_boundary: 143850971
   right_boundary: 143874695
+  noisy_region: [[143859856, 143860063]]
   is_reverse: True
 TCP11X1-TCP11X2:
   realign_region: chrX:102211048-102231048
@@ -890,12 +809,6 @@ TMSB15B:
   left_boundary: 103954303
   right_boundary: 103974300
   is_reverse: True
-TRAPPC10:
-  realign_region: chr21:44011809-44107052
-  extract_regions: chr21:44095806-44107052 chr21:5155001-5166246
-  left_boundary: 44095807
-  right_boundary: 44107051
-  is_reverse: True
 TRIM49-TRIM49C:
   realign_region: chr11:89793115-89813115
   extract_regions: chr11:89793116-89811854 chr11:90027825-90046559
@@ -919,45 +832,50 @@ U2AF1:
   extract_regions: chr21:43090264-43110263 chr21:6481931-6501941
   left_boundary: 43090265
   right_boundary: 43110262
+
 UPK3BL1-UPK3BL2:
   realign_region: chr7:102629908-102649908
   extract_regions: chr7:102629909-102649908 chr7:102530825-102550815
   left_boundary: 102629910
   right_boundary: 102649907
-USP17L11:
-  realign_region: chr4:9206201-9226201
-  extract_regions: chr4:9213155-9226201 chr4:9322918-9335963
-  left_boundary: 9213156
-  right_boundary: 9226200
-USP17L1-USP17L3:
-  realign_region: chr8:7323183-7343183
-  extract_regions: chr8:7323184-7343183 chr8:7967187-7987186
-  left_boundary: 7323185
-  right_boundary: 7343182
-  is_reverse: True
+SPDYE2-SPDYE2B-SPDYE6:
+  realign_region: chr7:102547382-102567382
+  extract_regions: chr7:102547383-102567382 chr7:102341883-102357966 chr7:102646474-102666462
+  left_boundary: 102551314
+  right_boundary: 102567381
+POLR2J2-POLR2J3:
+  realign_region: chr7:102658854-102678854
+  extract_regions: chr7:102658855-102678854 chr7:102559768-102579794
+  left_boundary: 102658856
+  right_boundary: 102678853
+RASA4-RASA4B:
+  realign_region: chr7:102579146-102617256
+  extract_regions: chr7:102579147-102611912 chr7:102480263-102512745 chr7:102678208-102687919
+  left_boundary: 102579427
+  right_boundary: 102611912
+
 ZNF595:
   realign_region: chr4:52821-88708
   extract_regions: chr4:52822-68825 chrUn_KI270744v1:125448-141446
   left_boundary: 52823
   right_boundary: 68824
   is_reverse: True
-ZNF705D:
-  realign_region: chr8:12088838-12116016
-  extract_regions: chr8:12088839-12116016 chr8:12335087-12362253
-  left_boundary: 12088840
-  right_boundary: 12116015
-ZNG1E:
-  realign_region: chr9:65675428-65734541
-  extract_regions: chr9:65696409-65734541 chr9:65286984-65325123
-  left_boundary: 65696410
-  right_boundary: 65734540
+
+FOXD4L4-FOXD4L5:
+  realign_region: chr9:65727771-65747771
+  extract_regions: chr9:65727772-65747771 chr9:65273748-65293756 chr9:68293705-68301609
+  left_boundary: 65727773
+  right_boundary: 65747770
   is_reverse: True
-ZNG1C-ZNG1F:
-  realign_region: chr9:68241483-68300535
-  extract_regions: chr9:68241484-68300535 chr9:41130789-41189806
-  left_boundary: 68241485
-  right_boundary: 68300534
+  check_nm: 0.2
+  noisy_region: [[65735600, 65735970]]
+FOXD4L3-FOXD4L6:
+  realign_region: chr9:68293975-68313975
+  extract_regions: chr9:68293976-68313975 chr9:41117361-41137343
+  left_boundary: 68293977
+  right_boundary: 68313974
   is_reverse: True
+
 GTF2IRD2B-GTF2IRD2:
   realign_region: chr7:75092090-75150317
   extract_regions: chr7:75092091-75150317 chr7:74795644-74852041
@@ -1005,7 +923,7 @@ ARHGEF5-ARHGEF35:
   realign_region: chr7:144354902-144381132
   extract_regions: chr7:144354903-144377283 chr7:144186949-144196136 chr7:144272352-144294716
   left_boundary: 144354904
-  right_boundary: 144364103
+  right_boundary: 144377283
 BPY2-BPY2B-BPY2C:
   realign_region: chrY:22983763-23005965
   extract_regions: chrY:22983764-23005965 chrY:24617505-24639707 chrY:25030401-25052603
@@ -1024,18 +942,13 @@ CLEC18A-CLEC18B-CLEC18C:
 FAM153A:
   realign_region: chr5:177722865-177753775
   extract_regions: chr5:177722866-177753775 chr5:176084394-176115296 chr5:178030024-178040480
-  left_boundary: 177743324
+  left_boundary: 177722866
   right_boundary: 177753774
-GAGE1:
-  realign_region: chrX:49593779-49613779
-  extract_regions: chrX:49593780-49605061 chrX:49555598-49566886 chrX:49574710-49585991
-  left_boundary: 49593781
-  right_boundary: 49605060
 GOLGA6L4:
-  realign_region: chr15:84230565-84250565
+  realign_region: chr15:84230565-84244300
   extract_regions: chr15:84230566-84250565 chr15:82514380-82526623 chr15:84345137-84364627
   left_boundary: 84230567
-  right_boundary: 84242787
+  right_boundary: 84244300
 GTF2H2-GTF2H2C:
   realign_region: chr5:71034847-71068176
   extract_regions: chr5:71034848-71068176 chr5:69559721-69593027 chr5:70414868-70448182
@@ -1054,7 +967,7 @@ HIC2:
 NBPF4-NBPF6:
   realign_region: chr1:108221964-108244576
   extract_regions: chr1:108222602-108244576 chr1:108449787-108471742 chr1:108375304-108383706
-  left_boundary: 108236179
+  left_boundary: 108223000
   right_boundary: 108244575
 OR11H1-OR11H2-OR11H12:
   realign_region: chr14:19703409-19723409
@@ -1071,36 +984,16 @@ PPIAL4D-PPIAL4E-PPIAL4F:
   extract_regions: chr1:145235770-145251794 chr1:144367229-144383246 chr1:144583278-144599298
   left_boundary: 145235771
   right_boundary: 145251793
-RASA4-RASA4B:
-  realign_region: chr7:102579146-102617256
-  extract_regions: chr7:102579147-102611912 chr7:102480263-102512745 chr7:102678208-102687919
-  left_boundary: 102579427
-  right_boundary: 102588838
 RGPD5-RGPD6-RGPD8:
   realign_region: chr2:109793805-109858205
   extract_regions: chr2:109793806-109858205 chr2:110513302-110577684 chr2:112367869-112430717
   left_boundary: 109795368
   right_boundary: 109858204
-SPDYE2-SPDYE2B-SPDYE6:
-  realign_region: chr7:102547382-102567382
-  extract_regions: chr7:102547383-102567382 chr7:102341883-102357966 chr7:102646474-102666462
-  left_boundary: 102551314
-  right_boundary: 102567381
-TSPY4:
-  realign_region: chrY:9328871-9348871
-  extract_regions: chrY:9333198-9348871 chrY:9482999-9498646 chrY:9503286-9518959
-  left_boundary: 9333199
-  right_boundary: 9348870
 FAM72A:
   realign_region: chr1:206184509-206204509
   extract_regions: chr1:206184510-206204509 chr1:121165986-121185983 chr1:143953624-143973625 chr1:145094364-145114349
   left_boundary: 206184511
   right_boundary: 206204508
-GOLGA6A-GOLGA6B-GOLGA6C-GOLGA6D:
-  realign_region: chr15:74066203-74086203
-  extract_regions: chr15:74066204-74086203 chr15:72651044-72669888 chr15:75254904-75273740 chr15:75279182-75299147
-  left_boundary: 74067375
-  right_boundary: 74086202
 GOLGA8N-GOLGA8O-GOLGA8Q-GOLGA8R:
   realign_region: chr15:32590346-32610346
   extract_regions: chr15:32590347-32607507 chr15:30400208-30417365 chr15:30548871-30566038 chr15:32441569-32458746
@@ -1131,23 +1024,23 @@ PRY-PRY2:
   extract_regions: chrY:22489898-22515137 chrY:22071256-22096507 chrY:23680940-23702786 chrY:25967288-25989136
   left_boundary: 22493307
   right_boundary: 22515136
-DAZ2-DAZ3:
-  realign_region: chrY:23219033-23291856
-  extract_regions: chrY:23266513-23291856 chrY:23128855-23144660 chrY:24762585-24775999 chrY:24882186-24907535
-  left_boundary: 23278436
-  right_boundary: 23291840
-NPIPA8:
-  realign_region: chr16:18317327-18337327
-  extract_regions: chr16:18317328-18337327 chr16:16337364-16351199 chr16:16374580-16394563 chr16:18357481-18371327
-  left_boundary: 18317329
-  right_boundary: 18331179
 GRAPL-GRAP:
   realign_region: chr17:19127089-19159687
   extract_regions: chr17:19127090-19159687 chr17:19025179-19047456 chr17:19092398-19103046 chr17:19218567-19229213
   left_boundary: 19149043
   right_boundary: 19149355
-LRRC37A-LRRC37A2-LRRC37A3:
+LRRC37A-LRRC37A2:
   realign_region: chr17:46294631-46338294
-  extract_regions: chr17:46294632-46338294 chr17:45531021-45550837 chr17:46512211-46556150 chr17:64877938-64897759
+  extract_regions: chr17:46294632-46338294 chr17:46512211-46556150
   left_boundary: 46294633
-  right_boundary: 46314453
+  right_boundary: 46338294
+ARL17A-ARL17B:
+  realign_region: chr17:46552256-46580191
+  extract_regions: chr17:46552257-46580191 chr17:46334404-46362266
+  left_boundary: 46552258
+  right_boundary: 46580190
+NSF:
+  realign_region: chr17:46590169-46757964
+  extract_regions: chr17:46590170-46707123 chr17:46372249-46489410
+  left_boundary: 46590171
+  right_boundary: 46707122
