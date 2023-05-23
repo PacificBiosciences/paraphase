@@ -481,7 +481,7 @@ class Paraphase:
 
             # process sample(s)
             bamlist = []
-            # one bam, multithread by gene
+            # one bam, multiprocess by gene
             if args.bam is not None:
                 if os.path.exists(args.bam) and os.path.exists(args.bam + ".bai"):
                     bamlist = [args.bam]
@@ -497,7 +497,7 @@ class Paraphase:
                     )
                 else:
                     logging.warning(f"{args.bam} bam or bai file doesn't exist")
-            # multiple bams, multithread by sample
+            # multiple bams, multiprocess by sample
             elif args.list is not None:
                 with open(args.list) as f:
                     for line in f:
