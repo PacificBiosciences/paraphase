@@ -142,7 +142,9 @@ class Paraphase:
                             outdir,
                             phaser_call,
                         )
-                        vcf_generater.set_parameter(config, tmpdir=tmpdir, prog_cmd=prog_cmd)
+                        vcf_generater.set_parameter(
+                            config, tmpdir=tmpdir, prog_cmd=prog_cmd
+                        )
                         vcf_generater.run()
                     else:
                         vcf_generater = VcfGenerater(
@@ -150,16 +152,28 @@ class Paraphase:
                             outdir,
                             phaser_call,
                         )
-                        vcf_generater.set_parameter(config, tmpdir=tmpdir, prog_cmd=prog_cmd)
+                        vcf_generater.set_parameter(
+                            config, tmpdir=tmpdir, prog_cmd=prog_cmd
+                        )
                         vcf_generater.run_without_realign()
             except Exception:
-                logging.error(f"Error running {gene} for sample {sample_id}...See error message below")
+                logging.error(
+                    f"Error running {gene} for sample {sample_id}...See error message below"
+                )
                 traceback.print_exc()
                 phaser_calls.setdefault(gene, None)
         return phaser_calls
 
     def process_sample(
-        self, bamlist, outdir, configs, tmpdir, prog_cmd, num_threads=1, dcov={}, novcf=False
+        self,
+        bamlist,
+        outdir,
+        configs,
+        tmpdir,
+        prog_cmd,
+        num_threads=1,
+        dcov={},
+        novcf=False,
     ):
         """Main workflow"""
         for bam in bamlist:
@@ -227,10 +241,14 @@ class Paraphase:
                         sample_out.update(phaser_call_set)
                 sample_out = dict(sorted(sample_out.items()))
 
-                logging.info(f"Merging all bams for sample {sample_id} at {datetime.datetime.now()}...")
+                logging.info(
+                    f"Merging all bams for sample {sample_id} at {datetime.datetime.now()}..."
+                )
                 self.merge_bams(query_genes, outdir, tmpdir, sample_id)
 
-                logging.info(f"Writing to json for sample {sample_id} at {datetime.datetime.now()}...")
+                logging.info(
+                    f"Writing to json for sample {sample_id} at {datetime.datetime.now()}..."
+                )
                 out_json = os.path.join(outdir, sample_id + ".json")
                 with open(out_json, "w") as json_output:
                     json.dump(sample_out, json_output, indent=4)
@@ -404,7 +422,7 @@ class Paraphase:
         parser.add_argument(
             "-t",
             "--threads",
-            help="Optional number of threads.",
+            help="Optional number of threads",
             required=False,
             type=int,
             default=1,
@@ -430,7 +448,7 @@ class Paraphase:
         )
         return parser
 
-    def run(self):    
+    def run(self):
         parser = self.load_parameters()
         args = parser.parse_args()
         num_threads = args.threads
@@ -440,7 +458,7 @@ class Paraphase:
             outdir, f"tmp_{datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S-%f')}"
         )
         os.makedirs(tmpdir, exist_ok=True)
-        
+
         try:
             prog_cmd = " ".join(sys.argv[1:])
             self.parse_configs(region_config=args.config)

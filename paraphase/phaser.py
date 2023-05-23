@@ -15,7 +15,6 @@ from .haplotype_assembler import VariantGraph
 
 
 class Phaser:
-
     clip_5p = r"^\d+S|^\d+H"
     clip_3p = r"\d+S$|\d+H$"
     deletion = r"\d+D"
@@ -1300,7 +1299,12 @@ class Phaser:
         alleles = []
         hap_links = {}
         if self.to_phase is True:
-            (alleles, hap_links, _, _,) = self.phase_alleles(
+            (
+                alleles,
+                hap_links,
+                _,
+                _,
+            ) = self.phase_alleles(
                 uniquely_supporting_reads,
                 nonuniquely_supporting_reads,
                 raw_read_haps,

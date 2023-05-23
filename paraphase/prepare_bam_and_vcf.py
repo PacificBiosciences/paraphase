@@ -73,11 +73,13 @@ class BamRealigner:
         pysam.index(self.realign_bam)
         realign_bamh = pysam.AlignmentFile(self.realign_bam, "rb")
         realign_bamh_header = realign_bamh.header
-        realign_bamh_header= realign_bamh_header.to_dict()
+        realign_bamh_header = realign_bamh_header.to_dict()
         pg_lines = []
         pg_lines_original = realign_bamh_header.get("PG")
         if pg_lines_original is not None:
-            pg_lines = [a for a in pg_lines_original if "ID" in a and a["ID"] == "minimap2"]
+            pg_lines = [
+                a for a in pg_lines_original if "ID" in a and a["ID"] == "minimap2"
+            ]
         pg_lines.append(
             {
                 "PN": "paraphase",
@@ -87,7 +89,7 @@ class BamRealigner:
             }
         )
         new_header = {
-            'SQ': [{'SN': self.nchr, 'LN': self.nchr_length}],
+            "SQ": [{"SN": self.nchr, "LN": self.nchr_length}],
             "PG": pg_lines,
         }
         realign_out_bamh = pysam.AlignmentFile(
@@ -791,7 +793,7 @@ class TwoGeneVcfGenerater(VcfGenerater):
         VcfGenerater.__init__(self, sample_id, outdir, call_sum)
 
     def set_parameter(self, config, tmpdir=None, prog_cmd=None):
-        super().set_parameter(config, tmpdir,prog_cmd)
+        super().set_parameter(config, tmpdir, prog_cmd)
         self.nchr_old_gene2 = config["nchr_old_smn2"]
         self.offset_gene2 = int(self.nchr_old_gene2.split("_")[1]) - 1
         self.ref_gene2 = config["data"]["reference_smn2"]
