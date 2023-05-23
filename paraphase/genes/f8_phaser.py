@@ -149,13 +149,12 @@ class F8Phaser(Phaser):
                 hap_name, "-".join(["/".join(p5region), "/".join(p3region)])
             )
         for hap, links in flanking_sum.items():
-            if "region1" in links and links != "region1-region1":
-                if links == "region1-region2":
-                    sv_hap.setdefault(hap_name, "deletion")
-                elif links == "region2-region1":
-                    sv_hap.setdefault(hap_name, "duplication")
-                elif "region3" in links:
-                    sv_hap.setdefault(hap_name, "inversion")
+            if links == "region1-region2":
+                sv_hap.setdefault(hap, "deletion")
+            elif links == "region2-region1":
+                sv_hap.setdefault(hap, "duplication")
+            elif links == "region3-region1" or links == "region1-region3":
+                sv_hap.setdefault(hap, "inversion")
 
         self.close_handle()
 
