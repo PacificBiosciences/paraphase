@@ -259,7 +259,7 @@ class VariantGraph:
                 for at in self.edge_per_position[pos]
             ]
             thres = self.get_thres(num_reads)
-            for (node1, node2, n) in self.edge_per_position[pos]:
+            for node1, node2, n in self.edge_per_position[pos]:
                 if (
                     len(self.next_per_node[node1]) > 1
                     and len(self.previous_per_node[node2]) > 1
@@ -274,7 +274,7 @@ class VariantGraph:
                 else:
                     new_edge_per_position.setdefault(pos, []).append((node1, node2, n))
         self.edge_per_position = new_edge_per_position
-        for (node1, node2, n) in edges_removed:
+        for node1, node2, n in edges_removed:
             if debug:
                 print("removing", node1, node2, n)
             self.next_per_node[node1].remove(node2)
@@ -791,7 +791,7 @@ class VariantGraph:
                 if node2 not in self.nodes:
                     self.nodes.append(node2)
 
-        for i in [1, 2]:
+        for i in range(5):
             for j in range(self.nvar):
                 node = f"{i}-{j}"
                 if node not in self.nodes:
@@ -802,7 +802,7 @@ class VariantGraph:
                     if hap in read_support.unique and len(read_support.unique[hap]) > 1:
                         self.nodes.append(node)
 
-        for (node1, node2) in self.edges:
+        for node1, node2 in self.edges:
             for n in (node1, node2):
                 if n not in self.nodes:
                     self.nodes.append(n)
@@ -1137,31 +1137,36 @@ class VariantGraph:
         for main_haps_candidate in main_haps_candidates:
             extended = self.extend_pivot_blocks(main_haps_candidate, debug=debug)
             extended_main_hap_candidates.append(extended)
-        scores = []
-        for extended_main_hap_candidate in extended_main_hap_candidates:
-            pivot_ones = [
-                a for a in extended_main_hap_candidate if a[self.pivot_pos] != "x"
-            ]
-            nhap = len(pivot_ones)
-            total_length = sum([len(a.strip("x")) for a in pivot_ones])
+        if self.pivot_pos != -1:
+            scores = []
+            for extended_main_hap_candidate in extended_main_hap_candidates:
+                pivot_ones = [
+                    a for a in extended_main_hap_candidate if a[self.pivot_pos] != "x"
+                ]
+                nhap = len(pivot_ones)
+                total_length = sum([len(a.strip("x")) for a in pivot_ones])
 
-            represented_haps = []
-            for hap1 in final_haps:
-                mismatches = []
-                for hap2 in pivot_ones:
-                    match, mismatch, extend = VariantGraph.compare_two_haps(hap1, hap2)
-                    mismatches.append(mismatch)
-                if 0 in mismatches:
-                    represented_haps.append(hap1)
-            num_represented_haps = len(represented_haps)
+                represented_haps = []
+                for hap1 in final_haps:
+                    mismatches = []
+                    for hap2 in pivot_ones:
+                        match, mismatch, extend = VariantGraph.compare_two_haps(
+                            hap1, hap2
+                        )
+                        mismatches.append(mismatch)
+                    if 0 in mismatches:
+                        represented_haps.append(hap1)
+                num_represented_haps = len(represented_haps)
 
-            scores.append(((nhap, num_represented_haps, total_length), pivot_ones))
-        sort_candidates = sorted(
-            scores,
-            key=lambda x: x[0],
-            reverse=True,
-        )
-        main_haps = sort_candidates[0][1]
+                scores.append(((nhap, num_represented_haps, total_length), pivot_ones))
+            sort_candidates = sorted(
+                scores,
+                key=lambda x: x[0],
+                reverse=True,
+            )
+            main_haps = sort_candidates[0][1]
+        else:
+            main_haps = extended_main_hap_candidates[0]
         if main_haps == []:
             main_haps = final_haps
         return main_haps, final_haps, highest_cn

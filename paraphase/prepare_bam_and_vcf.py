@@ -9,6 +9,7 @@ import random
 import re
 from collections import Counter
 from .haplotype_assembler import VariantGraph
+import paraphase
 
 
 class BamRealigner:
@@ -21,9 +22,10 @@ class BamRealigner:
     deletion = r"\d+D"
     insertion = r"\d+I"
 
-    def __init__(self, bam, outdir, config):
+    def __init__(self, bam, outdir, config, prog_cmd):
         self.bam = bam
         self.outdir = outdir
+        self.prog_cmd = prog_cmd
         self.gene = config["gene"]
         self.ref = config["data"]["reference"]
         self.nchr_old = config["nchr_old"]
@@ -61,7 +63,7 @@ class BamRealigner:
         realign_cmd = (
             f"{self.samtools} view -F 0x100 -F 0x200 -F 0x800 {self.bam} {self.extract_regions} | sort | uniq | "
             + f'awk \'BEGIN {{FS="\\t"}} {{print "@" $1 "\\n" $10 "\\n+\\n" $11}}\''
-            + f" | {self.minimap2} -a -x map-pb {self.ref} - | {self.samtools} view -b | {self.samtools} sort > {self.realign_bam}"
+            + f" | {self.minimap2} -a -x map-pb {self.ref} - | {self.samtools} view -bh | {self.samtools} sort > {self.realign_bam}"
         )
         result = subprocess.run(realign_cmd, capture_output=True, text=True, shell=True)
         result.check_returncode()
@@ -70,11 +72,30 @@ class BamRealigner:
 
         pysam.index(self.realign_bam)
         realign_bamh = pysam.AlignmentFile(self.realign_bam, "rb")
+        realign_bamh_header = realign_bamh.header
+        realign_bamh_header = realign_bamh_header.to_dict()
+        pg_lines = []
+        pg_lines_original = realign_bamh_header.get("PG")
+        if pg_lines_original is not None:
+            pg_lines = [
+                a for a in pg_lines_original if "ID" in a and a["ID"] == "minimap2"
+            ]
+        pg_lines.append(
+            {
+                "PN": "paraphase",
+                "ID": "paraphase",
+                "VN": paraphase.__version__,
+                "CL": f"paraphase {self.prog_cmd}",
+            }
+        )
+        new_header = {
+            "SQ": [{"SN": self.nchr, "LN": self.nchr_length}],
+            "PG": pg_lines,
+        }
         realign_out_bamh = pysam.AlignmentFile(
             self.realign_out_bam,
             "wb",
-            reference_names=[self.nchr],
-            reference_lengths=[self.nchr_length],
+            header=new_header,
         )
         for read in realign_bamh.fetch(self.nchr_old):
             num_mismatch = self.get_nm(read)
@@ -264,7 +285,7 @@ class VcfGenerater:
         self.call_sum = call_sum
         self.match = {}
 
-    def set_parameter(self, config, tmpdir=None):
+    def set_parameter(self, config, tmpdir=None, prog_cmd=None):
         self.gene = config["gene"]
         self.nchr = config["nchr"]
         self.nchr_old = config["nchr_old"]
@@ -277,6 +298,7 @@ class VcfGenerater:
         if "use_supplementary" in config:
             self.use_supplementary = config["use_supplementary"]
 
+        self.prog_cmd = prog_cmd
         self.tmpdir = tmpdir
         if self.tmpdir is None:
             self.tmpdir = self.outdir
@@ -284,8 +306,7 @@ class VcfGenerater:
             tmpdir, self.sample_id + f"_{self.gene}_realigned_tagged.bam"
         )
         self.vcf_dir = os.path.join(self.outdir, f"{self.sample_id}_vcfs")
-        if os.path.exists(self.vcf_dir) is False:
-            os.makedirs(self.vcf_dir)
+        os.makedirs(self.vcf_dir, exist_ok=True)
 
     def get_range_in_other_gene(self, pos):
         """
@@ -309,6 +330,8 @@ class VcfGenerater:
             '##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Read depth for each allele">\n'
         )
         fout.write(f"##contig=<ID={self.nchr},length={self.nchr_length}>\n")
+        fout.write(f"##paraphase_version={paraphase.__version__}\n")
+        fout.write(f"##paraphase_command=paraphase {self.prog_cmd}\n")
         header = [
             "#CHROM",
             "POS",
@@ -769,8 +792,8 @@ class TwoGeneVcfGenerater(VcfGenerater):
     def __init__(self, sample_id, outdir, call_sum):
         VcfGenerater.__init__(self, sample_id, outdir, call_sum)
 
-    def set_parameter(self, config, tmpdir=None):
-        super().set_parameter(config, tmpdir)
+    def set_parameter(self, config, tmpdir=None, prog_cmd=None):
+        super().set_parameter(config, tmpdir, prog_cmd)
         self.nchr_old_gene2 = config["nchr_old_smn2"]
         self.offset_gene2 = int(self.nchr_old_gene2.split("_")[1]) - 1
         self.ref_gene2 = config["data"]["reference_smn2"]

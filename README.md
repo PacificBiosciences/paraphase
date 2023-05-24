@@ -68,7 +68,7 @@ Required parameters:
 
 Optional parameters:
 - `-g`: Gene(s) to analyze. All supported genes will be analyzed if not specified.
-- `-t`: Number of threads, used when `-l` is specified.
+- `-t`: Number of threads.
 - `-d`: File listing average genome depth per sample, with two columns, sample ID and depth values, separated by tab or space. This saves run time by skipping the step to calculate genome depth.
 - `--novcf`: no vcf output if specified.
 - `--samtools`: path to samtools
