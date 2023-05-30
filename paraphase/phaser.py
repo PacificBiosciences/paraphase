@@ -15,7 +15,6 @@ from .haplotype_assembler import VariantGraph
 
 
 class Phaser:
-
     clip_5p = r"^\d+S|^\d+H"
     clip_3p = r"\d+S$|\d+H$"
     deletion = r"\d+D"
@@ -425,7 +424,7 @@ class Phaser:
             this_var = self.het_sites[pos]
             if bases_x == len(bases):
                 sites_to_remove.append(this_var)
-            elif bases_ref + bases_alt == len(bases) - bases_x and (bases_alt <= 3 or bases_ref <= 3):
+            elif bases_ref + bases_alt == len(bases) - bases_x and bases_alt <= 3:
                 if this_var not in kept_sites:
                     sites_to_remove.append(this_var)
         for var in sites_to_remove:
@@ -1300,7 +1299,12 @@ class Phaser:
         alleles = []
         hap_links = {}
         if self.to_phase is True:
-            (alleles, hap_links, _, _,) = self.phase_alleles(
+            (
+                alleles,
+                hap_links,
+                _,
+                _,
+            ) = self.phase_alleles(
                 uniquely_supporting_reads,
                 nonuniquely_supporting_reads,
                 raw_read_haps,
