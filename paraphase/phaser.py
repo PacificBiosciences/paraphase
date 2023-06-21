@@ -7,6 +7,7 @@ import os
 import copy
 import numpy as np
 from collections import Counter
+from itertools import product
 import re
 import logging
 from scipy.stats import poisson
@@ -86,11 +87,11 @@ class Phaser:
         if self.right_boundary is None:
             self.right_boundary = int(self.nchr_old.split("_")[2])
         self.use_supplementary = False
-        if "use_supplementary" in config:
-            self.use_supplementary = config["use_supplementary"]
+        if "use_supplementary" in config or "is_tandem" in config:
+            self.use_supplementary = True
         self.to_phase = False
-        if "to_phase" in config:
-            self.to_phase = config["to_phase"]
+        if "to_phase" in config or "is_tandem" in config:
+            self.to_phase = True
         self.is_reverse = False
         if "is_reverse" in config:
             self.is_reverse = config["is_reverse"]
@@ -103,6 +104,21 @@ class Phaser:
         self.noisy_region = []
         if "noisy_region" in config:
             self.noisy_region = config["noisy_region"]
+
+        self.del1_reads = set()
+        self.del1_reads_partial = set()
+        self.del2_reads = set()
+        self.del2_reads_partial = set()
+        self.deletion1_size = None
+        self.deletion2_size = None
+        self.del2_3p_pos1 = None
+        self.del2_3p_pos2 = None
+        self.del2_5p_pos1 = None
+        self.del2_5p_pos2 = None
+        self.del1_3p_pos1 = None
+        self.del1_3p_pos2 = None
+        self.del1_5p_pos1 = None
+        self.del1_5p_pos2 = None
 
     def get_regional_depth(self, bam_handle, query_region, ninterval=100):
         """Get depth of the query regions"""
@@ -130,8 +146,13 @@ class Phaser:
             return False
         return True
 
-    def get_homopolymer(self):
-        """Get the homopolymer sites"""
+    def get_homopolymer_old(self):
+        """
+        Get the homopolymer and dinucleotide sites
+        Variants for phasing:
+        SNVs, not matching excluded bases and sites labeled as 1
+        indels, not in excluded sites
+        """
         seq = self._refh.fetch(self.nchr_old).upper()
         nstart = self.offset
         exclude = {}
@@ -154,6 +175,202 @@ class Phaser:
             if exclude[pos] == []:
                 bases = "0"
             self.homopolymer_sites.setdefault(pos, bases)
+            # print(pos, bases)
+
+    def get_homopolymer(self):
+        """
+        Get the homopolymer and dinucleotide sites
+        Variants for phasing:
+        SNVs, not matching excluded bases and sites labeled as 1
+        indels, not in excluded sites
+        """
+        seq = self._refh.fetch(self.nchr_old).upper()
+        nstart = self.offset
+        drepeat = {}
+        # start with 5mer
+        for i in range(len(seq) - 5):
+            for nu in ["A", "C", "G", "T"]:
+                if seq[i : i + 5].count(nu) >= 5:
+                    for pos in range(i, i + 5):
+                        drepeat.setdefault(pos, nu)
+        # add nearby 4mers (same base), separated by stretches of a different base
+        while True:
+            extend = False
+            for i in range(len(seq) - 4):
+                for nu in ["A", "C", "G", "T"]:
+                    if seq[i : i + 4].count(nu) == 4:
+                        for j in range(1, 5):
+                            if (
+                                i + 4 + j in drepeat
+                                and drepeat[i + 4 + j] == nu
+                                and len(set(seq[i + 4 : i + 4 + j])) == 1
+                            ):
+                                for pos in range(i, i + 4 + j):
+                                    if pos not in drepeat:
+                                        drepeat.setdefault(pos, nu)
+                                        extend = True
+                            if (
+                                i - 1 - j in drepeat
+                                and drepeat[i - 1 - j] == nu
+                                and len(set(seq[i - j : i])) == 1
+                            ):
+                                for pos in range(i - j, i + 4):
+                                    if pos not in drepeat:
+                                        drepeat.setdefault(pos, nu)
+                                        extend = True
+            if extend is False:
+                break
+        drepeat = dict(sorted(drepeat.items()))
+        drepeat_keys = list(drepeat.keys())
+        for i in range(len(drepeat)):
+            pos = drepeat_keys[i]
+            pos_adjusted = pos + nstart + 1
+            base = drepeat[pos]
+            if i + 1 < len(drepeat) and drepeat_keys[i + 1] != pos + 1:
+                self.homopolymer_sites.setdefault(pos_adjusted, base)
+                self.homopolymer_sites.setdefault(pos + 1 + nstart + 1, f"{base},1")
+            elif i > 0 and drepeat_keys[i - 1] != pos - 1:
+                self.homopolymer_sites.setdefault(pos - 1 + nstart + 1, base)
+                self.homopolymer_sites.setdefault(pos_adjusted, "A,C,G,T")
+            # elif seq[pos] != base:
+            #    self.homopolymer_sites.setdefault(pos_adjusted, f"{base},{seq[pos]},1")
+            else:
+                self.homopolymer_sites.setdefault(pos_adjusted, base)
+        # for a, b in self.homopolymer_sites.items():
+        #    print(a, b)
+
+        # dinucleotide
+        drepeat = {}
+        # start with 4 copies of a dimer
+        for i in range(len(seq) - 8):
+            for dimer in [a + b for a, b in product("ACGT", repeat=2) if a != b]:
+                if seq[i : i + 8].count(dimer) == 4:
+                    for pos in range(i, i + 8):
+                        drepeat.setdefault(pos, []).append(dimer)
+        # add nearby any 2 copies of the same dimer, separated by either stretches of
+        # the same 2 bases or a different dimer
+        counter = 0
+        while counter < 3:
+            counter += 1
+            extend = False
+            for i in range(len(seq) - 4):
+                for dimer in [a + b for a, b in product("ACGT", repeat=2) if a != b]:
+                    if seq[i : i + 4].count(dimer) == 2:
+                        for j in range(8):
+                            pos_to_check = i + 4 + j
+                            to_add = False
+                            if pos_to_check in drepeat and (
+                                dimer in drepeat[pos_to_check]
+                                or dimer[::-1] in drepeat[pos_to_check]
+                            ):
+                                if j <= 1:
+                                    to_add = True
+                                else:
+                                    mid_seq = seq[i + 4 : i + 4 + j]
+                                    reduced_nu = list(set(mid_seq))
+                                    if len(reduced_nu) == 2:
+                                        base1 = reduced_nu[0]
+                                        base2 = reduced_nu[1]
+                                        if (
+                                            (
+                                                base1 + base1 not in mid_seq
+                                                and base2 + base2 not in mid_seq
+                                            )
+                                            or base1 + base2 == dimer
+                                            or base2 + base1 == dimer
+                                        ):
+                                            to_add = True
+                                if to_add is True:
+                                    for pos in range(i, i + 4 + j):
+                                        drepeat.setdefault(pos, [])
+                                        if dimer not in drepeat[pos]:
+                                            drepeat[pos].append(dimer)
+                                        extend = True
+                            pos_to_check = i - 1 - j
+                            to_add = False
+                            if pos_to_check in drepeat and (
+                                dimer in drepeat[pos_to_check]
+                                or dimer[::-1] in drepeat[pos_to_check]
+                            ):
+                                if j <= 1:
+                                    to_add = True
+                                else:
+                                    mid_seq = seq[i - j : i]
+                                    reduced_nu = list(set(mid_seq))
+                                    if len(reduced_nu) == 2:
+                                        base1 = reduced_nu[0]
+                                        base2 = reduced_nu[1]
+                                        if (
+                                            (
+                                                base1 + base1 not in mid_seq
+                                                and base2 + base2 not in mid_seq
+                                            )
+                                            or base1 + base2 == dimer
+                                            or base2 + base1 == dimer
+                                        ):
+                                            to_add = True
+                                if to_add is True:
+                                    for pos in range(i - j, i + 4):
+                                        drepeat.setdefault(pos, [])
+                                        if dimer not in drepeat[pos]:
+                                            drepeat[pos].append(dimer)
+                                        extend = True
+                        """
+                        pos_to_check = i + 5
+                        if pos_to_check in drepeat and (
+                            dimer in drepeat[pos_to_check]
+                            or dimer[::-1] in drepeat[pos_to_check]
+                        ):
+                            for pos in range(i, i + 5):
+                                drepeat.setdefault(pos, [])
+                                if dimer not in drepeat[pos]:
+                                    drepeat[pos].append(dimer)
+                                extend = True
+                        pos_to_check = i + 6
+                        if pos_to_check in drepeat and (
+                            dimer in drepeat[pos_to_check]
+                            or dimer[::-1] in drepeat[pos_to_check]
+                        ):
+                            for pos in range(i, i + 6):
+                                drepeat.setdefault(pos, [])
+                                if dimer not in drepeat[pos]:
+                                    drepeat[pos].append(dimer)
+                                extend = True
+                        pos_to_check = i - 2
+                        if pos_to_check in drepeat and (
+                            dimer in drepeat[pos_to_check]
+                            or dimer[::-1] in drepeat[pos_to_check]
+                        ):
+                            for pos in range(i - 1, i + 4):
+                                drepeat.setdefault(pos, [])
+                                if dimer not in drepeat[pos]:
+                                    drepeat[pos].append(dimer)
+                                extend = True
+                        pos_to_check = i - 1
+                        if pos_to_check in drepeat and (
+                            dimer in drepeat[pos_to_check]
+                            or dimer[::-1] in drepeat[pos_to_check]
+                        ):
+                            for pos in range(i, i + 4):
+                                drepeat.setdefault(pos, [])
+                                if dimer not in drepeat[pos]:
+                                    drepeat[pos].append(dimer)
+                                extend = True
+                        """
+            if extend is False:
+                break
+        drepeat = dict(sorted(drepeat.items()))
+        for pos in drepeat:
+            pos_adjusted = pos + nstart + 1
+            if pos_adjusted not in self.homopolymer_sites:
+                bases = []
+                for nus in drepeat[pos]:
+                    bases.append(nus[0])
+                    bases.append(nus[1])
+                bases = list(set(bases))  # + ["1"]
+                self.homopolymer_sites.setdefault(pos_adjusted, ",".join(bases))
+        # for a, b in self.homopolymer_sites.items():
+        #    print(a, b)
 
     @staticmethod
     def depth_prob(nread, haploid_depth):
@@ -168,6 +385,41 @@ class Phaser:
             return None
         post_prob = [float(a) / float(sum_prob) for a in prob]
         return post_prob
+
+    def find_big_deletion(self, min_size=5000, min_count=3, padding=50):
+        """Call big deletions from data"""
+        del_reads = []
+        for read in self._bamh.fetch(
+            self.nchr, self.left_boundary, self.right_boundary
+        ):
+            read_cigar = read.cigarstring
+            del_len = [int(a[:-1]) for a in re.findall(Phaser.deletion, read_cigar)]
+            if del_len != []:
+                longest_del_size = max(del_len)
+                if longest_del_size >= min_size:
+                    cigar_before_del = read_cigar.split(f"{longest_del_size}D")[0]
+                    del_pos = read.reference_start + sum(
+                        [
+                            int(a[:-1])
+                            for a in re.findall(r"\d+D|\d+M", cigar_before_del)
+                        ]
+                    )
+                    del_reads.append((del_pos, del_pos + longest_del_size))
+        counter = Counter(del_reads).most_common(2)
+        if len(counter) > 0 and counter[0][1] >= min_count:
+            nstart, nend = counter[0][0]
+            self.deletion1_size = nend - nstart
+            self.del1_3p_pos1 = nstart - padding
+            self.del1_3p_pos2 = nstart + padding
+            self.del1_5p_pos1 = nend - padding
+            self.del1_5p_pos2 = nend + padding
+        if len(counter) > 1 and counter[1][1] >= min_count:
+            nstart, nend = counter[1][0]
+            self.deletion2_size = nend - nstart
+            self.del2_3p_pos1 = nstart - padding
+            self.del2_3p_pos2 = nstart + padding
+            self.del2_5p_pos1 = nend - padding
+            self.del2_5p_pos2 = nend + padding
 
     @staticmethod
     def check_del(read, del_size):
@@ -432,6 +684,20 @@ class Phaser:
                 self.het_sites.remove(var)
 
     def allow_del_bases(self, pos):
+        """
+        During variant calling, allow "bases in deletions" for positions in
+        two long deletions
+        """
+        if (
+            self.del2_reads_partial != set()
+            and self.del2_3p_pos1 <= pos <= self.del2_5p_pos2
+        ):
+            return True
+        if (
+            self.del1_reads_partial != set()
+            and self.del1_3p_pos1 <= pos <= self.del1_5p_pos2
+        ):
+            return True
         return False
 
     def process_indel(self, pos, ref_seq, var_seq):
@@ -972,7 +1238,7 @@ class Phaser:
                     sites.setdefault(pos, alt)
                 elif var not in this_hap_var and other_haps_var.count(var) == other_cn:
                     sites.setdefault(pos, ref)
-
+            
             counts = []
             for pos in sites:
                 hap_base = sites[pos]
@@ -1260,12 +1526,68 @@ class Phaser:
         """Main function to phase haplotypes and call copy numbers"""
         if self.check_coverage_before_analysis() is False:
             return self.GeneCall()
-        self.get_homopolymer()
-        self.get_candidate_pos()
+        #self.get_homopolymer()
+        self.get_homopolymer_old()
+        self.find_big_deletion()
+
+        if self.deletion1_size is not None:
+            self.del1_reads, self.del1_reads_partial = self.get_long_del_reads(
+                self.del1_3p_pos1,
+                self.del1_3p_pos2,
+                self.del1_5p_pos1,
+                self.del1_5p_pos2,
+                self.deletion1_size,
+            )
+        if self.deletion2_size is not None:
+            self.del2_reads, self.del2_reads_partial = self.get_long_del_reads(
+                self.del2_3p_pos1,
+                self.del2_3p_pos2,
+                self.del2_5p_pos1,
+                self.del2_5p_pos2,
+                self.deletion2_size,
+            )
+
+        # scan for polymorphic sites
+        regions_to_check = []
+        if self.del2_reads_partial != set():
+            regions_to_check += [
+                [self.del2_3p_pos1, self.del2_3p_pos2],
+                [self.del2_5p_pos1, self.del2_5p_pos2],
+            ]
+        if self.del1_reads_partial != set():
+            regions_to_check += [
+                [self.del1_3p_pos1, self.del1_3p_pos2],
+                [self.del1_5p_pos1, self.del1_5p_pos2],
+            ]
+        self.get_candidate_pos(regions_to_check=regions_to_check)
+
         self.het_sites = sorted(list(self.candidate_pos))
         self.remove_noisy_sites()
 
         raw_read_haps = self.get_haplotypes_from_reads()
+
+        het_sites = self.het_sites
+        if self.del1_reads_partial != set():
+            raw_read_haps, het_sites = self.update_reads_for_deletions(
+                raw_read_haps,
+                het_sites,
+                self.del1_3p_pos1,
+                self.del1_5p_pos2,
+                self.del1_reads_partial,
+                "3",
+                f"{self.del1_3p_pos1}_del_{self.deletion1_size}",
+            )
+        if self.del2_reads_partial != set():
+            raw_read_haps, het_sites = self.update_reads_for_deletions(
+                raw_read_haps,
+                het_sites,
+                self.del2_3p_pos1,
+                self.del2_5p_pos2,
+                self.del2_reads_partial,
+                "4",
+                f"{self.del2_3p_pos1}_del_{self.deletion2_size}",
+            )
+        self.het_sites = het_sites
 
         (
             ass_haps,

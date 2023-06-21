@@ -38,6 +38,9 @@ class BamRealigner:
         self.minimap2 = config["tools"]["minimap2"]
         if "check_nm" in config:
             self.max_mismatch = config["check_nm"]
+        self.use_r2k = ""
+        if "use_r2k" in config:
+            self.use_r2k = "-r2k"
         self._bamh = pysam.AlignmentFile(bam, "rb")
         self.sample_id = bam.split("/")[-1].split(".")[0]
         self.realign_bam = os.path.join(
@@ -63,7 +66,7 @@ class BamRealigner:
         realign_cmd = (
             f"{self.samtools} view -F 0x100 -F 0x200 -F 0x800 {self.bam} {self.extract_regions} | sort | uniq | "
             + f'awk \'BEGIN {{FS="\\t"}} {{print "@" $1 "\\n" $10 "\\n+\\n" $11}}\''
-            + f" | {self.minimap2} -a -x map-pb {self.ref} - | {self.samtools} view -bh | {self.samtools} sort > {self.realign_bam}"
+            + f" | {self.minimap2} {self.use_r2k} -a -x map-pb {self.ref} - | {self.samtools} view -bh | {self.samtools} sort > {self.realign_bam}"
         )
         result = subprocess.run(realign_cmd, capture_output=True, text=True, shell=True)
         result.check_returncode()
