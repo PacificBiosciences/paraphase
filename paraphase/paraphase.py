@@ -118,7 +118,7 @@ class Paraphase:
                         sample_id, tmpdir, gdepth, bam, sample_sex
                     )
                 else:
-                    phaser = Phaser(sample_id, tmpdir)
+                    phaser = Phaser(sample_id, tmpdir, gdepth)
 
                 config = configs[gene]
                 logging.info(
@@ -198,7 +198,7 @@ class Paraphase:
                 gdepth = None
                 sample_sex = None
                 query_genes = list(configs.keys())
-                if set(query_genes).intersection(set(self.genome_depth_genes)) != set():
+                if 1: #set(query_genes).intersection(set(self.genome_depth_genes)) != set():
                     logging.info(
                         f"Getting genome depth for sample {sample_id} at {datetime.datetime.now()}..."
                     )

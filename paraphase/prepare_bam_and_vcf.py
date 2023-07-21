@@ -19,7 +19,7 @@ class BamRealigner:
 
     min_mapq = 50
     min_aln = 800
-    max_mismatch = 0.04
+    max_mismatch = 0.05
     deletion = r"\d+D"
     insertion = r"\d+I"
 
@@ -164,8 +164,8 @@ class BamTagger:
             self.outdir, self.sample_id + f"_{self.gene}_realigned_tagged.bam"
         )
         self.use_supplementary = False
-        if "use_supplementary" in config:
-            self.use_supplementary = config["use_supplementary"]
+        if "use_supplementary" in config or "is_tandem" in config:
+            self.use_supplementary = True
         random.seed(0)
 
     def add_tag_to_read(
@@ -298,8 +298,8 @@ class VcfGenerater:
         self.samtools = config["tools"]["samtools"]
         self.minimap2 = config["tools"]["minimap2"]
         self.use_supplementary = False
-        if "use_supplementary" in config:
-            self.use_supplementary = config["use_supplementary"]
+        if "use_supplementary" in config or "is_tandem" in config:
+            self.use_supplementary = True
 
         self.prog_cmd = prog_cmd
         self.tmpdir = tmpdir

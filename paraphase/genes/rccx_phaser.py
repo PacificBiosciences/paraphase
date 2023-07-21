@@ -264,6 +264,7 @@ class RccxPhaser(Phaser):
         single_copies,
         starting_copies,
         ending_copies,
+        hcn,
     ):
         """Update phased alleles"""
         two_cp_haplotypes = []
@@ -341,6 +342,7 @@ class RccxPhaser(Phaser):
                     len(final_haps) in [3, 4]
                     and len(new_alleles) == 1
                     and len(new_alleles[0]) == 2
+                    and hcn == len(final_haps)
                 ):
                     remaining_hap = [
                         a for a in final_haps.values() if a not in new_alleles[0]
@@ -561,6 +563,7 @@ class RccxPhaser(Phaser):
             single_copies,
             starting_copies,
             ending_copies,
+            hcn,
         )
 
         # annotate haplotypes by checking the diff sites

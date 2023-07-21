@@ -165,7 +165,7 @@ class VariantGraph:
             if lhaps not in main_haps_candidates:
                 main_haps_candidates.append(lhaps)
         main_haps_candidates = sorted(
-            main_haps_candidates, key=lambda x: len(x), reverse=True
+            main_haps_candidates, key=lambda x: (len(x), 0-"".join(x).count("x")), reverse=True
         )
         main_haps = main_haps_candidates[0]
         highest_cn = len(main_haps)

@@ -95,6 +95,9 @@ class Phaser:
         self.is_reverse = False
         if "is_reverse" in config:
             self.is_reverse = config["is_reverse"]
+        self.expect_cn2 = False
+        if "expect_cn2" in config:
+            self.expect_cn2 = True
         self.clip_3p_positions = []
         self.clip_5p_positions = []
         if "clip_3p_positions" in config:
@@ -136,10 +139,16 @@ class Phaser:
 
     def check_coverage_before_analysis(self):
         """check low coverage regions for enrichment data"""
-        region_depth = self.get_regional_depth(
-            self._bamh, [[self.left_boundary, self.right_boundary]]
+        check_region_start = self.left_boundary
+        check_region_end = self.right_boundary
+        if self.clip_5p_positions != []:
+            check_region_start = max(self.left_boundary, max(self.clip_5p_positions))
+        if self.clip_3p_positions != []:
+            check_region_end = min(self.right_boundary, min(self.clip_3p_positions))
+        self.region_avg_depth = self.get_regional_depth(
+            self._bamh, [[check_region_start, check_region_end]]
         )[0]
-        if np.isnan(region_depth) or region_depth < 10:
+        if np.isnan(self.region_avg_depth) or self.region_avg_depth < 10:
             logging.warning(
                 "This region does not appear to have coverage. Will not attempt to phase haplotypes."
             )
@@ -226,10 +235,10 @@ class Phaser:
             pos = drepeat_keys[i]
             pos_adjusted = pos + nstart + 1
             base = drepeat[pos]
-            if i + 1 < len(drepeat) and drepeat_keys[i + 1] != pos + 1:
+            if i + 1 == len(drepeat) or (i + 1 < len(drepeat) and drepeat_keys[i + 1] != pos + 1):
                 self.homopolymer_sites.setdefault(pos_adjusted, base)
                 self.homopolymer_sites.setdefault(pos + 1 + nstart + 1, f"{base},1")
-            elif i > 0 and drepeat_keys[i - 1] != pos - 1:
+            elif i== 0 or (i > 0 and drepeat_keys[i - 1] != pos - 1):
                 self.homopolymer_sites.setdefault(pos - 1 + nstart + 1, base)
                 self.homopolymer_sites.setdefault(pos_adjusted, "A,C,G,T")
             # elif seq[pos] != base:
@@ -369,7 +378,7 @@ class Phaser:
                     bases.append(nus[1])
                 bases = list(set(bases))  # + ["1"]
                 self.homopolymer_sites.setdefault(pos_adjusted, ",".join(bases))
-        # for a, b in self.homopolymer_sites.items():
+        #for a, b in self.homopolymer_sites.items():
         #    print(a, b)
 
     @staticmethod
@@ -619,7 +628,7 @@ class Phaser:
                                         read_haps[read_name][dsnp_index] = "2"
 
         # for softclips starting at a predefined position, mark sites as 0 instead of x
-        if check_clip:
+        if check_clip and (self.clip_3p_positions != [] or self.clip_5p_positions != []):
             for dsnp_index, allele_site in enumerate(het_sites):
                 snp_position_gene1, allele1, allele2, *at = allele_site.split("_")
                 snp_position = int(snp_position_gene1)
@@ -676,7 +685,7 @@ class Phaser:
             this_var = self.het_sites[pos]
             if bases_x == len(bases):
                 sites_to_remove.append(this_var)
-            elif bases_ref + bases_alt == len(bases) - bases_x and bases_alt <= 3:
+            elif bases_ref + bases_alt == len(bases) - bases_x and (bases_alt <= 3 or bases_ref <= 3):
                 if this_var not in kept_sites:
                     sites_to_remove.append(this_var)
         for var in sites_to_remove:
@@ -1069,11 +1078,13 @@ class Phaser:
     def get_read_counts(self, uniquely_supporting_haps):
         """
         Get unique supporting read counts for each haplotype
+        over a region where all haplotypes have defined bases
         """
         if uniquely_supporting_haps == {}:
             return {}
         nhap = len(uniquely_supporting_haps)
         nvar = len(self.het_sites)
+        # depth per site for haplotype
         hap_bases = []
         for i in range(nhap):
             hap_bases.append([])
@@ -1082,7 +1093,7 @@ class Phaser:
             reads = uniquely_supporting_haps[hap]
             for i in range(nvar):
                 bases = [a[i] for a in reads]
-                hap_bases[j].append(len(bases) - bases.count("x"))
+                hap_bases[j].append(len(bases) - bases.count("x") - bases.count("0"))
             j += 1
         ranges = []
         for i in range(nvar):
@@ -1151,6 +1162,10 @@ class Phaser:
         ) = self.get_read_support(raw_read_haps, haplotypes_to_reads, ass_haps)
 
         # remove low-support ones
+        read_counts = [len(uniquely_supporting_reads[a]) for a in uniquely_supporting_reads]
+        read_counts = sorted(read_counts)
+        if read_counts[0] <= 5 and read_counts[1] >= 10 and "x" not in "".join(ass_haps):
+            min_support = 6
         ass_haps = [
             a
             for a in uniquely_supporting_reads
@@ -1200,7 +1215,7 @@ class Phaser:
             read_counts,
         )
 
-    def compare_depth(self, haplotypes, loose=False):
+    def compare_depth(self, haplotypes, loose=False, stringent=False):
         """
         For each haplotype, identify the variants where it's different
         from other haplotypes. Check depth at those variant sites and
@@ -1258,7 +1273,10 @@ class Phaser:
             for n1, n2 in counts:
                 probs.append(self.depth_prob(n1, n2 / other_cn))
             probs_fil = [a for a in probs if a[0] < 0.25]
-            if len(probs_fil) >= nsites * 0.6 and nsites >= 5:
+            if stringent is True:
+                if len(probs_fil) >= nsites * 0.8 and nsites >= 5:
+                    two_cp_haps.append(hap)
+            elif len(probs_fil) >= nsites * 0.6 and nsites >= 5:
                 two_cp_haps.append(hap)
             elif loose is True:
                 if len(probs_fil) >= nsites * 0.5 and nsites >= 5:
@@ -1319,7 +1337,7 @@ class Phaser:
             ):
                 for read in pileupcolumn.pileups:
                     if not read.is_del and not read.is_refskip:
-                        read_name = read.alignment.query_name
+                        read_name = self.get_read_name(read.alignment)
                         read_seq = read.alignment.query_sequence
                         read_pos = read.query_position
                         if (
@@ -1526,8 +1544,8 @@ class Phaser:
         """Main function to phase haplotypes and call copy numbers"""
         if self.check_coverage_before_analysis() is False:
             return self.GeneCall()
-        #self.get_homopolymer()
-        self.get_homopolymer_old()
+        self.get_homopolymer()
+        #self.get_homopolymer_old()
         self.find_big_deletion()
 
         if self.deletion1_size is not None:
@@ -1564,7 +1582,7 @@ class Phaser:
         self.het_sites = sorted(list(self.candidate_pos))
         self.remove_noisy_sites()
 
-        raw_read_haps = self.get_haplotypes_from_reads()
+        raw_read_haps = self.get_haplotypes_from_reads(check_clip=True)
 
         het_sites = self.het_sites
         if self.del1_reads_partial != set():
@@ -1613,9 +1631,35 @@ class Phaser:
                 uniquely_supporting_reads,
                 nonuniquely_supporting_reads,
             )
-
-        two_cp_haps = self.compare_depth(haplotypes)
+        
+        two_cp_haps = []
+        if len(ass_haps) == 3:
+            two_cp_haps = self.compare_depth(haplotypes, stringent=True)
+            if two_cp_haps == [] and read_counts is not None:
+                # check if one haplotype has more reads than others
+                haps = list(read_counts.keys())
+                counts = list(read_counts.values())
+                max_count = max(counts)
+                cp2_hap = haps[counts.index(max_count)]
+                others_max = sorted(counts, reverse=True)[1]
+                probs = self.depth_prob(max_count, others_max)
+                #print(counts, probs)
+                if probs[0] < 0.05 and others_max >= 10:
+                    two_cp_haps.append(ass_haps[cp2_hap])
+               
         total_cn = len(ass_haps) + len(two_cp_haps)
+
+        # fully homozygous
+        if self.het_sites == [] or total_cn == 1:
+            total_cn = 2
+
+        # two pairs of identical copies
+        if two_cp_haps == [] and total_cn == 2 and self.expect_cn2 is False:
+            if self.mdepth is not None:
+                prob = self.depth_prob(int(self.region_avg_depth), self.mdepth)
+                #print(int(self.region_avg_depth), self.mdepth, prob)
+                if prob[0] < 0.75:
+                    total_cn = 4
 
         # phase
         alleles = []

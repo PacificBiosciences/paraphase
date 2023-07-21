@@ -127,7 +127,7 @@ class Opn1lwPhaser(Phaser):
                 return [hap, hap2]
 
         # if other haps are phased on this allele
-        if len(alleles) == 1 and last_copies[0] in alleles[0]:
+        if len(alleles) == 1 and last_copies !=[] and last_copies[0] in alleles[0]:
             remaining_haps_not_phased = [
                 a for a in remaining_noending_haps if a not in alleles[0]
             ]
@@ -167,7 +167,7 @@ class Opn1lwPhaser(Phaser):
 
     def call(self):
         if self.check_coverage_before_analysis() is False:
-            return None
+            return self.GeneCall()
         self.get_homopolymer()
         self.get_candidate_pos()
         self.het_sites = sorted(list(self.candidate_pos))
