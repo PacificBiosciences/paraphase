@@ -136,13 +136,6 @@ opn1lw:
   right_boundary: 154182200
   pivot_site: 154143410
   clip_5p_positions: [154144048]
-SPANXA1:
-  genes: SPANXA1,SPANXA2
-  realign_region: chrX:141574145-141585260
-  extract_regions: chrX:141581000-141585260 chrX:141589190-141593446
-  left_boundary: 141581000
-  is_tandem: True
-  is_reverse: True
 SSX2: 
   genes: SSX2,SSX2B
   is_tandem: True
@@ -271,12 +264,6 @@ ANXA8:
   left_boundary: 47466056
   right_boundary: 47484780
   is_reverse: True
-BOLA2:
-  genes: BOLA2,BOLA2B
-  realign_region: chr16:29443972-29463972
-  extract_regions: chr16:29449191-29463972 chr16:30188529-30203317
-  left_boundary: 29449192
-  right_boundary: 29463971
 C21orf140:
   genes: C21orf140
   realign_region: chr21:34390592-34410592
@@ -918,6 +905,12 @@ SIK1:
   is_reverse: True
   expect_cn2: True
 
+BOLA2:
+  genes: BOLA2,BOLA2B
+  realign_region: chr16:29443972-29463972
+  extract_regions: chr16:29449191-29463972 chr16:30188529-30203317
+  left_boundary: 29449192
+  right_boundary: 29463971
 SLX1A:
   genes: SLX1A,SLX1B,SULT1A3,SULT1A4
   realign_region: chr16:30185718-30211782
@@ -1234,3 +1227,31 @@ NSF:
   extract_regions: chr17:46590170-46707123 chr17:46372249-46489410
   left_boundary: 46590171
   right_boundary: 46707122
+
+
+AMY1A1:
+  genes: AMY1A,AMY1B,AMY1C
+  realign_region: chr1:103650157-103670157
+  extract_regions: chr1:103650158-103670157 chr1:103684093-103701812 chr1:103744296-103762027
+  left_boundary: 103650159
+  right_boundary: 103668000
+  clip_3p_positions: [103667876]
+  noisy_region: [[103667000, 103667870]]
+  add_sites: ["103667950_T_A"]
+CTAG1A1:
+  genes: CTAG1A,CTAG1B
+  realign_region: chrX:154575974-154595974
+  extract_regions: chrX:154575975-154591327 chrX:154613097-154628455
+  left_boundary: 154575976
+  right_boundary: 154591500
+  clip_3p_positions: [154591326]
+  is_reverse: True
+  add_sites: ["154591380_A_G"]
+BOLA21:
+  genes: BOLA2,BOLA2B,SLX1A,SLX1B,SULT1A3,SULT1A4
+  realign_region: chr16:29448000-29472438
+  extract_regions: chr16:29449191-29472438 chr16:30188529-30211782
+  left_boundary: 29449000
+  right_boundary: 29472438
+  clip_5p_positions: [29449191]
+  add_sites: ["29449010_T_G"]
