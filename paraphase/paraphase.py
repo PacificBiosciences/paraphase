@@ -198,7 +198,9 @@ class Paraphase:
                 gdepth = None
                 sample_sex = None
                 query_genes = list(configs.keys())
-                if 1: #set(query_genes).intersection(set(self.genome_depth_genes)) != set():
+                if (
+                    1
+                ):  # set(query_genes).intersection(set(self.genome_depth_genes)) != set():
                     logging.info(
                         f"Getting genome depth for sample {sample_id} at {datetime.datetime.now()}..."
                     )
