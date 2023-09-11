@@ -62,7 +62,7 @@ paraphase -l list.txt -o output_directory -r genome_fasta
 ```
 
 Required parameters:
-- `-b`: Input BAM file or `-l`: text file listing BAM files one per line
+- `-b`: Input BAM file or `-l`: text file listing BAM files one per line (a BAI file needs to exist in the same directory)
 - `-o`: Output directory
 - `-r`: Path to the reference genome fasta file
 

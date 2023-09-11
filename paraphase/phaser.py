@@ -37,6 +37,7 @@ class Phaser:
         "nonunique_supporting_reads",
         "read_details",
         "genome_depth",
+        "sample_sex",
     ]
     GeneCall = namedtuple(
         "GeneCall",
@@ -1747,6 +1748,7 @@ class Phaser:
             nonuniquely_supporting_reads,
             raw_read_haps,
             self.mdepth,
+            self.sample_sex,
         )
 
     def close_handle(self):

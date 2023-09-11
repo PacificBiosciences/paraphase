@@ -123,7 +123,7 @@ f8:
   clip_3p_positions: [155386059, 155386727]
   left_boundary: 155376507
   right_boundary: 155386059
-  is_reverse: True
+  depth_region: [[154900000, 155020000]]
 
 opn1lw: 
   genes: OPN1LW,OPN1MW,OPN1MW2,OPN1MW3,TEX28

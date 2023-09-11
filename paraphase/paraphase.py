@@ -198,37 +198,32 @@ class Paraphase:
                 gdepth = None
                 sample_sex = None
                 query_genes = list(configs.keys())
-                if (
-                    1
-                ):  # set(query_genes).intersection(set(self.genome_depth_genes)) != set():
-                    logging.info(
-                        f"Getting genome depth for sample {sample_id} at {datetime.datetime.now()}..."
-                    )
-                    if sample_id in dcov:
-                        gdepth = dcov[sample_id]
-                    if gdepth is None:
-                        depth = GenomeDepth(
-                            bam,
-                            os.path.join(
-                                os.path.dirname(__file__), "data", "genome_region.bed"
-                            ),
-                        )
-                        gdepth, gmad = depth.call()
-                        if gdepth < 10 or gmad > 0.25:
-                            logging.warning(
-                                f"For sample {sample_id}, due to low or highly variable genome coverage, genome coverage is not used for depth correction."
-                            )
-                            gdepth = None
 
-                if set(query_genes).intersection(set(self.check_sex_genes)) != set():
-                    logging.info(f"Checking sample sex at {datetime.datetime.now()}...")
+                logging.info(
+                    f"Getting genome depth for sample {sample_id} at {datetime.datetime.now()}..."
+                )
+                if sample_id in dcov:
+                    gdepth = dcov[sample_id]
+                if gdepth is None:
                     depth = GenomeDepth(
                         bam,
                         os.path.join(
-                            os.path.dirname(__file__), "data", "sex_region.bed"
+                            os.path.dirname(__file__), "data", "genome_region.bed"
                         ),
                     )
-                    sample_sex = depth.check_sex()
+                    gdepth, gmad = depth.call()
+                    if gdepth < 10 or gmad > 0.25:
+                        logging.warning(
+                            f"For sample {sample_id}, due to low or highly variable genome coverage, genome coverage is not used for depth correction."
+                        )
+                        gdepth = None
+
+                logging.info(f"Checking sample sex at {datetime.datetime.now()}...")
+                depth = GenomeDepth(
+                    bam,
+                    os.path.join(os.path.dirname(__file__), "data", "sex_region.bed"),
+                )
+                sample_sex = depth.check_sex()
 
                 if num_threads == 1:
                     sample_out = self.process_gene(

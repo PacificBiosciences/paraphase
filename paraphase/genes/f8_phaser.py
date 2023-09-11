@@ -14,6 +14,7 @@ class F8Phaser(Phaser):
     new_fields.remove("hap_links")
     new_fields.insert(3, "sv_called")
     new_fields.insert(3, "flanking_summary")
+    new_fields.insert(3, "exon1_to_exon22_depth")
     GeneCall = namedtuple(
         "GeneCall",
         new_fields,
@@ -27,6 +28,7 @@ class F8Phaser(Phaser):
 
     def set_parameter(self, config):
         super().set_parameter(config)
+        self.depth_region = config["depth_region"]
         self.extract_region1, self.extract_region2, self.extract_region3 = config[
             "extract_regions"
         ].split()
@@ -75,6 +77,11 @@ class F8Phaser(Phaser):
     def call(self):
         if self.check_coverage_before_analysis() is False:
             return self.GeneCall()
+
+        genome_bamh = pysam.AlignmentFile(self.genome_bam, "rb")
+        e1_e22_depth = self.get_regional_depth(genome_bamh, self.depth_region)[0]
+        genome_bamh.close()
+
         dpos5, dpos3 = self.get_read_positions()
         self.get_homopolymer()
         self.get_candidate_pos()
@@ -148,12 +155,22 @@ class F8Phaser(Phaser):
             flanking_sum.setdefault(
                 hap_name, "-".join(["/".join(p5region), "/".join(p3region)])
             )
+
+        # region2 and region3 are homologous at 5p for another 50kb,
+        # so we cannot separate the upstream regions
+        # we look for read evidence only at downstream region of region2 and region3
+        # so we drop duplication as it involves upstream region of region2 and it's not pathogenic (?)
         for hap, links in flanking_sum.items():
             if links == "region1-region2":
-                sv_hap.setdefault(hap, "deletion")
-            elif links == "region2-region1":
-                sv_hap.setdefault(hap, "duplication")
-            elif links == "region3-region1" or links == "region1-region3":
+                if self.mdepth is not None and self.sample_sex is not None:
+                    if self.sample_sex == "female":
+                        prob = self.depth_prob(int(e1_e22_depth), self.mdepth / 2)
+                        if prob[0] > 0.75:
+                            sv_hap.setdefault(hap, "deletion")
+                    if self.sample_sex == "male":
+                        if e1_e22_depth < 1:
+                            sv_hap.setdefault(hap, "deletion")
+            elif links == "region1-region3":
                 sv_hap.setdefault(hap, "inversion")
 
         self.close_handle()
@@ -162,6 +179,7 @@ class F8Phaser(Phaser):
             total_cn,
             ass_haps,
             [],
+            e1_e22_depth,
             flanking_sum,
             sv_hap,
             hcn,
@@ -175,4 +193,5 @@ class F8Phaser(Phaser):
             nonuniquely_supporting_reads,
             raw_read_haps,
             self.mdepth,
+            self.sample_sex,
         )
