@@ -21,7 +21,6 @@ class StrcPhaser(Phaser):
         "het_sites_not_used_in_phasing",
         "homozygous_sites",
         "haplotype_details",
-        "variant_genotypes",
         "nonunique_supporting_reads",
         "read_details",
         "genome_depth",
@@ -105,7 +104,7 @@ class StrcPhaser(Phaser):
         ass_haps = tmp
 
         if self.het_sites != []:
-            haplotypes, dvar = self.output_variants_in_haplotypes(
+            haplotypes = self.output_variants_in_haplotypes(
                 ass_haps,
                 uniquely_supporting_reads,
                 nonuniquely_supporting_reads,
@@ -167,7 +166,6 @@ class StrcPhaser(Phaser):
             self.het_no_phasing,
             self.homo_sites,
             haplotypes,
-            dvar,
             nonuniquely_supporting_reads,
             raw_read_haps,
             self.mdepth,

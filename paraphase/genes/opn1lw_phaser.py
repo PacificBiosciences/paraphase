@@ -32,7 +32,6 @@ class Opn1lwPhaser(Phaser):
         "het_sites_not_used_in_phasing",
         "homozygous_sites",
         "haplotype_details",
-        "variant_genotypes",
         "nonunique_supporting_reads",
         "read_details",
         "genome_depth",
@@ -127,7 +126,7 @@ class Opn1lwPhaser(Phaser):
                 return [hap, hap2]
 
         # if other haps are phased on this allele
-        if len(alleles) == 1 and last_copies !=[] and last_copies[0] in alleles[0]:
+        if len(alleles) == 1 and last_copies != [] and last_copies[0] in alleles[0]:
             remaining_haps_not_phased = [
                 a for a in remaining_noending_haps if a not in alleles[0]
             ]
@@ -214,7 +213,7 @@ class Opn1lwPhaser(Phaser):
         last_copy_vars = set(["154182157_T_G", "154182166_A_C", "154182167_G_A"])
 
         if self.het_sites != []:
-            haplotypes, dvar = self.output_variants_in_haplotypes(
+            haplotypes = self.output_variants_in_haplotypes(
                 ass_haps,
                 uniquely_supporting_reads,
                 nonuniquely_supporting_reads,
@@ -441,7 +440,6 @@ class Opn1lwPhaser(Phaser):
             self.het_no_phasing,
             self.homo_sites,
             haplotypes,
-            dvar,
             nonuniquely_supporting_reads,
             raw_read_haps,
             self.mdepth,

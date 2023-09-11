@@ -63,9 +63,8 @@ class Ncf1Phaser(Phaser):
         ass_haps = tmp
 
         haplotypes = None
-        dvar = None
         if self.het_sites != []:
-            haplotypes, dvar = self.output_variants_in_haplotypes(
+            haplotypes = self.output_variants_in_haplotypes(
                 ass_haps,
                 uniquely_supporting_reads,
                 nonuniquely_supporting_reads,
@@ -136,7 +135,6 @@ class Ncf1Phaser(Phaser):
             self.het_no_phasing,
             self.homo_sites,
             haplotypes,
-            dvar,
             nonuniquely_supporting_reads,
             raw_read_haps,
             self.mdepth,

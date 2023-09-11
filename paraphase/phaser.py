@@ -33,7 +33,6 @@ class Phaser:
         "het_sites_not_used_in_phasing",
         "homozygous_sites",
         "haplotype_details",
-        "variant_genotypes",
         "nonunique_supporting_reads",
         "read_details",
         "genome_depth",
@@ -941,7 +940,7 @@ class Phaser:
             nend_next_pos = int(self.het_sites[nend_next].split("_")[0]) - 1
         return nstart_previous_pos, nend_next_pos
 
-    def output_variants_in_haplotypes(self, haps, reads, nonunique, two_cp_haps=[]):
+    def output_variants_in_haplotypes(self, haps, reads, nonunique, known_del={}):
         """
         Summarize all variants in each haplotype.
         Output all variants and their genotypes.
@@ -950,7 +949,6 @@ class Phaser:
         het_sites = self.het_sites
         haplotype_variants = {}
         haplotype_info = {}
-        dvar = {}
         var_no_phasing = copy.deepcopy(self.het_no_phasing)
         for hap, hap_name in haps.items():
             haplotype_variants.setdefault(hap_name, [])
@@ -974,12 +972,42 @@ class Phaser:
                 else:
                     for hap_name in haps_with_variant:
                         haplotype_variants[hap_name].append(var)
-                    dvar.setdefault(var, genotypes)
         # het sites and homo sites
         for hap, hap_name in haps.items():
+            # het sites
             for i in range(len(hap)):
                 if hap[i] == "2":
                     haplotype_variants[hap_name].append(het_sites[i])
+                elif hap[i] in known_del:
+                    del_name = known_del[hap[i]]
+                    if del_name not in haplotype_variants[hap_name]:
+                        haplotype_variants[hap_name].append(del_name)
+            # homo sites
+            filtered_homo_sites = self.homo_sites
+            # check known deletions
+            del1_name = None
+            del2_name = None
+            if known_del != {}:
+                known_del_names = list(known_del.values())
+                del1_name = known_del_names[0]
+                if len(known_del_names) > 1:
+                    del2_name = known_del_names[1]
+            if del1_name in haplotype_variants[hap_name]:
+                pos1 = self.del1_3p_pos1
+                pos2 = self.del1_5p_pos2
+                filtered_homo_sites = [
+                    a
+                    for a in filtered_homo_sites
+                    if int(a.split("_")[0]) < pos1 or int(a.split("_")[0]) > pos2
+                ]
+            if del2_name in haplotype_variants[hap_name]:
+                pos1 = self.del2_3p_pos1
+                pos2 = self.del2_5p_pos2
+                filtered_homo_sites = [
+                    a
+                    for a in filtered_homo_sites
+                    if int(a.split("_")[0]) < pos1 or int(a.split("_")[0]) > pos2
+                ]
             # haps with clips
             if hap.startswith("0") and self.clip_5p_positions != []:
                 for first_pos_after_clip, base in enumerate(hap):
@@ -991,11 +1019,13 @@ class Phaser:
                 for clip_position in sorted(self.clip_5p_positions, reverse=True):
                     if clip_position < first_pos_after_clip_position:
                         break
-                haplotype_variants[hap_name] += [
-                    a for a in self.homo_sites if int(a.split("_")[0]) > clip_position
+                filtered_homo_sites = [
+                    a
+                    for a in filtered_homo_sites
+                    if int(a.split("_")[0]) > clip_position
                 ]
                 haplotype_variants[hap_name].append(f"{clip_position}_clip_5p")
-            elif hap.endswith("0") and self.clip_3p_positions != []:
+            if hap.endswith("0") and self.clip_3p_positions != []:
                 for first_pos_before_clip in reversed(range(len(hap))):
                     if hap[first_pos_before_clip] != "0":
                         break
@@ -1005,14 +1035,16 @@ class Phaser:
                 for clip_position in sorted(self.clip_3p_positions):
                     if clip_position > first_pos_before_clip_position:
                         break
-                haplotype_variants[hap_name] += [
-                    a for a in self.homo_sites if int(a.split("_")[0]) < clip_position
+                filtered_homo_sites = [
+                    a
+                    for a in filtered_homo_sites
+                    if int(a.split("_")[0]) < clip_position
                 ]
                 haplotype_variants[hap_name].append(f"{clip_position}_clip_3p")
-            else:
-                # need some coordinate check if there is long deletion
-                haplotype_variants[hap_name] += self.homo_sites
 
+            haplotype_variants[hap_name] += filtered_homo_sites
+
+            # find boundary for confident variant calling
             var_nstart, var_nend = self.get_hap_variant_ranges(hap)
             var_tmp = haplotype_variants[hap_name]
             var_tmp1 = [
@@ -1024,27 +1056,7 @@ class Phaser:
                 hap_name, {"variants": var_tmp2, "boundary": [var_nstart, var_nend]}
             )
 
-        # summary per variant
-        all_haps = haps
-        nhap = len(all_haps)
-        for var in self.homo_sites:
-            # need to fix those with soft-clips
-            dvar.setdefault(var, ["1"] * nhap)
-        for i, var in enumerate(het_sites):
-            dvar.setdefault(var, [])
-            for hap, hap_name in haps.items():
-                base_call = "."
-                if hap[i] == "2":
-                    base_call = "1"
-                elif hap[i] == "1":
-                    base_call = "0"
-                dvar[var].append(base_call)
-                if hap_name in two_cp_haps:
-                    dvar[var].append(base_call)
-
-        return haplotype_info, {
-            var: "|".join(dvar[var]) for var in dict(sorted(dvar.items()))
-        }
+        return haplotype_info
 
     def get_genotype_in_hap(self, var_reads, hap_reads, hap_reads_nonunique):
         """For a given variant, return its status in a haplotype"""
@@ -1675,9 +1687,8 @@ class Phaser:
         ass_haps = tmp
 
         haplotypes = None
-        dvar = None
         if ass_haps != {}:
-            haplotypes, dvar = self.output_variants_in_haplotypes(
+            haplotypes = self.output_variants_in_haplotypes(
                 ass_haps,
                 uniquely_supporting_reads,
                 nonuniquely_supporting_reads,
@@ -1744,7 +1755,6 @@ class Phaser:
             self.het_no_phasing,
             self.homo_sites,
             haplotypes,
-            dvar,
             nonuniquely_supporting_reads,
             raw_read_haps,
             self.mdepth,

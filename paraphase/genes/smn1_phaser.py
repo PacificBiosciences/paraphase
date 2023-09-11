@@ -27,7 +27,6 @@ class Smn1Phaser(Phaser):
         "het_sites_not_used_in_phasing",
         "homozygous_sites",
         "haplotype_details",
-        "variant_genotypes",
         "nonunique_supporting_reads",
         "read_details",
         "final_haplotypes",
@@ -127,7 +126,6 @@ class Smn1Phaser(Phaser):
         het_sites = self.het_sites
         haplotype_info = {}
         haplotype_variants = {}
-        dvar = {}
         var_no_phasing = copy.deepcopy(self.het_no_phasing)
         for smn_haps in [smn1_haps, smn2_haps, smn2_del_haps]:
             for hap, hap_name in smn_haps.items():
@@ -157,7 +155,6 @@ class Smn1Phaser(Phaser):
                 else:
                     for hap_name in haps_with_variant:
                         haplotype_variants[hap_name].append(var)
-                    dvar.setdefault(var, genotypes)
         # het sites and homo sites
         for hap, hap_name in smn1_haps.items():
             for i in range(len(hap)):
@@ -254,29 +251,7 @@ class Smn1Phaser(Phaser):
                 )._asdict(),
             )
 
-        # summarize variants
-        all_haps = (
-            list(smn1_haps.keys()) + list(smn2_haps.keys()) + list(smn2_del_haps.keys())
-        )
-        nhap = len(all_haps) + len(two_cp_haps)
-        for var in self.homo_sites:
-            dvar.setdefault(var, ["1"] * nhap)
-        for i, var in enumerate(het_sites):
-            dvar.setdefault(var, [])
-            for smn_haps in [smn1_haps, smn2_haps, smn2_del_haps]:
-                for hap, hap_name in smn_haps.items():
-                    base_call = "."
-                    if hap[i] == "2":
-                        base_call = "1"
-                    elif hap[i] == "1":
-                        base_call = "0"
-                    dvar[var].append(base_call)
-                    if hap_name in two_cp_haps:
-                        dvar[var].append(base_call)
-
-        return haplotype_info, {
-            var: "|".join(dvar[var]) for var in dict(sorted(dvar.items()))
-        }
+        return haplotype_info
 
     def assign_haps_to_gene(self, ass_haps):
         """Assign assembled haplotypes to smn1/smn2/smn2del"""
@@ -613,9 +588,8 @@ class Smn1Phaser(Phaser):
 
         # summarize variants
         haplotypes = None
-        dvar = None
         if self.het_sites != []:
-            haplotypes, dvar = self.output_variants_in_haplotypes(
+            haplotypes = self.output_variants_in_haplotypes(
                 smn1_haps,
                 smn2_haps,
                 smn2_del_haps,
@@ -644,7 +618,6 @@ class Smn1Phaser(Phaser):
             self.het_no_phasing,
             self.homo_sites,
             haplotypes,
-            dvar,
             nonuniquely_supporting_reads,
             raw_read_haps,
             {**smn1_haps, **smn2_haps, **smn2_del_haps},

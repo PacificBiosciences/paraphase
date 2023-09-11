@@ -27,7 +27,6 @@ class RccxPhaser(Phaser):
         "het_sites_not_used_in_phasing",
         "homozygous_sites",
         "haplotype_details",
-        "variant_genotypes",
         "nonunique_supporting_reads",
         "read_details",
         "genome_depth",
@@ -89,104 +88,6 @@ class RccxPhaser(Phaser):
         ):
             return True
         return False
-
-    def output_variants_in_haplotypes(self, haps, reads, nonunique, two_cp_haps=[]):
-        """
-        Summarize all variants in each haplotype.
-        Output all variants and their genotypes.
-        Haplotypes are different length, so a range (boundary) is reported
-        """
-        het_sites = self.het_sites
-        haplotype_variants = {}
-        haplotype_info = {}
-        dvar = {}
-        var_no_phasing = copy.deepcopy(self.het_no_phasing)
-        for hap, hap_name in haps.items():
-            haplotype_variants.setdefault(hap_name, [])
-        # het sites not used in phasing
-        if reads != {}:
-            for var in var_no_phasing:
-                genotypes = []
-                var_reads = self.check_variants_in_haplotypes(var)
-                haps_with_variant = []
-                for hap, hap_name in haps.items():
-                    hap_reads = reads[hap]
-                    hap_reads_nonunique = [a for a in nonunique if hap in nonunique[a]]
-                    genotype = self.get_genotype_in_hap(
-                        var_reads, hap_reads, hap_reads_nonunique
-                    )
-                    genotypes.append(genotype)
-                    if genotype == "1":
-                        haps_with_variant.append(hap_name)
-                if haps_with_variant == []:
-                    self.het_no_phasing.remove(var)
-                else:
-                    for hap_name in haps_with_variant:
-                        haplotype_variants[hap_name].append(var)
-                    dvar.setdefault(var, genotypes)
-        # het sites and homo sites
-        for hap, hap_name in haps.items():
-            for i in range(len(hap)):
-                if hap[i] == "2":
-                    haplotype_variants[hap_name].append(het_sites[i])
-                elif (
-                    hap[i] == "3"
-                    and "32043718_del120" not in haplotype_variants[hap_name]
-                ):
-                    haplotype_variants[hap_name].append("32043718_del120")
-                elif (
-                    hap[i] == "4"
-                    and "32017431_del6367" not in haplotype_variants[hap_name]
-                ):
-                    haplotype_variants[hap_name].append("32017431_del6367")
-            if "32017431_del6367" in haplotype_variants[hap_name]:
-                pos1 = self.del1_3p_pos1
-                pos2 = self.del1_5p_pos2
-                for var in self.homo_sites:
-                    pos = int(var.split("_")[0])
-                    if pos < pos1 or pos > pos2:
-                        haplotype_variants[hap_name].append(var)
-            elif "32043718_del120" in haplotype_variants[hap_name]:
-                pos1 = self.del2_3p_pos1
-                pos2 = self.del2_5p_pos2
-                for var in self.homo_sites:
-                    pos = int(var.split("_")[0])
-                    if pos < pos1 or pos > pos2:
-                        haplotype_variants[hap_name].append(var)
-            else:
-                haplotype_variants[hap_name] += self.homo_sites
-
-            var_nstart, var_nend = self.get_hap_variant_ranges(hap)
-            var_tmp = haplotype_variants[hap_name]
-            var_tmp1 = [
-                a for a in var_tmp if var_nstart <= int(a.split("_")[0]) <= var_nend
-            ]
-            var_tmp1 = list(set(var_tmp1))
-            var_tmp2 = sorted(var_tmp1, key=lambda x: int(x.split("_")[0]))
-            haplotype_info.setdefault(
-                hap_name, {"variants": var_tmp2, "boundary": [var_nstart, var_nend]}
-            )
-
-        # summary per variant
-        all_haps = haps
-        nhap = len(all_haps)
-        for var in self.homo_sites:
-            dvar.setdefault(var, ["1"] * nhap)
-        for i, var in enumerate(het_sites):
-            dvar.setdefault(var, [])
-            for hap, hap_name in haps.items():
-                base_call = "."
-                if hap[i] == "2":
-                    base_call = "1"
-                elif hap[i] == "1":
-                    base_call = "0"
-                dvar[var].append(base_call)
-                if hap_name in two_cp_haps:
-                    dvar[var].append(base_call)
-
-        return haplotype_info, {
-            var: "|".join(dvar[var]) for var in dict(sorted(dvar.items()))
-        }
 
     @staticmethod
     def annotate_var(allele_var):
@@ -539,16 +440,24 @@ class RccxPhaser(Phaser):
         ]
 
         haplotypes = None
-        dvar = None
         if final_haps != {}:
-            haplotypes, dvar = self.output_variants_in_haplotypes(
+            haplotypes = self.output_variants_in_haplotypes(
                 final_haps,
                 uniquely_supporting_reads,
                 nonuniquely_supporting_reads,
+                {
+                    "4": "32017431_del6367",
+                    "3": "32043718_del120",
+                },
             )
 
         # phase haplotypes into alleles
-        (alleles, hap_links, _, _,) = self.phase_alleles(
+        (
+            alleles,
+            hap_links,
+            _,
+            _,
+        ) = self.phase_alleles(
             uniquely_supporting_reads,
             nonuniquely_supporting_reads,
             raw_read_haps,
@@ -613,7 +522,6 @@ class RccxPhaser(Phaser):
             self.het_no_phasing,
             self.homo_sites,
             haplotypes,
-            dvar,
             nonuniquely_supporting_reads,
             raw_read_haps,
             self.mdepth,

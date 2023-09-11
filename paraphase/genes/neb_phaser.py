@@ -51,9 +51,8 @@ class NebPhaser(Phaser):
         ass_haps = tmp
 
         haplotypes = None
-        dvar = None
         if self.het_sites != []:
-            haplotypes, dvar = self.output_variants_in_haplotypes(
+            haplotypes = self.output_variants_in_haplotypes(
                 ass_haps,
                 uniquely_supporting_reads,
                 nonuniquely_supporting_reads,
@@ -112,7 +111,12 @@ class NebPhaser(Phaser):
         alleles = []
         hap_links = {}
         if two_cp_haps == []:
-            (alleles, hap_links, _, _,) = self.phase_alleles(
+            (
+                alleles,
+                hap_links,
+                _,
+                _,
+            ) = self.phase_alleles(
                 uniquely_supporting_reads,
                 nonuniquely_supporting_reads,
                 raw_read_haps,
@@ -161,7 +165,6 @@ class NebPhaser(Phaser):
             self.het_no_phasing,
             self.homo_sites,
             haplotypes,
-            dvar,
             nonuniquely_supporting_reads,
             raw_read_haps,
             self.mdepth,
