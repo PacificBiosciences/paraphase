@@ -1220,3 +1220,12 @@ BOLA2:
   right_boundary: 29470000
   clip_5p_positions: [29449191]
   add_sites: ["29449010_T_G"]
+
+HBA1:
+  genes: HBA1,HBA2
+  realign_region: chr16:171800-173730
+  extract_regions: chr16:168656-177541
+  left_boundary: 171990
+  clip_5p_positions: [172006]
+  add_sites: ["172000_G_A"]
+  is_tandem: True
