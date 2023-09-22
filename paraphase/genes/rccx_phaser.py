@@ -307,6 +307,14 @@ class RccxPhaser(Phaser):
         wrong_allele = False
         for allele in new_alleles:
             hp_set = set(allele)
+            # if both copies are starting or ending
+            if len(allele) == 2:
+                hp1, hp2 = allele
+                if (hp1 in starting_copies and hp2 in starting_copies) or (
+                    hp1 in ending_copies and hp2 in ending_copies
+                ):
+                    wrong_allele = True
+                    break
             for hp in hp_set:
                 if (
                     hp in ending_copies
@@ -357,7 +365,9 @@ class RccxPhaser(Phaser):
                 [self.del1_3p_pos1, self.del1_3p_pos2],
                 [self.del1_5p_pos1, self.del1_5p_pos2],
             ]
-        self.get_candidate_pos(regions_to_check=regions_to_check)
+        self.get_candidate_pos(
+            regions_to_check=regions_to_check, white_list={32039081: "A"}
+        )
 
         # add last snp outside of repeat
         var_found = False
@@ -385,6 +395,7 @@ class RccxPhaser(Phaser):
             check_clip=True,
             partial_deletion_reads=self.del1_reads_partial,
             kept_sites=["32046300_G_A", "32013265_A_T"],
+            multi_allelic_sites={32039081: "A"},
         )
 
         het_sites = self.het_sites

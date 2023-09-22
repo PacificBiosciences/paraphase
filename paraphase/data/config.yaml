@@ -1,11 +1,9 @@
 smn1: 
   genes: SMN1,SMN2
   data:
-    reference_smn2: ref_smn2.fa
-    smn_match: smn_matching_pos.txt
     known_haplotypes: known_haplotypes.json
   realign_region: chr5:70890000-71100000
-  nchr_old_smn2: chr5_70040526_70088546
+  gene2_region: chr5:70040526-70088546
   extract_regions: chr5:70041526-70087546 chr5:70916946-70963000
   pivot_site: 70951946
   left_boundary: 70917100
@@ -28,9 +26,10 @@ smn1:
 pms2: 
   genes: PMS2
   check_nm: 0.1
-  realign_region: chr7:5957000-6010000
-  extract_regions: chr7:5970000-5989062 chr7:6735630-6754792
-  left_boundary: 5970925
+  realign_region: chr7:5965000-6010000
+  extract_regions: chr7:5967000-5989062 chr7:6735630-6758000
+  gene2_region: chr7:6735630-6758000
+  left_boundary: 5967000
   right_boundary: 5986000
   clip_3p_positions: [5989126, 5989052]
   noisy_region: [[5980880, 5980980], [5979663, 5979669], [5975950, 5976080]]
@@ -64,6 +63,7 @@ strc:
   check_nm: 0.1
   realign_region: chr15:43599000-43620000
   extract_regions: chr15:43599000-43620000 chr15:43698814-43719466
+  gene2_region: chr15:43698814-43719466
   noisy_region: [[43602500, 43603700], [43602165, 43602176]]
   depth_region: [[43610000, 43660000]]
   pivot_site: 43602487
@@ -88,6 +88,7 @@ ikbkg:
   use_supplementary: True
   realign_region: chrX:154555600-154575000
   extract_regions: chrX:154555883-154569698 chrX:154634729-154648555
+  gene2_region: chrX:154632000-154649000
   clip_3p_positions: [154569698]
   clip_5p_positions: [154557136]
   pivot_site: 154555882
@@ -105,6 +106,7 @@ ncf1:
   check_nm: 0.1
   realign_region: chr7:74760000-74820000
   extract_regions: chr7:73215625-73238945 chr7:74769011-74792315 chr7:75153639-75176964
+  gene2_region: chr7:73215625-73238945
   pivot_site: 74777265
   left_boundary: 74769011
   right_boundary: 74792315
@@ -541,8 +543,8 @@ GOLGA8A:
   genes: GOLGA8A,GOLGA8B
   realign_region: chr15:34378568-34438308
   extract_regions: chr15:34378799-34431301 chr15:34525011-34577508
-  left_boundary: 34378800
-  right_boundary: 34431300
+  left_boundary: 34380000
+  right_boundary: 34420000
 GOLGA8F:
   genes: GOLGA8F,GOLGA8G
   realign_region: chr15:28375342-28395342
@@ -1091,7 +1093,7 @@ CASTOR2:
   left_boundary: 74965884
   right_boundary: 75032028
   clip_3p_positions: [74984489]
-CLEC18A:
+CLEC18C:
   genes: CLEC18A,CLEC18B,CLEC18C
   realign_region: chr16:70170341-70190341
   extract_regions: chr16:70170342-70190341 chr16:69947429-69967427 chr16:74405201-74425232

@@ -541,6 +541,7 @@ class Phaser:
         partial_deletion_reads=[],
         kept_sites=[],
         add_sites=[],
+        multi_allelic_sites={},
     ):
         """
         Go through reads and get bases at sites of interest.
@@ -552,6 +553,7 @@ class Phaser:
             min_clip_len,
             check_clip,
             partial_deletion_reads,
+            multi_allelic_sites,
         )
         self.remove_var(raw_read_haps, kept_sites)
         if self.het_sites != []:
@@ -565,6 +567,7 @@ class Phaser:
             min_clip_len,
             check_clip,
             partial_deletion_reads,
+            multi_allelic_sites,
         )
         return raw_read_haps
 
@@ -575,6 +578,7 @@ class Phaser:
         min_clip_len=50,
         check_clip=False,
         partial_deletion_reads=[],
+        multi_allelic_sites={},
     ):
         """
         Go through reads and get bases at sites of interest
@@ -627,7 +631,11 @@ class Phaser:
                                     hap = read_seq[start_pos:end_pos]
                                     if read_name not in read_haps:
                                         read_haps.setdefault(read_name, ["x"] * nvar)
-                                    if hap.upper() == allele1.upper():
+                                    if hap.upper() == allele1.upper() or (
+                                        snp_position in multi_allelic_sites
+                                        and hap.upper()
+                                        == multi_allelic_sites[snp_position]
+                                    ):
                                         read_haps[read_name][dsnp_index] = "1"
                                     elif hap.upper() == allele2.upper():
                                         read_haps[read_name][dsnp_index] = "2"
@@ -736,7 +744,9 @@ class Phaser:
             )
         return ref_seq, var_seq, indel_size
 
-    def get_candidate_pos(self, regions_to_check=[], min_read_support=5, min_vaf=0.11):
+    def get_candidate_pos(
+        self, regions_to_check=[], min_read_support=5, min_vaf=0.11, white_list={}
+    ):
         """
         Get all polymorphic sites in the region, update self.candidate_pos
         """
@@ -774,6 +784,7 @@ class Phaser:
                 if len(counter) == 1 or (
                     len(counter) >= 2
                     and bases[0][1] > len(all_bases) - min_read_support
+                    # update logic for homozygous sites here
                 ):
                     var_seq = bases[0][0]
                     ref_seq = ref_seq_genome
@@ -801,7 +812,7 @@ class Phaser:
                                 self.homo_sites.append(f"{pos}_{ref_seq}_{var_seq}")
                 elif len(counter) >= 2:
                     found_ref = ref_seq_genome in [a[0] for a in bases]
-                    if found_ref:
+                    if found_ref or pos in white_list:
                         for var_seq, var_count in bases:
                             ref_seq = ref_seq_genome
                             if (
@@ -844,10 +855,16 @@ class Phaser:
             var_to_check = [a for a in variants if region[0] < a < region[1]]
             excluded_variants += var_to_check
         for pos in variants:
-            # for now, filter out multi-allelic sites
-            if pos not in excluded_variants and len(variants[pos]) == 1:
-                ref_seq, var_seq = variants[pos][0]
-                self.candidate_pos.add(f"{pos}_{ref_seq}_{var_seq}")
+            # for now, filter out multi-allelic sites, except in white list
+            if pos not in excluded_variants:
+                if len(variants[pos]) == 1:
+                    ref_seq, var_seq = variants[pos][0]
+                    self.candidate_pos.add(f"{pos}_{ref_seq}_{var_seq}")
+                elif pos in white_list:
+                    for ref_seq, var_seq in variants[pos]:
+                        if var_seq != white_list[pos]:
+                            self.candidate_pos.add(f"{pos}_{ref_seq}_{var_seq}")
+                            break
 
         excluded_variants = []
         for region in regions_to_check:

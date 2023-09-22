@@ -1,4 +1,5 @@
 genes_to_call: []
 genome_depth_genes: ["smn1", "strc", "ncf1"]
 no_vcf_genes: []
-check_sex_genes: ["opn1lw"]
+check_sex_genes: ["opn1lw", "f8"]
+two_reference_regions_genes: ["smn1", "pms2", "strc", "ikbkg", "ncf1"]

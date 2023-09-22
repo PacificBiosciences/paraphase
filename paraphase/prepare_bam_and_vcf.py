@@ -49,6 +49,16 @@ class BamRealigner:
         self.realign_out_bam = os.path.join(
             self.outdir, self.sample_id + f"_{self.gene}_realigned.bam"
         )
+        self.gene2_region = config.get("gene2_region")
+        if self.gene2_region is not None:
+            self.offset_gene2 = int(self.gene2_region.split(":")[1].split("-")[0]) - 1
+            self.gene2_ref = config["data"].get("reference_gene2")
+            self.realign_bam_gene2 = os.path.join(
+                self.outdir, self.sample_id + f"_{self.gene}_gene2_realigned_old.bam"
+            )
+            self.realign_out_bam_gene2 = os.path.join(
+                self.outdir, self.sample_id + f"_{self.gene}_gene2_realigned.bam"
+            )
 
     def get_nm(self, read, min_size=300):
         """Get number of mismatches excluding big deletions or insertions"""
@@ -59,22 +69,35 @@ class BamRealigner:
         large_insertions = [a for a in insertions_on_read if a > min_size]
         return read.get_tag("NM") - sum(large_deletions + large_insertions)
 
-    def write_realign_bam(self):
+    def write_realign_bam(self, gene2=False):
         """
         Realign reads to region of interest and output a tagged bam for visualization
         """
+        if gene2 is False:
+            realign_ref = self.ref
+            realign_out_tmp = self.realign_bam
+            realign_out = self.realign_out_bam
+            ref_name_tmp = self.nchr_old
+            offset = self.offset
+        else:
+            realign_ref = self.gene2_ref
+            realign_out_tmp = self.realign_bam_gene2
+            realign_out = self.realign_out_bam_gene2
+            ref_name_tmp = self.gene2_region.replace(":", "_").replace("-", "_")
+            offset = self.offset_gene2
+
         realign_cmd = (
             f"{self.samtools} view -F 0x100 -F 0x200 -F 0x800 {self.bam} {self.extract_regions} | sort | uniq | "
             + f'awk \'BEGIN {{FS="\\t"}} {{print "@" $1 "\\n" $10 "\\n+\\n" $11}}\''
-            + f" | {self.minimap2} {self.use_r2k} -a -x map-pb {self.ref} - | {self.samtools} view -bh | {self.samtools} sort > {self.realign_bam}"
+            + f" | {self.minimap2} {self.use_r2k} -a -x map-pb {realign_ref} - | {self.samtools} view -bh | {self.samtools} sort > {realign_out_tmp}"
         )
         result = subprocess.run(realign_cmd, capture_output=True, text=True, shell=True)
         result.check_returncode()
-        if os.path.exists(self.realign_bam) is False:
+        if os.path.exists(realign_out_tmp) is False:
             raise Exception("Realigned bam does not exist.")
 
-        pysam.index(self.realign_bam)
-        realign_bamh = pysam.AlignmentFile(self.realign_bam, "rb")
+        pysam.index(realign_out_tmp)
+        realign_bamh = pysam.AlignmentFile(realign_out_tmp, "rb")
         realign_bamh_header = realign_bamh.header
         realign_bamh_header = realign_bamh_header.to_dict()
         pg_lines = []
@@ -96,18 +119,18 @@ class BamRealigner:
             "PG": pg_lines,
         }
         realign_out_bamh = pysam.AlignmentFile(
-            self.realign_out_bam,
+            realign_out,
             "wb",
             header=new_header,
         )
-        for read in realign_bamh.fetch(self.nchr_old):
+        for read in realign_bamh.fetch(ref_name_tmp):
             num_mismatch = self.get_nm(read)
             if (
                 read.mapping_quality >= self.min_mapq
                 and read.query_alignment_length >= self.min_aln
                 and num_mismatch < read.reference_length * self.max_mismatch
             ):
-                read.reference_start += self.offset
+                read.reference_start += offset
                 ltags = read.tags
                 new_ltags = []
                 for tag in ltags:
@@ -121,7 +144,7 @@ class BamRealigner:
                                 at = sa_item.split(",")
                                 at[0] = self.nchr
                                 tmp_pos = int(at[1])
-                                at[1] = str(tmp_pos + self.offset)
+                                at[1] = str(tmp_pos + offset)
                                 mapq = int(at[4])
                                 if mapq >= self.min_mapq:
                                     new_at = ",".join(at)
@@ -133,9 +156,9 @@ class BamRealigner:
                 realign_out_bamh.write(read)
         realign_bamh.close()
         realign_out_bamh.close()
-        pysam.index(self.realign_out_bam)
-        os.remove(self.realign_bam)
-        os.remove(self.realign_bam + ".bai")
+        pysam.index(realign_out)
+        os.remove(realign_out_tmp)
+        os.remove(realign_out_tmp + ".bai")
 
 
 class BamTagger:
@@ -156,7 +179,6 @@ class BamTagger:
             self.outdir, self.sample_id + f"_{self.gene}_realigned.bam"
         )
         self.nchr = config["nchr"]
-        self._bamh = pysam.AlignmentFile(self.bam, "rb")
         self.tmp_bam = os.path.join(
             self.outdir, self.sample_id + f"_{self.gene}_tmp.bam"
         )
@@ -166,6 +188,17 @@ class BamTagger:
         self.use_supplementary = False
         if "use_supplementary" in config or "is_tandem" in config:
             self.use_supplementary = True
+        self.gene2_region = config.get("gene2_region")
+        if self.gene2_region is not None:
+            self.bam_gene2 = os.path.join(
+                self.outdir, self.sample_id + f"_{self.gene}_gene2_realigned.bam"
+            )
+            self.tmp_bam_gene2 = os.path.join(
+                self.outdir, self.sample_id + f"_{self.gene}_gene2_tmp.bam"
+            )
+            self.tagged_realigned_bam_gene2 = os.path.join(
+                self.outdir, self.sample_id + f"_{self.gene}_gene2_realigned_tagged.bam"
+            )
         random.seed(0)
 
     def add_tag_to_read(
@@ -186,7 +219,12 @@ class BamTagger:
         """
         hp_found = False
         read_name = read.qname
-        if read.is_supplementary and self.use_supplementary:
+        if (
+            read.is_supplementary
+            and self.use_supplementary
+            and self.gene2_region is None
+            # coordinates are all changed after realigning to gene2
+        ):
             read_name = (
                 read_name + f"_sup_{read.reference_start}_{read.reference_length}"
             )
@@ -236,15 +274,25 @@ class BamTagger:
                     read.set_tag("HP", "Unassigned", "Z")
         return read
 
-    def write_bam(self, random_assign=False):
+    def write_bam(self, random_assign=False, gene2=False):
         """
         Write HP tags in output bams.
         """
+        if gene2 is False:
+            inbam = self.bam
+            tmpbam = self.tmp_bam
+            outbam = self.tagged_realigned_bam
+        else:
+            inbam = self.bam_gene2
+            tmpbam = self.tmp_bam_gene2
+            outbam = self.tagged_realigned_bam_gene2
+
         call_sum = self.call_sum
         hp_keys = call_sum.get("final_haplotypes")
         if hp_keys is None:
             return
-        out_bamh = pysam.AlignmentFile(self.tmp_bam, "wb", template=self._bamh)
+        self._bamh = pysam.AlignmentFile(inbam, "rb")
+        out_bamh = pysam.AlignmentFile(tmpbam, "wb", template=self._bamh)
         unique_reads = call_sum.get("unique_supporting_reads")
         nonunique_reads = call_sum.get("nonunique_supporting_reads")
         if nonunique_reads is None:
@@ -268,11 +316,11 @@ class BamTagger:
                 out_bamh.write(read)
         out_bamh.close()
         self._bamh.close()
-        pysam.sort("-o", self.tagged_realigned_bam, self.tmp_bam)
-        pysam.index(self.tagged_realigned_bam)
-        os.remove(self.tmp_bam)
-        os.remove(self.bam)
-        os.remove(self.bam + ".bai")
+        pysam.sort("-o", outbam, tmpbam)
+        pysam.index(outbam)
+        os.remove(tmpbam)
+        os.remove(inbam)
+        os.remove(inbam + ".bai")
 
 
 class VcfGenerater:
@@ -512,12 +560,19 @@ class VcfGenerater:
             hap_bound = self.get_hap_bound(hap_name)
             # convert to positions in the other gene
             if match_range:
-                hap_bound = [
-                    self.get_range_in_other_gene(hap_bound[0]),
-                    self.get_range_in_other_gene(hap_bound[1]),
-                    self.get_range_in_other_gene(hap_bound[2]),
-                    self.get_range_in_other_gene(hap_bound[3]),
-                ]
+                if self.match == {}:
+                    hap_bound = []
+                else:
+                    n1 = self.get_range_in_other_gene(hap_bound[0])
+                    n2 = self.get_range_in_other_gene(hap_bound[1])
+                    n3 = self.get_range_in_other_gene(hap_bound[2])
+                    n4 = self.get_range_in_other_gene(hap_bound[3])
+                    hap_bound = [
+                        min(n1, n2),
+                        max(n1, n2),
+                        min(n3, n4),
+                        max(n3, n4),
+                    ]
             hap_bam = os.path.join(
                 self.tmpdir, self.sample_id + f"_{self.gene}_{hap_name}.bam"
             )
@@ -540,8 +595,8 @@ class VcfGenerater:
             variants_called = self.call_variants_from_hp_bam(
                 hap_bam, hap_vcf_out, hap_bound, offset, ref_seq, uniq_reads
             )
-            os.remove(hap_bam)
-            os.remove(hap_bam + ".bai")
+            # os.remove(hap_bam)
+            # os.remove(hap_bam + ".bai")
 
             for pos, var_name, dp, ad, qual, gt in variants_called:
                 vars.setdefault(pos, [None] * nhap)
@@ -664,10 +719,10 @@ class VcfGenerater:
         uniq_reads = []
         for read_set in self.call_sum["unique_supporting_reads"].values():
             for read_name in read_set:
-                read_name_split = read_name.split("_")
+                read_name_split = read_name.split("_sup")
                 # supplementary alignments
                 if self.use_supplementary and len(read_name_split) > 1:
-                    uniq_reads.append("_".join(read_name_split[:-1]))
+                    uniq_reads.append(read_name_split[0])
                 else:
                     uniq_reads.append(read_name)
         vars = {}
@@ -797,14 +852,42 @@ class TwoGeneVcfGenerater(VcfGenerater):
 
     def set_parameter(self, config, tmpdir=None, prog_cmd=None):
         super().set_parameter(config, tmpdir, prog_cmd)
-        self.nchr_old_gene2 = config["nchr_old_smn2"]
-        self.offset_gene2 = int(self.nchr_old_gene2.split("_")[1]) - 1
-        self.ref_gene2 = config["data"]["reference_smn2"]
-        self.position_match = config["data"]["smn_match"]
-        with open(self.position_match) as f:
-            for line in f:
-                at = line.split()
-                self.match.setdefault(int(at[1]), int(at[3]))
+        self.gene2_region = config["gene2_region"]
+        self.offset_gene2 = int(self.gene2_region.split(":")[1].split("-")[0]) - 1
+        self.ref_gene2 = config["data"]["reference_gene2"]
+        self.position_match = config["data"].get("gene_position_match")
+        if self.position_match is not None:
+            with open(self.position_match) as f:
+                for line in f:
+                    at = line.split()
+                    self.match.setdefault(int(at[0]), int(at[1]))
+
+    def separate_two_genes(self):
+        """Get haplotypes for gene1 and gene2"""
+        all_haps = self.call_sum.get("final_haplotypes")
+        gene1_haps = {}
+        gene2_haps = {}
+        if self.gene == "smn1":
+            return self.call_sum["smn1_haplotypes"], self.call_sum["smn2_haplotypes"]
+        elif self.gene == "pms2":
+            for hap, hap_name in all_haps.items():
+                if "pms2cl" not in hap_name:
+                    gene1_haps.setdefault(hap, hap_name)
+                else:
+                    gene2_haps.setdefault(hap, hap_name)
+        elif self.gene == "strc":
+            for hap, hap_name in all_haps.items():
+                if "strcp1" not in hap_name:
+                    gene1_haps.setdefault(hap, hap_name)
+                else:
+                    gene2_haps.setdefault(hap, hap_name)
+        elif self.gene == "ncf1" or self.gene == "ikbkg":
+            for hap, hap_name in all_haps.items():
+                if "pseudo" not in hap_name:
+                    gene1_haps.setdefault(hap, hap_name)
+                else:
+                    gene2_haps.setdefault(hap, hap_name)
+        return gene1_haps, gene2_haps
 
     def run(self):
         """
@@ -812,17 +895,18 @@ class TwoGeneVcfGenerater(VcfGenerater):
         in this two-gene scenario
         """
         call_sum = self.call_sum
-        if call_sum.get("smn1_haplotypes") is None:
+        if call_sum.get("final_haplotypes") is None:
             return
-        vars_smn1 = self.run_step(
-            call_sum["smn1_haplotypes"],
+        gene1_haps, gene2_haps = self.separate_two_genes()
+        vars_gene1 = self.run_step(
+            gene1_haps,
             self.ref,
             self.offset,
         )
-        vars_smn2 = self.run_step(
-            call_sum["smn2_haplotypes"],
+        vars_gene2 = self.run_step(
+            gene2_haps,
             self.ref_gene2,
             self.offset_gene2,
             match_range=True,
         )
-        self.merge_vcf([vars_smn2, vars_smn1])
+        self.merge_vcf([{**vars_gene1, **vars_gene2}])
