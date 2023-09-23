@@ -783,8 +783,8 @@ class Phaser:
                 # homozygous
                 if len(counter) == 1 or (
                     len(counter) >= 2
-                    and bases[0][1] > len(all_bases) - min_read_support
-                    # update logic for homozygous sites here
+                    and bases[0][1]
+                    > max(len(all_bases) - min_read_support, len(all_bases) * 0.85)
                 ):
                     var_seq = bases[0][0]
                     ref_seq = ref_seq_genome
@@ -1231,28 +1231,29 @@ class Phaser:
             read_counts,
         ) = self.get_read_support(raw_read_haps, haplotypes_to_reads, ass_haps)
 
-        # remove low-support ones
-        read_counts = [
-            len(uniquely_supporting_reads[a]) for a in uniquely_supporting_reads
-        ]
-        read_counts = sorted(read_counts)
-        if (
-            len(read_counts) > 1
-            and read_counts[0] <= 5
-            and read_counts[1] >= 10
-            and "x" not in "".join(ass_haps)
-        ):
-            min_support = 6
-        ass_haps = [
-            a
-            for a in uniquely_supporting_reads
-            if len(uniquely_supporting_reads[a]) >= min_support
-        ]
-        (
-            uniquely_supporting_reads,
-            nonuniquely_supporting_reads,
-            read_counts,
-        ) = self.get_read_support(raw_read_haps, haplotypes_to_reads, ass_haps)
+        if 0:
+            # remove low-support ones
+            read_counts = [
+                len(uniquely_supporting_reads[a]) for a in uniquely_supporting_reads
+            ]
+            read_counts = sorted(read_counts)
+            if (
+                len(read_counts) > 1
+                and read_counts[0] <= 5
+                and read_counts[1] >= 10
+                and "x" not in "".join(ass_haps)
+            ):
+                min_support = 6
+            ass_haps = [
+                a
+                for a in uniquely_supporting_reads
+                if len(uniquely_supporting_reads[a]) >= min_support
+            ]
+            (
+                uniquely_supporting_reads,
+                nonuniquely_supporting_reads,
+                read_counts,
+            ) = self.get_read_support(raw_read_haps, haplotypes_to_reads, ass_haps)
 
         return (
             ass_haps,
