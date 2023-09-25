@@ -13,6 +13,7 @@ import shutil
 import pysam
 import subprocess
 import traceback
+import random
 import multiprocessing as mp
 from argparse import RawTextHelpFormatter
 from functools import partial
@@ -368,6 +369,10 @@ class Paraphase:
             # if gene2 is specified
             gene2_region = configs[gene].get("gene2_region")
             if gene2_region is not None:
+                nchr_gene2 = gene2_region.split(":")[0]
+                configs[gene].setdefault("nchr_gene2", nchr_gene2)
+                nchr_length_gene2 = genome_ref.get_reference_length(nchr_gene2)
+                configs[gene].setdefault("nchr_length_gene2", nchr_length_gene2)
                 gene2_ref_file = os.path.join(ref_dir, f"{gene}_gene2_ref.fa")
                 self.make_ref_fasta(gene2_ref_file, gene2_region, genome)
                 data_paths.setdefault("reference_gene2", gene2_ref_file)
@@ -561,7 +566,8 @@ class Paraphase:
         outdir = args.out
         os.makedirs(outdir, exist_ok=True)
         tmpdir = os.path.join(
-            outdir, f"tmp_{datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S-%f')}"
+            outdir,
+            f"tmp_{datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S-%f')}_{str(random.random())}",
         )
         os.makedirs(tmpdir, exist_ok=True)
 

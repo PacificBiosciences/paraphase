@@ -51,7 +51,9 @@ class BamRealigner:
         )
         self.gene2_region = config.get("gene2_region")
         if self.gene2_region is not None:
+            self.nchr_gene2 = config["nchr_gene2"]
             self.offset_gene2 = int(self.gene2_region.split(":")[1].split("-")[0]) - 1
+            self.nchr_length_gene2 = config["nchr_length_gene2"]
             self.gene2_ref = config["data"].get("reference_gene2")
             self.realign_bam_gene2 = os.path.join(
                 self.outdir, self.sample_id + f"_{self.gene}_gene2_realigned_old.bam"
@@ -79,12 +81,16 @@ class BamRealigner:
             realign_out = self.realign_out_bam
             ref_name_tmp = self.nchr_old
             offset = self.offset
+            nchr = self.nchr
+            nchr_length = self.nchr_length
         else:
             realign_ref = self.gene2_ref
             realign_out_tmp = self.realign_bam_gene2
             realign_out = self.realign_out_bam_gene2
             ref_name_tmp = self.gene2_region.replace(":", "_").replace("-", "_")
             offset = self.offset_gene2
+            nchr = self.nchr_gene2
+            nchr_length = self.nchr_length_gene2
 
         realign_cmd = (
             f"{self.samtools} view -F 0x100 -F 0x200 -F 0x800 {self.bam} {self.extract_regions} | sort | uniq | "
@@ -115,7 +121,7 @@ class BamRealigner:
             }
         )
         new_header = {
-            "SQ": [{"SN": self.nchr, "LN": self.nchr_length}],
+            "SQ": [{"SN": nchr, "LN": nchr_length}],
             "PG": pg_lines,
         }
         realign_out_bamh = pysam.AlignmentFile(
@@ -142,7 +148,7 @@ class BamRealigner:
                         for sa_item in tag[1].split(";"):
                             if sa_item != "":
                                 at = sa_item.split(",")
-                                at[0] = self.nchr
+                                at[0] = nchr
                                 tmp_pos = int(at[1])
                                 at[1] = str(tmp_pos + offset)
                                 mapq = int(at[4])
@@ -190,6 +196,7 @@ class BamTagger:
             self.use_supplementary = True
         self.gene2_region = config.get("gene2_region")
         if self.gene2_region is not None:
+            self.nchr_gene2 = config["nchr_gene2"]
             self.bam_gene2 = os.path.join(
                 self.outdir, self.sample_id + f"_{self.gene}_gene2_realigned.bam"
             )
@@ -282,10 +289,12 @@ class BamTagger:
             inbam = self.bam
             tmpbam = self.tmp_bam
             outbam = self.tagged_realigned_bam
+            nchr = self.nchr
         else:
             inbam = self.bam_gene2
             tmpbam = self.tmp_bam_gene2
             outbam = self.tagged_realigned_bam_gene2
+            nchr = self.nchr_gene2
 
         call_sum = self.call_sum
         hp_keys = call_sum.get("final_haplotypes")
@@ -302,7 +311,7 @@ class BamTagger:
         if alleles is None:
             alleles = []
 
-        for read in self._bamh.fetch(self.nchr):
+        for read in self._bamh.fetch(nchr):
             if read.is_secondary is False:
                 read = self.add_tag_to_read(
                     read,
@@ -706,14 +715,20 @@ class VcfGenerater:
                     vcf_out.write("\t".join(vcf_out_line) + "\n")
         return variants
 
-    def run_without_realign(self):
+    def run_without_realign(
+        self,
+        gene2=False,
+        final_haps={},
+        match_range=False,
+    ):
         """
         Make vcf from existing alignment.
         This works for gene/pseudogene scenarios,
         i.e. no need to realign to pseudogene reference.
         """
         call_sum = self.call_sum
-        final_haps = call_sum.get("final_haplotypes")
+        if gene2 is False:
+            final_haps = call_sum.get("final_haplotypes")
         if final_haps is None:
             return
         uniq_reads = []
@@ -731,10 +746,18 @@ class VcfGenerater:
             [a for a in two_cp_haplotypes if a in final_haps.values()]
         )
 
-        bamh = pysam.AlignmentFile(self.bam, "rb")
-        refh = pysam.FastaFile(self.ref)
+        if gene2 is False or match_range is False:
+            bamh = pysam.AlignmentFile(self.bam, "rb")
+            refh = pysam.FastaFile(self.ref)
+            offset = self.offset
+            nchr = self.nchr
+        else:
+            bamh = pysam.AlignmentFile(self.bam_gene2, "rb")
+            refh = pysam.FastaFile(self.ref_gene2)
+            offset = self.offset_gene2
+            nchr = self.nchr_gene2
 
-        if final_haps == {}:
+        if (gene2 is False or match_range is False) and final_haps == {}:
             hap_name = "homozygous_hap1"
             hap_vcf_out = os.path.join(
                 self.vcf_dir, self.sample_id + f"_{self.gene}_{hap_name}.vcf"
@@ -744,7 +767,7 @@ class VcfGenerater:
             pileups_raw = {}
             read_names = {}
             for pileupcolumn in bamh.pileup(
-                self.nchr,
+                nchr,
                 truncate=True,
                 min_base_quality=30,
             ):
@@ -759,7 +782,7 @@ class VcfGenerater:
                 read_names,
                 None,
                 refh,
-                0 - self.offset,
+                0 - offset,
                 [],
                 vcf_out,
             )
@@ -772,6 +795,23 @@ class VcfGenerater:
         i = 0
         for hap_name in final_haps.values():
             hap_bound = self.get_hap_bound(hap_name)
+            # convert to positions in the other gene
+            if match_range:
+                if self.match == {}:
+                    hap_bound = []
+                else:
+                    n1 = self.get_range_in_other_gene(hap_bound[0])
+                    n2 = self.get_range_in_other_gene(hap_bound[1])
+                    n3 = self.get_range_in_other_gene(hap_bound[2])
+                    n4 = self.get_range_in_other_gene(hap_bound[3])
+                    if None in [n1, n2, n3, n4]:
+                        hap_bound = []
+                    hap_bound = [
+                        min(n1, n2),
+                        max(n1, n2),
+                        min(n3, n4),
+                        max(n3, n4),
+                    ]
             hap_vcf_out = os.path.join(
                 self.vcf_dir, self.sample_id + f"_{self.gene}_{hap_name}.vcf"
             )
@@ -782,7 +822,7 @@ class VcfGenerater:
             pileups_raw = {}
             read_names = {}
             for pileupcolumn in bamh.pileup(
-                self.nchr,
+                nchr,
                 truncate=True,
                 min_base_quality=30,
             ):
@@ -823,7 +863,7 @@ class VcfGenerater:
                 read_names,
                 uniq_reads,
                 refh,
-                0 - self.offset,
+                0 - offset,
                 hap_bound,
                 vcf_out,
             )
@@ -837,9 +877,13 @@ class VcfGenerater:
             if hap_name in two_cp_haplotypes:
                 i += 1
             i += 1
-        self.merge_vcf([vars])
+
         bamh.close()
         refh.close()
+        if gene2 is False:
+            self.merge_vcf([vars])
+        else:
+            return vars
 
 
 class TwoGeneVcfGenerater(VcfGenerater):
@@ -853,8 +897,12 @@ class TwoGeneVcfGenerater(VcfGenerater):
     def set_parameter(self, config, tmpdir=None, prog_cmd=None):
         super().set_parameter(config, tmpdir, prog_cmd)
         self.gene2_region = config["gene2_region"]
+        self.nchr_gene2 = config["nchr_gene2"]
         self.offset_gene2 = int(self.gene2_region.split(":")[1].split("-")[0]) - 1
         self.ref_gene2 = config["data"]["reference_gene2"]
+        self.bam_gene2 = os.path.join(
+            tmpdir, self.sample_id + f"_{self.gene}_gene2_realigned_tagged.bam"
+        )
         self.position_match = config["data"].get("gene_position_match")
         if self.position_match is not None:
             with open(self.position_match) as f:
@@ -868,7 +916,10 @@ class TwoGeneVcfGenerater(VcfGenerater):
         gene1_haps = {}
         gene2_haps = {}
         if self.gene == "smn1":
-            return self.call_sum["smn1_haplotypes"], self.call_sum["smn2_haplotypes"]
+            return self.call_sum["smn1_haplotypes"], {
+                **self.call_sum["smn2_haplotypes"],
+                **self.call_sum["smn2_del78_haplotypes"],
+            }
         elif self.gene == "pms2":
             for hap, hap_name in all_haps.items():
                 if "pms2cl" not in hap_name:
@@ -898,15 +949,13 @@ class TwoGeneVcfGenerater(VcfGenerater):
         if call_sum.get("final_haplotypes") is None:
             return
         gene1_haps, gene2_haps = self.separate_two_genes()
-        vars_gene1 = self.run_step(
-            gene1_haps,
-            self.ref,
-            self.offset,
+        vars_gene1 = self.run_without_realign(
+            gene2=True,
+            final_haps=gene1_haps,
         )
-        vars_gene2 = self.run_step(
-            gene2_haps,
-            self.ref_gene2,
-            self.offset_gene2,
+        vars_gene2 = self.run_without_realign(
+            gene2=True,
+            final_haps=gene2_haps,
             match_range=True,
         )
         self.merge_vcf([{**vars_gene1, **vars_gene2}])
