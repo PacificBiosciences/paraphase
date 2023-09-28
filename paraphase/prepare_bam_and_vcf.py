@@ -7,6 +7,8 @@ import pysam
 import subprocess
 import random
 import re
+import math
+from scipy.stats import poisson
 from collections import Counter
 from .haplotype_assembler import VariantGraph
 import paraphase
@@ -384,6 +386,10 @@ class VcfGenerater:
         """Write VCF header"""
         fout.write("##fileformat=VCFv4.2\n")
         fout.write('##FILTER=<ID=PASS,Description="All filters passed">\n')
+        fout.write('##FILTER=<ID=LowDP,Description="Low depth at this site.">\n')
+        fout.write(
+            '##FILTER=<ID=LowQual,Description="Low confidence in this variant.">\n'
+        )
         fout.write('##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">\n')
         fout.write('##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read depth">\n')
         fout.write(
@@ -415,10 +421,10 @@ class VcfGenerater:
         )
         with open(merged_vcf, "w") as fout:
             self.write_header(fout)
-            for vars in vars_list:
-                vars = dict(sorted(vars.items()))
-                for pos in vars:
-                    call_info = vars[pos]
+            for variants_info in vars_list:
+                variants_info = dict(sorted(variants_info.items()))
+                for pos in variants_info:
+                    call_info = variants_info[pos]
                     variant_observed = set([a[0] for a in call_info if a is not None])
                     for variant in variant_observed:
                         _, ref, alt = variant.split("_")
@@ -431,7 +437,9 @@ class VcfGenerater:
                                 merge_ad.append(".")
                                 merge_dp.append(".")
                             else:
-                                var_name, dp, ad, qual, gt = each_call
+                                var_name, dp, ad, var_filter, gt = each_call
+                                if var_filter != []:
+                                    gt = "."
                                 merge_dp.append(str(dp))
                                 if gt == "0":
                                     merge_gt.append(gt)
@@ -441,10 +449,7 @@ class VcfGenerater:
                                     merge_ad.append(str(ad))
                                 else:
                                     merge_gt.append(".")
-                                    if gt == ".":
-                                        merge_ad.append(str(ad))
-                                    else:
-                                        merge_ad.append(".")
+                                    merge_ad.append(".")
                         final_qual = "."
                         if "1" in merge_gt:
                             merged_entry = [
@@ -482,10 +487,33 @@ class VcfGenerater:
         return ref_seq, var_seq
 
     @staticmethod
+    def get_var_call_qual(dp, ad, gt, is_snp):
+        "Calculate variant call quality. Not used"
+        noise_ref = 0.03
+        noise_alt = 0.05
+        if is_snp is False:
+            noise_alt = 0.1
+        min_qual = 0
+        max_qual = 100
+        if gt == "0":
+            # non-allele reads given noise
+            h0 = poisson.pmf(dp - ad, dp * noise_ref)
+            # allele reads given noise
+            h1 = poisson.pmf(ad, dp * noise_alt)
+        if gt == "1":
+            # non-allele reads given noise
+            h0 = poisson.pmf(dp - ad, dp * noise_alt)
+            # allele reads given noise
+            h1 = poisson.pmf(ad, dp * noise_alt)
+        qual = math.floor(10 * math.log(h0 / h1, 10))
+        return max(min(qual, max_qual), min_qual)
+
+    @staticmethod
     def get_var(all_bases, ref_seq):
         """Get most supported base as variant"""
         dp = len(all_bases)
         gt = "."
+        qual = "."
         ad = len([a for a in all_bases if a != ref_seq])
         var_seq = ref_seq
         if all_bases != []:
@@ -493,142 +521,15 @@ class VcfGenerater:
             most_common_base = counter.most_common(2)
             var_seq = most_common_base[0][0]
             ad = most_common_base[0][1]
-            if (
-                len(var_seq) == 1 and len(ref_seq) == 1 and dp >= 3 and ad > dp * 0.5
-            ) or (
-                (len(var_seq) > 1 or len(ref_seq) > 1) and dp >= 5 and ad >= dp * 0.7
-            ):
-                if var_seq == ref_seq or var_seq == "*":
-                    gt = "0"
-                else:
-                    gt = "1"
-        return [var_seq, dp, ad, gt]
-
-    def call_variants_from_hp_bam(
-        self, hap_bam, hap_vcf_out, hap_bound, offset, ref, uniq_reads
-    ):
-        """
-        Call variants from bam. Take the most supported base at each position.
-        """
-        bamh = pysam.AlignmentFile(hap_bam, "rb")
-        refh = pysam.FastaFile(ref)
-        ref_name = refh.references[0]
-        vcf_out = open(hap_vcf_out, "w")
-        self.write_header(vcf_out)
-        pileups_raw = {}
-        read_names = {}
-        for pileupcolumn in bamh.pileup(
-            ref_name,
-            truncate=True,
-            min_base_quality=30,
-            min_mapping_quality=59,
-        ):
-            pos = pileupcolumn.pos + 1
-            pileups_raw.setdefault(
-                pos,
-                [a.upper() for a in pileupcolumn.get_query_sequences(add_indels=True)],
-            )
-            read_names.setdefault(
-                pos,
-                pileupcolumn.get_query_names(),
-            )
-        variants = self.pileup_to_variant(
-            pileups_raw,
-            read_names,
-            uniq_reads,
-            refh,
-            offset,
-            hap_bound,
-            vcf_out,
-        )
-        vcf_out.close()
-        bamh.close()
-        refh.close()
-        return variants
-
-    def run_step(
-        self,
-        final_haps,
-        ref_seq,
-        offset,
-        match_range=False,
-    ):
-        """
-        Process haplotypes
-        """
-        uniq_reads = []
-        for read_set in self.call_sum["unique_supporting_reads"].values():
-            uniq_reads += read_set
-        vars = {}
-        two_cp_haplotypes = self.call_sum.get("two_copy_haplotypes")
-        nhap = len(final_haps) + len(
-            [a for a in two_cp_haplotypes if a in final_haps.values()]
-        )
-        i = 0
-        for hap_name in final_haps.values():
-            hap_bound = self.get_hap_bound(hap_name)
-            # convert to positions in the other gene
-            if match_range:
-                if self.match == {}:
-                    hap_bound = []
-                else:
-                    n1 = self.get_range_in_other_gene(hap_bound[0])
-                    n2 = self.get_range_in_other_gene(hap_bound[1])
-                    n3 = self.get_range_in_other_gene(hap_bound[2])
-                    n4 = self.get_range_in_other_gene(hap_bound[3])
-                    hap_bound = [
-                        min(n1, n2),
-                        max(n1, n2),
-                        min(n3, n4),
-                        max(n3, n4),
-                    ]
-            hap_bam = os.path.join(
-                self.tmpdir, self.sample_id + f"_{self.gene}_{hap_name}.bam"
-            )
-
-            realign_cmd = (
-                f"{self.samtools} view -d HP:{hap_name} {self.bam} |"
-                + f'awk \'BEGIN {{FS="\\t"}} {{print "@" $1 "\\n" $10 "\\n+\\n" $11}}\''
-                + f" | {self.minimap2} -a -x map-pb {ref_seq} - | {self.samtools} view -b | {self.samtools} sort > {hap_bam}"
-            )
-            result = subprocess.run(
-                realign_cmd, capture_output=True, text=True, shell=True
-            )
-            result.check_returncode()
-            pysam.index(hap_bam)
-
-            # call variants
-            hap_vcf_out = os.path.join(
-                self.vcf_dir, self.sample_id + f"_{self.gene}_{hap_name}.vcf"
-            )
-            variants_called = self.call_variants_from_hp_bam(
-                hap_bam, hap_vcf_out, hap_bound, offset, ref_seq, uniq_reads
-            )
-            # os.remove(hap_bam)
-            # os.remove(hap_bam + ".bai")
-
-            for pos, var_name, dp, ad, qual, gt in variants_called:
-                vars.setdefault(pos, [None] * nhap)
-                vars[pos][i] = [var_name, dp, ad, qual, gt]
-                if hap_name in two_cp_haplotypes:
-                    vars[pos][i + 1] = [var_name, dp, ad, qual, gt]
-            if hap_name in two_cp_haplotypes:
-                i += 1
-            i += 1
-        return vars
-
-    def run(self):
-        """Process haplotypes one by one"""
-        call_sum = self.call_sum
-        final_haps = call_sum.get("final_haplotypes")
-        if final_haps is None:
-            return
-        vars = self.run_step(
-            final_haps,
-            self.ref,
-            self.offset,
-        )
-        self.merge_vcf([vars])
+            is_snp = False
+            if len(var_seq) == 1 and len(ref_seq) == 1 and var_seq != "*":
+                is_snp = True
+            if var_seq == ref_seq:
+                gt = "0"
+            else:
+                gt = "1"
+            # qual = VcfGenerater.get_var_call_qual(dp, ad, gt, is_snp)
+        return [var_seq, dp, ad, gt, qual]
 
     def get_hap_bound(self, hap_name):
         """Get haplotype boundaries"""
@@ -655,6 +556,8 @@ class VcfGenerater:
         offset,
         hap_bound,
         vcf_out,
+        min_depth=4,
+        min_qual=25,
     ):
         """
         Filter pileups and make variant calls.
@@ -685,21 +588,35 @@ class VcfGenerater:
                         if uniq_reads is None or read_names[pos][i] in uniq_reads:
                             bases_uniq_reads.append(read_base)
                     alt_uniq_reads = self.get_var(bases_uniq_reads, ref_seq)
-                    if alt_uniq_reads[-1] != ".":
-                        var_seq, dp, ad, gt = alt_uniq_reads
+                    if alt_uniq_reads[1] >= min_depth:
+                        var_seq, dp, ad, gt, qual = alt_uniq_reads
                     else:
-                        var_seq, dp, ad, gt = alt_all_reads
+                        var_seq, dp, ad, gt, qual = alt_all_reads
                         gt = "."
                 else:
-                    var_seq, dp, ad, gt = alt_all_reads
+                    var_seq, dp, ad, gt, qual = alt_all_reads
 
                 ref_seq, var_seq = self.refine_indels(
                     ref_seq, var_seq, refh_pos, refh, ref_name
                 )
                 var = f"{true_pos}_{ref_seq}_{var_seq}"
                 qual = "."
-                variants.append([true_pos, var, dp, ad, qual, gt])
-                if gt == "1":
+                var_filter = []
+                if dp < min_depth:
+                    var_filter.append("LowDP")
+                # if qual != "." and qual < min_qual:
+                if ad < dp * 0.7:
+                    var_filter.append("LowQual")
+                if var_filter == []:
+                    call_filter = "PASS"
+                else:
+                    call_filter = ";".join(var_filter)
+                    gt = "."
+                variants.append([true_pos, var, dp, ad, var_filter, gt])
+                if var_seq == ref_seq:
+                    var_seq = "."
+                # write all positions where gt is not confidently 0
+                if gt == "1" or gt == ".":
                     vcf_out_line = [
                         self.nchr,
                         str(true_pos),
@@ -707,10 +624,10 @@ class VcfGenerater:
                         ref_seq,
                         var_seq,
                         str(qual),
-                        "PASS",
+                        call_filter,
                         ".",
                         "GT:DP:AD",
-                        f"1:{dp}:{ad}",
+                        f"{gt}:{dp}:{ad}",
                     ]
                     vcf_out.write("\t".join(vcf_out_line) + "\n")
         return variants
@@ -740,7 +657,7 @@ class VcfGenerater:
                     uniq_reads.append(read_name_split[0])
                 else:
                     uniq_reads.append(read_name)
-        vars = {}
+        variants_info = {}
         two_cp_haplotypes = self.call_sum.get("two_copy_haplotypes")
         nhap = len(final_haps) + len(
             [a for a in two_cp_haplotypes if a in final_haps.values()]
@@ -787,9 +704,13 @@ class VcfGenerater:
                 vcf_out,
             )
             vcf_out.close()
-            for pos, var_name, dp, ad, qual, gt in variants_called:
-                vars.setdefault(
-                    pos, [[var_name, dp, ad, qual, gt], [var_name, dp, ad, qual, gt]]
+            for pos, var_name, dp, ad, var_filter, gt in variants_called:
+                variants_info.setdefault(
+                    pos,
+                    [
+                        [var_name, dp, ad, var_filter, gt],
+                        [var_name, dp, ad, var_filter, gt],
+                    ],
                 )
 
         i = 0
@@ -869,11 +790,11 @@ class VcfGenerater:
             )
             vcf_out.close()
 
-            for pos, var_name, dp, ad, qual, gt in variants_called:
-                vars.setdefault(pos, [None] * nhap)
-                vars[pos][i] = [var_name, dp, ad, qual, gt]
+            for pos, var_name, dp, ad, var_filter, gt in variants_called:
+                variants_info.setdefault(pos, [None] * nhap)
+                variants_info[pos][i] = [var_name, dp, ad, var_filter, gt]
                 if hap_name in two_cp_haplotypes:
-                    vars[pos][i + 1] = [var_name, dp, ad, qual, gt]
+                    variants_info[pos][i + 1] = [var_name, dp, ad, var_filter, gt]
             if hap_name in two_cp_haplotypes:
                 i += 1
             i += 1
@@ -881,9 +802,9 @@ class VcfGenerater:
         bamh.close()
         refh.close()
         if gene2 is False:
-            self.merge_vcf([vars])
+            self.merge_vcf([variants_info])
         else:
-            return vars
+            return variants_info
 
 
 class TwoGeneVcfGenerater(VcfGenerater):
