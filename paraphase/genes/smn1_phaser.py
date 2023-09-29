@@ -39,7 +39,7 @@ class Smn1Phaser(Phaser):
         defaults=(None,) * len(fields),
     )
     HaplotypeInfo = namedtuple(
-        "HaplotypeInfo", "variants boundary boundary_gene2 haplogroup"
+        "HaplotypeInfo", "variants boundary boundary_gene2 haplogroup is_truncated"
     )
 
     def __init__(
@@ -259,6 +259,7 @@ class Smn1Phaser(Phaser):
                         ),
                     ],
                     haplogroup,
+                    False,
                 )._asdict(),
             )
 

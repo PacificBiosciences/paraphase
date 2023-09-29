@@ -393,7 +393,10 @@ class VcfGenerater:
         fout.write(
             '##FILTER=<ID=LowQual,Description="Low confidence in this variant.">\n'
         )
-        fout.write('##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">\n')
+        fout.write(
+            '##INFO=<ID=HapIDs,Number=R,Type=String,Description="Haplotype IDs">\n'
+        )
+        fout.write('##FORMAT=<ID=GT,Number=R,Type=String,Description="Genotype">\n')
         fout.write('##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read depth">\n')
         fout.write(
             '##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Read depth for each allele">\n'
@@ -424,7 +427,7 @@ class VcfGenerater:
         )
         with open(merged_vcf, "w") as fout:
             self.write_header(fout)
-            for variants_info in vars_list:
+            for variants_info, haps_ids in vars_list:
                 variants_info = dict(sorted(variants_info.items()))
                 for pos in variants_info:
                     call_info = variants_info[pos]
@@ -463,7 +466,7 @@ class VcfGenerater:
                                 alt,
                                 final_qual,
                                 "PASS",
-                                ".",
+                                "HapIDs=" + ",".join(haps_ids),
                                 "GT:DP:AD",
                                 "/".join(merge_gt)
                                 + ":"
@@ -538,11 +541,13 @@ class VcfGenerater:
         """Get haplotype boundaries"""
         hap_bound = list(self.call_sum["haplotype_details"][hap_name]["boundary"])
         # find the positions next to the existing boundaries
+        confident_position = hap_bound[0]
         for var in self.call_sum["sites_for_phasing"]:
             confident_position = int(var.split("_")[0])
             if confident_position > hap_bound[0]:
                 break
         hap_bound.append(confident_position)
+        confident_position = hap_bound[1]
         for var in reversed(self.call_sum["sites_for_phasing"]):
             confident_position = int(var.split("_")[0])
             if confident_position < hap_bound[1]:
@@ -671,6 +676,7 @@ class VcfGenerater:
         nhap = len(haps_not_truncated) + len(
             [a for a in two_cp_haplotypes if a in haps_not_truncated]
         )
+        hap_ids = []
 
         if gene2 is False or match_range is False:
             bamh = pysam.AlignmentFile(self.bam, "rb")
@@ -713,6 +719,8 @@ class VcfGenerater:
                 vcf_out,
             )
             vcf_out.close()
+            hap_ids.append(hap_name)
+            hap_ids.append(hap_name)
             for pos, var_name, dp, ad, var_filter, gt in variants_called:
                 variants_info.setdefault(
                     pos,
@@ -729,6 +737,7 @@ class VcfGenerater:
                 and self.keep_truncated is False
             ):
                 continue
+            hap_ids.append(hap_name)
             hap_bound = self.get_hap_bound(hap_name)
             # convert to positions in the other gene
             if match_range:
@@ -811,14 +820,15 @@ class VcfGenerater:
                     variants_info[pos][i + 1] = [var_name, dp, ad, var_filter, gt]
             if hap_name in two_cp_haplotypes:
                 i += 1
+                hap_ids.append(hap_name)
             i += 1
 
         bamh.close()
         refh.close()
         if gene2 is False:
-            self.merge_vcf([variants_info])
+            self.merge_vcf([(variants_info, hap_ids)])
         else:
-            return variants_info
+            return variants_info, hap_ids
 
 
 class TwoGeneVcfGenerater(VcfGenerater):
@@ -891,13 +901,16 @@ class TwoGeneVcfGenerater(VcfGenerater):
         if call_sum.get("final_haplotypes") is None:
             return
         gene1_haps, gene2_haps = self.separate_two_genes()
-        vars_gene1 = self.run_without_realign(
+        vars_gene1, gene1_hap_ids = self.run_without_realign(
             gene2=True,
             final_haps=gene1_haps,
         )
-        vars_gene2 = self.run_without_realign(
+        vars_gene2, gene2_hap_ids = self.run_without_realign(
             gene2=True,
             final_haps=gene2_haps,
             match_range=True,
         )
-        self.merge_vcf([{**vars_gene1, **vars_gene2}])
+        if list(vars_gene1.keys())[0] < list(vars_gene2.keys())[0]:
+            self.merge_vcf([(vars_gene1, gene1_hap_ids), (vars_gene2, gene2_hap_ids)])
+        else:
+            self.merge_vcf([(vars_gene2, gene2_hap_ids), (vars_gene1, gene1_hap_ids)])
