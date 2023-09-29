@@ -37,7 +37,9 @@ class Smn1Phaser(Phaser):
         fields,
         defaults=(None,) * len(fields),
     )
-    HaplotypeInfo = namedtuple("HaplotypeInfo", "variants boundary haplogroup")
+    HaplotypeInfo = namedtuple(
+        "HaplotypeInfo", "variants boundary boundary_gene2 haplogroup"
+    )
 
     def __init__(
         self, sample_id, outdir, genome_depth=None, genome_bam=None, sample_sex=None
@@ -247,6 +249,14 @@ class Smn1Phaser(Phaser):
                 self.HaplotypeInfo(
                     haplotype_variants[hap_name][:-1],
                     haplotype_variants[hap_name][-1],
+                    [
+                        self.get_range_in_other_gene(
+                            haplotype_variants[hap_name][-1][0]
+                        ),
+                        self.get_range_in_other_gene(
+                            haplotype_variants[hap_name][-1][1]
+                        ),
+                    ],
                     haplogroup,
                 )._asdict(),
             )

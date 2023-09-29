@@ -110,6 +110,15 @@ class Phaser:
         self.add_sites = []
         if "add_sites" in config:
             self.add_sites = config["add_sites"]
+        self.match = {}
+        self.gene2_region = config.get("gene2_region")
+        if self.gene2_region is not None:
+            self.position_match = config["data"].get("gene_position_match")
+            if self.position_match is not None:
+                with open(self.position_match) as f:
+                    for line in f:
+                        at = line.split()
+                        self.match.setdefault(int(at[0]), int(at[1]))
 
         self.del1_reads = set()
         self.del1_reads_partial = set()
@@ -157,6 +166,18 @@ class Phaser:
             )
             return False
         return True
+
+    def get_range_in_other_gene(self, pos, search_range=200):
+        """
+        Find the correponding coordinates in the other gene
+        """
+        if pos in self.match:
+            return self.match[pos]
+        for i in range(search_range):
+            new_pos = pos + i
+            if new_pos in self.match:
+                return self.match[new_pos]
+        return None
 
     def get_homopolymer_old(self):
         """
@@ -560,6 +581,34 @@ class Phaser:
             for var in add_sites:
                 if var not in self.het_sites:
                     self.het_sites.append(var)
+        # add sites before 5p clip and after 3p clip
+        if self.clip_5p_positions != []:
+            clip_pos = min(self.clip_5p_positions)
+            var_before_clip = [
+                a for a in self.het_sites if int(a.split("_")[0]) < clip_pos
+            ]
+            if var_before_clip == []:
+                var_pos = clip_pos - 30
+                ref_base = self._refh.fetch(
+                    self.nchr_old, var_pos - self.offset - 1, var_pos - self.offset
+                ).upper()
+                var_base = [a for a in ["A", "C", "G", "T"] if a != ref_base][0]
+                new_var = f"{var_pos}_{ref_base}_{var_base}"
+                self.het_sites.append(new_var)
+        if self.clip_3p_positions != []:
+            clip_pos = max(self.clip_3p_positions)
+            var_after_clip = [
+                a for a in self.het_sites if int(a.split("_")[0]) > clip_pos
+            ]
+            if var_after_clip == []:
+                var_pos = clip_pos + 30
+                ref_base = self._refh.fetch(
+                    self.nchr_old, var_pos - self.offset - 1, var_pos - self.offset
+                ).upper()
+                var_base = [a for a in ["A", "C", "G", "T"] if a != ref_base][0]
+                new_var = f"{var_pos}_{ref_base}_{var_base}"
+                self.het_sites.append(new_var)
+
         self.het_sites = sorted(self.het_sites)
         raw_read_haps = self.get_haplotypes_from_reads_step(
             exclude_reads,
@@ -991,6 +1040,9 @@ class Phaser:
                         haplotype_variants[hap_name].append(var)
         # het sites and homo sites
         for hap, hap_name in haps.items():
+            # find boundary for confident variant calling
+            hap_bound_start, hap_bound_end = self.get_hap_variant_ranges(hap)
+            is_truncated = False
             # het sites
             for i in range(len(hap)):
                 if hap[i] == "2":
@@ -1041,7 +1093,10 @@ class Phaser:
                     for a in filtered_homo_sites
                     if int(a.split("_")[0]) > clip_position
                 ]
+                hap_bound_start = max(hap_bound_start, clip_position)
                 haplotype_variants[hap_name].append(f"{clip_position}_clip_5p")
+                if clip_position > self.left_boundary:
+                    is_truncated = True
             if hap.endswith("0") and self.clip_3p_positions != []:
                 for first_pos_before_clip in reversed(range(len(hap))):
                     if hap[first_pos_before_clip] != "0":
@@ -1057,20 +1112,35 @@ class Phaser:
                     for a in filtered_homo_sites
                     if int(a.split("_")[0]) < clip_position
                 ]
+                hap_bound_end = min(hap_bound_end, clip_position)
                 haplotype_variants[hap_name].append(f"{clip_position}_clip_3p")
+                if clip_position < self.right_boundary:
+                    is_truncated = True
 
             haplotype_variants[hap_name] += filtered_homo_sites
 
-            # find boundary for confident variant calling
-            var_nstart, var_nend = self.get_hap_variant_ranges(hap)
+            boundary_gene2 = None
+            if self.gene2_region is not None:
+                boundary_gene2 = [
+                    self.get_range_in_other_gene(hap_bound_start),
+                    self.get_range_in_other_gene(hap_bound_end),
+                ]
             var_tmp = haplotype_variants[hap_name]
             var_tmp1 = [
-                a for a in var_tmp if var_nstart <= int(a.split("_")[0]) <= var_nend
+                a
+                for a in var_tmp
+                if hap_bound_start <= int(a.split("_")[0]) <= hap_bound_end
             ]
             var_tmp1 = list(set(var_tmp1))
             var_tmp2 = sorted(var_tmp1, key=lambda x: int(x.split("_")[0]))
             haplotype_info.setdefault(
-                hap_name, {"variants": var_tmp2, "boundary": [var_nstart, var_nend]}
+                hap_name,
+                {
+                    "variants": var_tmp2,
+                    "boundary": [hap_bound_start, hap_bound_end],
+                    "boundary_gene2": boundary_gene2,
+                    "is_truncated": is_truncated,
+                },
             )
 
         return haplotype_info

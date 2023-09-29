@@ -359,6 +359,9 @@ class VcfGenerater:
         self.use_supplementary = False
         if "use_supplementary" in config or "is_tandem" in config:
             self.use_supplementary = True
+        self.keep_truncated = False
+        if "keep_truncated" in config:
+            self.keep_truncated = True
 
         self.prog_cmd = prog_cmd
         self.tmpdir = tmpdir
@@ -659,8 +662,14 @@ class VcfGenerater:
                     uniq_reads.append(read_name)
         variants_info = {}
         two_cp_haplotypes = self.call_sum.get("two_copy_haplotypes")
-        nhap = len(final_haps) + len(
-            [a for a in two_cp_haplotypes if a in final_haps.values()]
+        haps_not_truncated = [
+            a
+            for a in final_haps.values()
+            if self.call_sum["haplotype_details"][a]["is_truncated"] is False
+            or self.keep_truncated is True
+        ]
+        nhap = len(haps_not_truncated) + len(
+            [a for a in two_cp_haplotypes if a in haps_not_truncated]
         )
 
         if gene2 is False or match_range is False:
@@ -715,6 +724,11 @@ class VcfGenerater:
 
         i = 0
         for hap_name in final_haps.values():
+            if (
+                self.call_sum["haplotype_details"][hap_name]["is_truncated"] is True
+                and self.keep_truncated is False
+            ):
+                continue
             hap_bound = self.get_hap_bound(hap_name)
             # convert to positions in the other gene
             if match_range:
@@ -853,12 +867,19 @@ class TwoGeneVcfGenerater(VcfGenerater):
                     gene1_haps.setdefault(hap, hap_name)
                 else:
                     gene2_haps.setdefault(hap, hap_name)
-        elif self.gene == "ncf1" or self.gene == "ikbkg":
+        elif self.gene == "ncf1":
             for hap, hap_name in all_haps.items():
                 if "pseudo" not in hap_name:
                     gene1_haps.setdefault(hap, hap_name)
                 else:
                     gene2_haps.setdefault(hap, hap_name)
+        elif self.gene == "ikbkg":
+            for hap, hap_name in all_haps.items():
+                if "dup" not in hap_name:
+                    if "pseudo" not in hap_name:
+                        gene1_haps.setdefault(hap, hap_name)
+                    else:
+                        gene2_haps.setdefault(hap, hap_name)
         return gene1_haps, gene2_haps
 
     def run(self):

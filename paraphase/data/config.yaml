@@ -134,7 +134,7 @@ opn1lw:
   realign_region: chrX:154140047-154182441
   extract_regions: chrX:154144047-154294510
   noisy_region: [[154165300, 154165800]]
-  left_boundary: 154144243
+  left_boundary: 154144050
   right_boundary: 154182200
   pivot_site: 154143410
   clip_5p_positions: [154144048]
@@ -188,6 +188,7 @@ TRIM49D1:
   clip_3p_positions: [89920623]
   is_tandem: True
   is_reverse: True
+  keep_truncated: True
 CXorf51A:
   genes: CXorf51A,CXorf51B
   realign_region: chrX:146812425-146822425
@@ -226,6 +227,7 @@ DEFA1:
   check_nm: 0.1
   noisy_region: [[6984000, 6985910]]
   clip_3p_positions: [6985908]
+  keep_truncated: True
 CCZ1:
   genes: CCZ1
   realign_region: chr7:5898000-5930000
@@ -462,6 +464,7 @@ ETDA:
   right_boundary: 135262822
   is_reverse: True
   clip_3p_positions: [135256413]
+  keep_truncated: True
 FAM156A:
   genes: FAM156A,FAM156B
   realign_region: chrX:52942886-52962886
@@ -718,6 +721,7 @@ PABPC1L2A:
   right_boundary: 73086957
   clip_5p_positions: [73077480]
   is_reverse: True
+  keep_truncated: True
 PDPK1:
   genes: PDPK1
   realign_region: chr16:2537521-2603688
@@ -1200,7 +1204,7 @@ AMY1A:
   realign_region: chr1:103650157-103669000
   extract_regions: chr1:103650158-103668000 chr1:103684093-103701812 chr1:103744296-103762027
   left_boundary: 103650159
-  right_boundary: 103668000
+  right_boundary: 103667870
   clip_3p_positions: [103667876]
   noisy_region: [[103667000, 103667870]]
   add_sites: ["103667950_T_A"]
@@ -1210,7 +1214,7 @@ CTAG1A:
   realign_region: chrX:154575974-154592000
   extract_regions: chrX:154575975-154591500 chrX:154613097-154628455
   left_boundary: 154575976
-  right_boundary: 154591500
+  right_boundary: 154591300
   clip_3p_positions: [154591326]
   is_reverse: True
   add_sites: ["154591380_A_G"]
@@ -1218,16 +1222,16 @@ BOLA2:
   genes: BOLA2,BOLA2B,SLX1A,SLX1B,SULT1A3,SULT1A4
   realign_region: chr16:29448000-29470000
   extract_regions: chr16:29449191-29472438 chr16:30188529-30211782
-  left_boundary: 29449000
+  left_boundary: 29449200
   right_boundary: 29470000
   clip_5p_positions: [29449191]
   add_sites: ["29449010_T_G"]
 
-HBA1:
+HBA2:
   genes: HBA1,HBA2
   realign_region: chr16:171800-173730
   extract_regions: chr16:168656-177541
   left_boundary: 171990
-  clip_5p_positions: [172006]
-  add_sites: ["172000_G_A"]
+  clip_5p_positions: [171989]
+  add_sites: ["171983_G_A"]
   is_tandem: True
