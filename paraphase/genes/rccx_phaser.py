@@ -30,6 +30,7 @@ class RccxPhaser(Phaser):
         "nonunique_supporting_reads",
         "read_details",
         "genome_depth",
+        "region_depth",
     )
     GeneCall = namedtuple(
         "GeneCall",
@@ -536,4 +537,5 @@ class RccxPhaser(Phaser):
             nonuniquely_supporting_reads,
             raw_read_haps,
             self.mdepth,
+            self.region_avg_depth,
         )

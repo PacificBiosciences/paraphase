@@ -83,5 +83,6 @@ class Cfc1Phaser(Phaser):
             nonuniquely_supporting_reads,
             raw_read_haps,
             self.mdepth,
+            self.region_avg_depth,
             self.sample_sex,
         )

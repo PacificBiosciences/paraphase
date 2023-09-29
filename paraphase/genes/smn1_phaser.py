@@ -31,6 +31,7 @@ class Smn1Phaser(Phaser):
         "read_details",
         "final_haplotypes",
         "genome_depth",
+        "region_depth",
     )
     GeneCall = namedtuple(
         "GeneCall",
@@ -632,4 +633,5 @@ class Smn1Phaser(Phaser):
             raw_read_haps,
             {**smn1_haps, **smn2_haps, **smn2_del_haps},
             self.mdepth,
+            self.region_avg_depth,
         )
