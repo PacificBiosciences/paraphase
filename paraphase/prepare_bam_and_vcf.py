@@ -354,6 +354,12 @@ class VcfGenerater:
         self.offset = int(self.nchr_old.split("_")[1]) - 1
         self.nchr_length = config["nchr_length"]
         self.ref = config["data"]["reference"]
+        self.left_boundary = config.get("left_boundary")
+        self.right_boundary = config.get("right_boundary")
+        if self.left_boundary is None:
+            self.left_boundary = int(self.nchr_old.split("_")[1])
+        if self.right_boundary is None:
+            self.right_boundary = int(self.nchr_old.split("_")[2])
         self.samtools = config["tools"]["samtools"]
         self.minimap2 = config["tools"]["minimap2"]
         self.use_supplementary = False
@@ -542,17 +548,23 @@ class VcfGenerater:
         hap_bound = list(self.call_sum["haplotype_details"][hap_name]["boundary"])
         # find the positions next to the existing boundaries
         confident_position = hap_bound[0]
-        for var in self.call_sum["sites_for_phasing"]:
-            confident_position = int(var.split("_")[0])
-            if confident_position > hap_bound[0]:
-                break
-        hap_bound.append(confident_position)
+        if confident_position == self.left_boundary:
+            hap_bound.append(confident_position)
+        else:
+            for var in self.call_sum["sites_for_phasing"]:
+                confident_position = int(var.split("_")[0])
+                if confident_position > hap_bound[0]:
+                    break
+            hap_bound.append(confident_position)
         confident_position = hap_bound[1]
-        for var in reversed(self.call_sum["sites_for_phasing"]):
-            confident_position = int(var.split("_")[0])
-            if confident_position < hap_bound[1]:
-                break
-        hap_bound.append(confident_position)
+        if confident_position == self.right_boundary:
+            hap_bound.append(confident_position)
+        else:
+            for var in reversed(self.call_sum["sites_for_phasing"]):
+                confident_position = int(var.split("_")[0])
+                if confident_position < hap_bound[1]:
+                    break
+            hap_bound.append(confident_position)
         return hap_bound
 
     def pileup_to_variant(
@@ -596,11 +608,11 @@ class VcfGenerater:
                         if uniq_reads is None or read_names[pos][i] in uniq_reads:
                             bases_uniq_reads.append(read_base)
                     alt_uniq_reads = self.get_var(bases_uniq_reads, ref_seq)
-                    if alt_uniq_reads[1] >= min_depth:
-                        var_seq, dp, ad, gt, qual = alt_uniq_reads
-                    else:
-                        var_seq, dp, ad, gt, qual = alt_all_reads
-                        gt = "."
+                    # if alt_uniq_reads[1] >= min_depth:
+                    var_seq, dp, ad, gt, qual = alt_uniq_reads
+                    # else:
+                    #    var_seq, dp, ad, gt, qual = alt_all_reads
+                    #    gt = "."
                 else:
                     var_seq, dp, ad, gt, qual = alt_all_reads
 
