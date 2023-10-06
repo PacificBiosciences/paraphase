@@ -127,6 +127,8 @@ class Phaser:
         self.del2_reads_partial = set()
         self.deletion1_size = None
         self.deletion2_size = None
+        self.deletion1_name = None
+        self.deletion2_name = None
         self.del2_3p_pos1 = None
         self.del2_3p_pos2 = None
         self.del2_5p_pos1 = None
@@ -445,6 +447,7 @@ class Phaser:
         if len(counter) > 0 and counter[0][1] >= min_count:
             nstart, nend = counter[0][0]
             self.deletion1_size = nend - nstart
+            self.deletion1_name = f"{nstart}_del_{nend-nstart}"
             self.del1_3p_pos1 = nstart - padding
             self.del1_3p_pos2 = nstart + padding
             self.del1_5p_pos1 = nend - padding
@@ -452,6 +455,7 @@ class Phaser:
         if len(counter) > 1 and counter[1][1] >= min_count:
             nstart, nend = counter[1][0]
             self.deletion2_size = nend - nstart
+            self.deletion2_name = f"{nstart}_del_{nend-nstart}"
             self.del2_3p_pos1 = nstart - padding
             self.del2_3p_pos2 = nstart + padding
             self.del2_5p_pos1 = nend - padding
@@ -1315,16 +1319,16 @@ class Phaser:
                 and "x" not in "".join(ass_haps)
             ):
                 min_support = 6
-            ass_haps = [
-                a
-                for a in uniquely_supporting_reads
-                if len(uniquely_supporting_reads[a]) >= min_support
-            ]
-            (
-                uniquely_supporting_reads,
-                nonuniquely_supporting_reads,
-                read_counts,
-            ) = self.get_read_support(raw_read_haps, haplotypes_to_reads, ass_haps)
+        ass_haps = [
+            a
+            for a in uniquely_supporting_reads
+            if len(uniquely_supporting_reads[a]) >= min_support
+        ]
+        (
+            uniquely_supporting_reads,
+            nonuniquely_supporting_reads,
+            read_counts,
+        ) = self.get_read_support(raw_read_haps, haplotypes_to_reads, ass_haps)
 
         return (
             ass_haps,
@@ -1690,6 +1694,35 @@ class Phaser:
             alleles = new_alleles
         return alleles
 
+    def add_homo_sites(self, min_no_var_region_size=10000, max_homo_var_to_add=10):
+        """add some homozygous sites to het sites in long homozygous regions"""
+        if self.het_sites == []:
+            return []
+        het_pos = [int(a.split("_")[0]) for a in self.het_sites]
+        min_pos = min(het_pos)
+        max_pos = max(het_pos)
+        homo_sites_to_add = []
+        if min_pos - self.left_boundary > min_no_var_region_size:
+            for var in self.homo_sites:
+                pos, ref, alt = var.split("_")
+                if int(pos) < min_pos and len(ref) == 1 and len(alt) == 1:
+                    homo_sites_to_add.append(var)
+        if self.right_boundary - max_pos > min_no_var_region_size:
+            for var in self.homo_sites:
+                pos, ref, alt = var.split("_")
+                if int(pos) > max_pos and len(ref) == 1 and len(alt) == 1:
+                    homo_sites_to_add.append(var)
+        if homo_sites_to_add != []:
+            homo_sites_to_add = sorted(homo_sites_to_add)
+            homo_sites_to_add_size = len(homo_sites_to_add)
+            homo_sites_to_add = homo_sites_to_add[
+                :: int(np.ceil(homo_sites_to_add_size / max_homo_var_to_add))
+            ]
+            self.het_sites += homo_sites_to_add
+            self.het_sites = sorted(self.het_sites)
+            self.remove_noisy_sites()
+        return homo_sites_to_add
+
     def call(self):
         """Main function to phase haplotypes and call copy numbers"""
         if self.check_coverage_before_analysis() is False:
@@ -1731,12 +1764,14 @@ class Phaser:
 
         self.het_sites = sorted(list(self.candidate_pos))
         self.remove_noisy_sites()
+        homo_sites_to_add = self.add_homo_sites()
 
         raw_read_haps = self.get_haplotypes_from_reads(
-            check_clip=True, add_sites=self.add_sites
+            check_clip=True, kept_sites=homo_sites_to_add, add_sites=self.add_sites
         )
 
         het_sites = self.het_sites
+        known_del = {}
         if self.del1_reads_partial != set():
             raw_read_haps, het_sites = self.update_reads_for_deletions(
                 raw_read_haps,
@@ -1745,8 +1780,9 @@ class Phaser:
                 self.del1_5p_pos2,
                 self.del1_reads_partial,
                 "3",
-                f"{self.del1_3p_pos1}_del_{self.deletion1_size}",
+                self.deletion1_name,
             )
+            known_del.setdefault("3", self.deletion1_name)
         if self.del2_reads_partial != set():
             raw_read_haps, het_sites = self.update_reads_for_deletions(
                 raw_read_haps,
@@ -1755,8 +1791,9 @@ class Phaser:
                 self.del2_5p_pos2,
                 self.del2_reads_partial,
                 "4",
-                f"{self.del2_3p_pos1}_del_{self.deletion2_size}",
+                self.deletion2_name,
             )
+            known_del.setdefault("4", self.deletion2_name)
         self.het_sites = het_sites
 
         (
@@ -1781,6 +1818,7 @@ class Phaser:
                 ass_haps,
                 uniquely_supporting_reads,
                 nonuniquely_supporting_reads,
+                known_del=known_del,
             )
 
         two_cp_haps = []

@@ -910,7 +910,11 @@ class TwoGeneVcfGenerater(VcfGenerater):
             final_haps=gene2_haps,
             match_range=True,
         )
-        if list(vars_gene1.keys())[0] < list(vars_gene2.keys())[0]:
+        if (
+            vars_gene1 != {}
+            and vars_gene2 != {}
+            and list(vars_gene1.keys())[0] < list(vars_gene2.keys())[0]
+        ):
             self.merge_vcf([(vars_gene1, gene1_hap_ids), (vars_gene2, gene2_hap_ids)])
         else:
             self.merge_vcf([(vars_gene2, gene2_hap_ids), (vars_gene1, gene1_hap_ids)])

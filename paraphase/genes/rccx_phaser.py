@@ -64,6 +64,8 @@ class RccxPhaser(Phaser):
                 )
         self.deletion1_size = config["deletion1_size"]
         self.deletion2_size = config["deletion2_size"]
+        self.deletion1_name = config["deletion1_name"]
+        self.deletion2_name = config["deletion2_name"]
         self.del2_3p_pos1 = config["del2_3p_pos1"]
         self.del2_3p_pos2 = config["del2_3p_pos2"]
         self.del2_5p_pos1 = config["del2_5p_pos1"]
@@ -408,7 +410,7 @@ class RccxPhaser(Phaser):
                 self.del2_5p_pos2,
                 self.del2_reads_partial,
                 "3",
-                "32043718_del120",
+                self.deletion2_name,
             )
         if self.del1_reads_partial != set():
             raw_read_haps, het_sites = self.update_reads_for_deletions(
@@ -418,7 +420,7 @@ class RccxPhaser(Phaser):
                 self.del1_5p_pos2,
                 self.del1_reads_partial,
                 "4",
-                "32017431_del6367",
+                self.deletion1_name,
             )
         self.het_sites = het_sites
 
@@ -457,9 +459,9 @@ class RccxPhaser(Phaser):
                 final_haps,
                 uniquely_supporting_reads,
                 nonuniquely_supporting_reads,
-                {
-                    "4": "32017431_del6367",
-                    "3": "32043718_del120",
+                known_del={
+                    "4": self.deletion1_name,
+                    "3": self.deletion2_name,
                 },
             )
 

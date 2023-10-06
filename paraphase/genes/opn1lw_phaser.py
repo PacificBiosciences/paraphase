@@ -43,13 +43,6 @@ class Opn1lwPhaser(Phaser):
         fields,
         defaults=(None,) * len(fields),
     )
-    exon3_variants = {
-        154152987: (["154152987_A_C"], "L", "M"),
-        154153041: (["154153041_G_A", "154153043_G_T"], "I", "V"),
-        154153051: (["154153051_C_T"], "V", "A"),
-        154153062: (["154153062_A_G"], "V", "I"),
-        154153068: (["154153068_G_T"], "S", "A"),
-    }
     pathogenic_haps = ["LIAVA", "LVAVA", "LIAVS", "MIAVA", "MVVVA", "MVAVA", "LIAIA"]
 
     def __init__(
@@ -59,11 +52,14 @@ class Opn1lwPhaser(Phaser):
 
     def set_parameter(self, config):
         super().set_parameter(config)
+        self.exon3_variants = config.get("exon3_variants")
+        self.pivot_vars = config.get("pivot_vars")
+        self.last_copy_vars = config.get("last_copy_vars")
 
     def call_exon3(self, vars):
         annotated_vars = [None] * 5
         i = 0
-        for pos, pos_item in self.exon3_variants.items():
+        for pos_item in self.exon3_variants:
             query_vars, alt, ref = pos_item
             if len(set(vars).intersection(set(query_vars))) == len(query_vars):
                 annotated_vars[i] = alt
@@ -172,9 +168,9 @@ class Opn1lwPhaser(Phaser):
         self.get_candidate_pos()
         self.het_sites = sorted(list(self.candidate_pos))
         self.remove_noisy_sites()
-
+        homo_sites_to_add = self.add_homo_sites()
         raw_read_haps = self.get_haplotypes_from_reads(
-            check_clip=True, add_sites=["154143410_G_A"]
+            check_clip=True, kept_sites=homo_sites_to_add, add_sites=self.add_sites
         )
 
         (
@@ -210,8 +206,8 @@ class Opn1lwPhaser(Phaser):
         annotated_alleles = []
         annotated_haps = {}
         phasing_success = False
-        pivot_vars = set(["154156379_A_T", "154156402_A_G"])
-        last_copy_vars = set(["154182157_T_G", "154182166_A_C", "154182167_G_A"])
+        pivot_vars = set(self.pivot_vars)
+        last_copy_vars = set(self.last_copy_vars)
 
         if self.het_sites != []:
             haplotypes = self.output_variants_in_haplotypes(

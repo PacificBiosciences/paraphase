@@ -42,6 +42,7 @@ class StrcPhaser(Phaser):
     def set_parameter(self, config):
         super().set_parameter(config)
         self.deletion1_size = config["deletion1_size"]
+        self.deletion1_name = config["deletion1_name"]
         self.del1_3p_pos1 = config["del1_3p_pos1"]
         self.del1_3p_pos2 = config["del1_3p_pos2"]
         self.del1_5p_pos1 = config["del1_5p_pos1"]
@@ -66,7 +67,7 @@ class StrcPhaser(Phaser):
         self.het_sites = sorted(list(self.candidate_pos))
         self.remove_noisy_sites()
 
-        raw_read_haps = self.get_haplotypes_from_reads(add_sites=["43602487_C_G"])
+        raw_read_haps = self.get_haplotypes_from_reads(add_sites=self.add_sites)
         het_sites = self.het_sites
         if self.del1_reads_partial != set():
             raw_read_haps, het_sites = self.update_reads_for_deletions(
@@ -76,7 +77,7 @@ class StrcPhaser(Phaser):
                 self.del1_5p_pos2,
                 self.del1_reads_partial,
                 "3",
-                "43602630_del314",
+                self.deletion1_name,
             )
         self.het_sites = het_sites
         (
@@ -109,6 +110,7 @@ class StrcPhaser(Phaser):
                 ass_haps,
                 uniquely_supporting_reads,
                 nonuniquely_supporting_reads,
+                known_del={"3": self.deletion1_name},
             )
 
             if counter_gene == 1 or counter_pseudo == 1:
@@ -147,7 +149,7 @@ class StrcPhaser(Phaser):
         else:
             total_cn = 2
             # both copies are pseudogene
-            if self.del1_reads_partial != set() or "43604720_G_A" in self.homo_sites:
+            if self.del1_reads_partial != set():
                 counter_gene = 0
             else:
                 counter_gene = 2

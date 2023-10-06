@@ -26,6 +26,7 @@ class IkbkgPhaser(Phaser):
     def set_parameter(self, config):
         super().set_parameter(config)
         self.deletion1_size = config["deletion1_size"]
+        self.deletion1_name = config["deletion1_name"]
         self.del1_3p_pos1 = config["del1_3p_pos1"]
         self.del1_3p_pos2 = config["del1_3p_pos2"]
         self.del1_5p_pos1 = config["del1_5p_pos1"]
@@ -84,7 +85,7 @@ class IkbkgPhaser(Phaser):
                 self.del1_5p_pos2,
                 self.del1_reads_partial,
                 "3",
-                "154558014_del10806",
+                self.deletion1_name,
             )
         self.het_sites = het_sites
 

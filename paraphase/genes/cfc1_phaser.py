@@ -18,8 +18,10 @@ class Cfc1Phaser(Phaser):
         self.get_candidate_pos()
         self.het_sites = sorted(list(self.candidate_pos))
         self.remove_noisy_sites()
-
-        raw_read_haps = self.get_haplotypes_from_reads(add_sites=["130593061_A_G"])
+        homo_sites_to_add = self.add_homo_sites()
+        raw_read_haps = self.get_haplotypes_from_reads(
+            kept_sites=homo_sites_to_add, add_sites=self.add_sites
+        )
 
         (
             ass_haps,

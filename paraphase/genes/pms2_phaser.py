@@ -20,7 +20,7 @@ class Pms2Phaser(Phaser):
         self.remove_noisy_sites()
         # for distinguishing pms2 from pms2cl
         raw_read_haps = self.get_haplotypes_from_reads(
-            check_clip=True, add_sites=["5989137_G_A"]
+            check_clip=True, add_sites=self.add_sites
         )
 
         (

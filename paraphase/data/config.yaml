@@ -9,10 +9,13 @@ smn1:
   left_boundary: 70917100
   right_boundary: 70961220
   noisy_region: [[70946926, 70946958]]
+  add_sites: ["70951946_C_T"]
   strip_c_region_start: 70925087
   strip_c_region_end: 70953015
   deletion1_size: 3559
   deletion2_size: 6310
+  deletion1_name: "70917700_del_3559"
+  deletion2_name: "70948286_del_6310"
   # delta7-8 positions to check
   del2_3p_pos1: 70948286
   del2_3p_pos2: 70948569
@@ -34,6 +37,7 @@ pms2:
   clip_3p_positions: [5989126, 5989052]
   noisy_region: [[5980880, 5980980], [5979663, 5979669], [5975950, 5976080]]
   is_reverse: True
+  add_sites: ["5989137_G_A"]
 rccx: 
   genes: CYP21A2,C4A,C4B,TNXB
   is_tandem: True
@@ -46,6 +50,8 @@ rccx:
   clip_5p_positions: [32013270]
   deletion1_size: 6367
   deletion2_size: 120
+  deletion1_name: "32017431_del_6367"
+  deletion2_name: "32043718_del_120"
   left_boundary: 32013300
   right_boundary: 32046000
   # 120bp sv
@@ -66,23 +72,24 @@ strc:
   gene2_region: chr15:43698814-43719466
   noisy_region: [[43602500, 43603700], [43602165, 43602176]]
   depth_region: [[43610000, 43660000]]
+  add_sites: ["43602487_C_G"]
   pivot_site: 43602487
   left_boundary: 43599500
   right_boundary: 43619600
   # deletion in pseudogene
   deletion1_size: 314
+  deletion1_name: "43602630_del_314"
   del1_3p_pos1: 43602628
   del1_3p_pos2: 43602631
   del1_5p_pos1: 43602944
   del1_5p_pos2: 43602948
 cfc1:
   genes: CFC1,CFC1B
-  realign_region: chr2:130587000-130610000
+  realign_region: chr2:130592000-130610000
   extract_regions: chr2:130510753-130533741 chr2:130587000-130610000
   pivot_site: 130593061
-  left_boundary: 130587000
-  right_boundary: 130610000
   is_reverse: True
+  add_sites: ["130593061_A_G"]
 ikbkg: 
   genes: IKBKG
   use_supplementary: True
@@ -95,6 +102,7 @@ ikbkg:
   left_boundary: 154555780
   right_boundary: 154568820
   deletion1_size: 10806
+  deletion1_name: "154558014_del_10806"
   del1_3p_pos1: 154558000
   del1_3p_pos2: 154558030
   del1_5p_pos1: 154568800
@@ -108,8 +116,10 @@ ncf1:
   extract_regions: chr7:73215625-73238945 chr7:74769011-74792315 chr7:75153639-75176964
   gene2_region: chr7:73215625-73238945
   pivot_site: 74777265
+  pivot_var: "74777266_GGT_G"
   left_boundary: 74769011
   right_boundary: 74792315
+  add_sites: ["74777265_A_T"]
 neb: 
   genes: NEB
   is_tandem: True
@@ -138,6 +148,10 @@ opn1lw:
   right_boundary: 154182200
   pivot_site: 154143410
   clip_5p_positions: [154144048]
+  add_sites: ["154143410_G_A"]
+  pivot_vars: ["154156379_A_T", "154156402_A_G"]
+  last_copy_vars: ["154182157_T_G", "154182166_A_C", "154182167_G_A"]
+  exon3_variants: [[["154152987_A_C"], "L", "M"], [["154153041_G_A", "154153043_G_T"], "I", "V"], [["154153051_C_T"], "V", "A"], [["154153062_A_G"], "V", "I"], [["154153068_G_T"], "S", "A"]]
 SSX2: 
   genes: SSX2,SSX2B
   is_tandem: True
