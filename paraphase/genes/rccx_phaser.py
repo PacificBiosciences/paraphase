@@ -62,6 +62,7 @@ class RccxPhaser(Phaser):
                     "_".join([split_line[1], split_line[2], split_line[3]]),
                     split_line[-1],
                 )
+        self.white_list = config["white_list"]
         self.deletion1_size = config["deletion1_size"]
         self.deletion2_size = config["deletion2_size"]
         self.deletion1_name = config["deletion1_name"]
@@ -369,7 +370,8 @@ class RccxPhaser(Phaser):
                 [self.del1_5p_pos1, self.del1_5p_pos2],
             ]
         self.get_candidate_pos(
-            regions_to_check=regions_to_check, white_list={32039081: "A"}
+            regions_to_check=regions_to_check,
+            white_list=self.white_list,
         )
 
         # add last snp outside of repeat
@@ -380,7 +382,7 @@ class RccxPhaser(Phaser):
                 var_found = True
                 break
         if var_found is False and self.candidate_pos != set():
-            self.candidate_pos.add("32046300_G_A")
+            self.candidate_pos.add(self.add_sites[1])
         # add last snp outside of repeat, 5prime
         var_found = False
         for var in self.candidate_pos:
@@ -389,7 +391,7 @@ class RccxPhaser(Phaser):
                 var_found = True
                 break
         if var_found is False and self.candidate_pos != set():
-            self.candidate_pos.add("32013265_A_T")
+            self.candidate_pos.add(self.add_sites[0])
 
         self.het_sites = sorted(list(self.candidate_pos))
         self.remove_noisy_sites()
@@ -397,8 +399,8 @@ class RccxPhaser(Phaser):
         raw_read_haps = self.get_haplotypes_from_reads(
             check_clip=True,
             partial_deletion_reads=self.del1_reads_partial,
-            kept_sites=["32046300_G_A", "32013265_A_T"],
-            multi_allelic_sites={32039081: "A"},
+            kept_sites=self.add_sites,
+            multi_allelic_sites=self.white_list,
         )
 
         het_sites = self.het_sites

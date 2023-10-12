@@ -762,12 +762,13 @@ class VcfGenerater:
                     n4 = self.get_range_in_other_gene(hap_bound[3])
                     if None in [n1, n2, n3, n4]:
                         hap_bound = []
-                    hap_bound = [
-                        min(n1, n2),
-                        max(n1, n2),
-                        min(n3, n4),
-                        max(n3, n4),
-                    ]
+                    else:
+                        hap_bound = [
+                            min(n1, n2),
+                            max(n1, n2),
+                            min(n3, n4),
+                            max(n3, n4),
+                        ]
             hap_vcf_out = os.path.join(
                 self.vcf_dir, self.sample_id + f"_{self.gene}_{hap_name}.vcf"
             )

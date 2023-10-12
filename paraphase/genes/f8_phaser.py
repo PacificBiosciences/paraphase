@@ -93,7 +93,7 @@ class F8Phaser(Phaser):
                 var_found = True
                 break
         if var_found is False:
-            self.candidate_pos.add("155386300_A_C")
+            self.candidate_pos.add(self.add_sites[0])
 
         var_found = False
         for var in self.candidate_pos:
@@ -102,13 +102,14 @@ class F8Phaser(Phaser):
                 var_found = True
                 break
         if var_found is False:
-            self.candidate_pos.add("155386860_C_G")
+            self.candidate_pos.add(self.add_sites[1])
 
         self.het_sites = sorted(list(self.candidate_pos))
         self.remove_noisy_sites()
 
         raw_read_haps = self.get_haplotypes_from_reads(
-            check_clip=True, kept_sites=["155386300_A_C", "155386860_C_G"]
+            check_clip=True,
+            kept_sites=self.add_sites,
         )
 
         (

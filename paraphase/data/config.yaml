@@ -46,6 +46,8 @@ rccx:
   realign_region: chr6:32013240-32049000
   extract_regions: chr6:31980000-32046800
   pivot_site: 32040421
+  white_list: {32039081: "A"}
+  add_sites: ["32013265_A_T", "32046300_G_A"]
   clip_3p_positions: [32046127]
   clip_5p_positions: [32013270]
   deletion1_size: 6367
@@ -98,6 +100,7 @@ ikbkg:
   gene2_region: chrX:154632000-154649000
   clip_3p_positions: [154569698]
   clip_5p_positions: [154557136]
+  add_sites: ["154555882_C_G", "154569800_T_G"]
   pivot_site: 154555882
   left_boundary: 154555780
   right_boundary: 154568820
@@ -135,6 +138,7 @@ f8:
   clip_3p_positions: [155386059, 155386727]
   left_boundary: 155376507
   right_boundary: 155386059
+  add_sites: ["155386300_A_C", "155386860_C_G"]
   depth_region: [[154900000, 155020000]]
 
 opn1lw: 

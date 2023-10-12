@@ -587,7 +587,7 @@ class Phaser:
                 if var not in self.het_sites:
                     self.het_sites.append(var)
         # add sites before 5p clip and after 3p clip
-        if self.clip_5p_positions != []:
+        if self.clip_5p_positions != [] and self.het_sites != []:
             clip_pos = min(self.clip_5p_positions)
             var_before_clip = [
                 a for a in self.het_sites if int(a.split("_")[0]) < clip_pos
@@ -600,7 +600,7 @@ class Phaser:
                 var_base = [a for a in ["A", "C", "G", "T"] if a != ref_base][0]
                 new_var = f"{var_pos}_{ref_base}_{var_base}"
                 self.het_sites.append(new_var)
-        if self.clip_3p_positions != []:
+        if self.clip_3p_positions != [] and self.het_sites != []:
             clip_pos = max(self.clip_3p_positions)
             var_after_clip = [
                 a for a in self.het_sites if int(a.split("_")[0]) > clip_pos
@@ -1124,6 +1124,8 @@ class Phaser:
 
             haplotype_variants[hap_name] += filtered_homo_sites
 
+            hap_bound_start = max(hap_bound_start, self.left_boundary)
+            hap_bound_end = min(hap_bound_end, self.right_boundary)
             boundary_gene2 = None
             if self.gene2_region is not None:
                 boundary_gene2 = [
@@ -1306,19 +1308,20 @@ class Phaser:
             read_counts,
         ) = self.get_read_support(raw_read_haps, haplotypes_to_reads, ass_haps)
 
-        if 0:
-            # remove low-support ones
-            read_counts = [
-                len(uniquely_supporting_reads[a]) for a in uniquely_supporting_reads
-            ]
-            read_counts = sorted(read_counts)
-            if (
-                len(read_counts) > 1
-                and read_counts[0] <= 5
-                and read_counts[1] >= 10
-                and "x" not in "".join(ass_haps)
-            ):
-                min_support = 6
+        # remove low-support ones
+        read_counts = [
+            len(uniquely_supporting_reads[a]) for a in uniquely_supporting_reads
+        ]
+        read_counts = sorted(read_counts)
+        # more stringent if one copy is low but others are high
+        if (
+            len(read_counts) > 2
+            and read_counts[0] <= 4
+            and read_counts[1] >= 12
+            and "x" not in "".join(ass_haps)
+        ):
+            min_support = 5
+
         ass_haps = [
             a
             for a in uniquely_supporting_reads

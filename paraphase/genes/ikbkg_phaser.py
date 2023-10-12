@@ -56,16 +56,7 @@ class IkbkgPhaser(Phaser):
                 var_found = True
                 break
         if var_found is False:
-            self.candidate_pos.add("154569800_T_G")
-
-        var_found = False
-        for var in self.candidate_pos:
-            pos = int(var.split("_")[0])
-            if pos < self.clip_5p_positions[0]:
-                var_found = True
-                break
-        if var_found is False:
-            self.candidate_pos.add("154555882_C_G")
+            self.candidate_pos.add(self.add_sites[1])
 
         self.het_sites = sorted(list(self.candidate_pos))
         self.remove_noisy_sites()
@@ -73,8 +64,8 @@ class IkbkgPhaser(Phaser):
         raw_read_haps = self.get_haplotypes_from_reads(
             check_clip=True,
             partial_deletion_reads=self.del1_reads_partial,
-            kept_sites=["154569800_T_G"],
-            add_sites=["154555882_C_G"],
+            kept_sites=[self.add_sites[1]],
+            add_sites=[self.add_sites[0]],  # pivot site
         )
         het_sites = self.het_sites
         if self.del1_reads_partial != set():
