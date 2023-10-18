@@ -57,6 +57,7 @@ class Opn1lwPhaser(Phaser):
         self.last_copy_vars = config.get("last_copy_vars")
 
     def call_exon3(self, vars):
+        """Call known variants in Exon 3"""
         annotated_vars = [None] * 5
         i = 0
         for pos_item in self.exon3_variants:
@@ -81,6 +82,9 @@ class Opn1lwPhaser(Phaser):
         directional_links,
         directional_links_loose,
     ):
+        """
+        Find the second copy on one allele where the first copy is known.
+        """
         hap = first_copy
         remaining_haps = [a for a in all_haps_on_this_allele if a != hap]
         middle_copies = [a for a in middle_copies if a in all_haps_on_this_allele]
@@ -165,7 +169,7 @@ class Opn1lwPhaser(Phaser):
         if self.check_coverage_before_analysis() is False:
             return self.GeneCall()
         self.get_homopolymer()
-        self.get_candidate_pos()
+        self.get_candidate_pos(min_vaf=0.08)
         self.het_sites = sorted(list(self.candidate_pos))
         self.remove_noisy_sites()
         homo_sites_to_add = self.add_homo_sites()
@@ -189,7 +193,6 @@ class Opn1lwPhaser(Phaser):
         ass_haps = tmp
 
         haplotypes = None
-        dvar = None
         two_cp_haps = []
         alleles = []
         alleles = []
@@ -230,6 +233,7 @@ class Opn1lwPhaser(Phaser):
                     counter_unknown += 1
                     renamed_hap = f"opnunknown_hap{counter_unknown}"
                 hap_rename.setdefault(hap_name, renamed_hap)
+                # first, middle, last copies
                 if hap[0] not in ["x", "0"]:
                     first_copies.append(renamed_hap)
                 if var.intersection(last_copy_vars) != set():
@@ -253,20 +257,7 @@ class Opn1lwPhaser(Phaser):
                 tmp.setdefault(hap_rename[hap_name], hap_info)
             haplotypes = tmp
 
-            # find two copy haplotypes
-            if len(ass_haps) > 2 and self.sample_sex == "female":
-                two_cp_haps = self.compare_depth(haplotypes)
-                if two_cp_haps == [] and read_counts is not None:
-                    # check if one haplotype has more reads than others
-                    haps = list(read_counts.keys())
-                    counts = list(read_counts.values())
-                    max_count = max(counts)
-                    cp2_hap = haps[counts.index(max_count)]
-                    others_max = sorted(counts, reverse=True)[1]
-                    probs = self.depth_prob(max_count, others_max)
-                    if probs[0] < 0.15 and others_max >= 10:
-                        two_cp_haps.append(ass_haps[cp2_hap])
-
+            # do not look for two-copy haplotypes for now
             total_cn = len(ass_haps) + len(two_cp_haps)
 
             (
@@ -284,7 +275,8 @@ class Opn1lwPhaser(Phaser):
 
             # incorrect phasing suggests haplotypes with cn > 1
             if (
-                self.sample_sex == "female"
+                self.sample_sex is not None
+                and self.sample_sex == "female"
                 and len(alleles) == 1
                 and sorted(alleles[0]) == sorted(ass_haps.values())
             ):
@@ -325,6 +317,7 @@ class Opn1lwPhaser(Phaser):
                         )
                         if allele_found is not None:
                             alleles_1st_2nd.append(allele_found)
+                    # for females, if one allele is completely phased and the other is not phased yet
                     if self.sample_sex == "female" and len(alleles_1st_2nd) == 1:
                         complete_allele = []
                         incomplete_allele = []
@@ -367,12 +360,15 @@ class Opn1lwPhaser(Phaser):
                     if (self.sample_sex == "male" and len(alleles_1st_2nd) == 1) or (
                         self.sample_sex == "female" and len(alleles_1st_2nd) == 2
                     ):
+                        # phasing success is defined as the first two copies being phased
+                        # on each allele
                         phasing_success = True
                     else:
                         for hap in first_copies:
                             if True not in [hap in a for a in alleles_1st_2nd]:
                                 alleles_1st_2nd.append([hap, None])
 
+                # annotate each pair of 1st and 2nd copies
                 for each_allele in alleles_1st_2nd:
                     each_allele_annotated = []
                     for each_hap in each_allele:
@@ -388,7 +384,7 @@ class Opn1lwPhaser(Phaser):
                     annotated_alleles.append(each_allele_annotated)
 
         # homozygous cases
-        else:
+        elif self.sample_sex is not None:
             baseline_cn = None
             phasing_success = True
             if self.sample_sex == "female":

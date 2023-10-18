@@ -122,6 +122,8 @@ class Paraphase:
                     phaser = genes.Opn1lwPhaser(
                         sample_id, tmpdir, gdepth, bam, sample_sex
                     )
+                elif gene == "hba":
+                    phaser = genes.HbaPhaser(sample_id, tmpdir, gdepth, bam, sample_sex)
                 else:
                     phaser = Phaser(sample_id, tmpdir, gdepth)
 

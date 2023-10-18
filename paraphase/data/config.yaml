@@ -156,6 +156,17 @@ opn1lw:
   pivot_vars: ["154156379_A_T", "154156402_A_G"]
   last_copy_vars: ["154182157_T_G", "154182166_A_C", "154182167_G_A"]
   exon3_variants: [[["154152987_A_C"], "L", "M"], [["154153041_G_A", "154153043_G_T"], "I", "V"], [["154153051_C_T"], "V", "A"], [["154153062_A_G"], "V", "I"], [["154153068_G_T"], "S", "A"]]
+hba:
+  genes: HBA1,HBA2
+  realign_region: chr16:171800-173900
+  extract_regions: chr16:168656-177541
+  clip_5p_positions: [171989]
+  clip_3p_positions: [173729]
+  is_tandem: True
+  keep_truncated: True
+  depth_region: [[160000, 190000]]
+  noisy_region: [[172417, 172418]]
+
 SSX2: 
   genes: SSX2,SSX2B
   is_tandem: True
@@ -1244,12 +1255,4 @@ BOLA2:
   right_boundary: 29470000
   clip_5p_positions: [29449191]
   add_sites: ["29449010_T_G"]
-
-HBA2:
-  genes: HBA1,HBA2
-  realign_region: chr16:171800-173730
-  extract_regions: chr16:168656-177541
-  left_boundary: 171990
-  clip_5p_positions: [171989]
-  add_sites: ["171983_G_A"]
-  is_tandem: True
+  
