@@ -66,6 +66,8 @@ Required parameters:
 - `-o`: Output directory
 - `-r`: Path to the reference genome fasta file
 
+It is recommended that the input bam to Paraphase should be aligned to a reference that does NOT include ALT contigs.
+
 Optional parameters:
 - `-g`: Gene(s) to analyze. All supported genes will be analyzed if not specified.
 - `-t`: Number of threads.
