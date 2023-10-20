@@ -61,7 +61,7 @@ class Paraphase:
         with open(gene_config, "r") as f:
             gene_config_parsed = yaml.safe_load(f)
         self.genes_to_call = gene_config_parsed.get("genes_to_call")
-        self.genome_depth_genes = gene_config_parsed.get("genome_depth_genes")
+        self.no_genome_depth_genes = gene_config_parsed.get("no_genome_depth_genes")
         self.no_vcf_genes = gene_config_parsed.get("no_vcf_genes")
         ## need to update check_sex_genes based on chromosome
         self.check_sex_genes = gene_config_parsed.get("check_sex_genes")
@@ -219,7 +219,10 @@ class Paraphase:
                 )
                 if sample_id in dcov:
                     gdepth = dcov[sample_id]
-                if gdepth is None:
+                if (
+                    gdepth is None
+                    and set(query_genes) - set(self.no_genome_depth_genes) != set()
+                ):
                     depth = GenomeDepth(
                         bam,
                         os.path.join(
