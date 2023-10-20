@@ -20,14 +20,15 @@ class GenomeDepth:
         depth = []
         with open(self.genome_depth_region_file) as f:
             for line in f:
-                at = line.split()
-                nchr = at[0]
-                pos1 = int(at[1])
-                for pos in [pos1, pos1 + 1600]:
-                    site_depth = self._bamh.count(
-                        nchr, pos - 1, pos, read_callback="all"
-                    )
-                    depth.append(site_depth)
+                if line[0] != "#":
+                    at = line.split()
+                    nchr = at[0]
+                    pos1 = int(at[1])
+                    for pos in [pos1, pos1 + 1600]:
+                        site_depth = self._bamh.count(
+                            nchr, pos - 1, pos, read_callback="all"
+                        )
+                        depth.append(site_depth)
         self.mdepth = np.median(depth)
         self.mad = np.median([abs(a - self.mdepth) for a in depth]) / self.mdepth
 
@@ -40,14 +41,17 @@ class GenomeDepth:
         """Determine sample sex based on coverage"""
         with open(self.genome_depth_region_file) as f:
             for line in f:
-                at = line.split()
-                nchr = at[0]
-                pos1 = int(at[1])
-                site_depth = self._bamh.count(nchr, pos1 - 1, pos1, read_callback="all")
-                if "X" in nchr:
-                    self.x.append(site_depth)
-                elif "Y" in nchr:
-                    self.y.append(site_depth)
+                if line[0] != "#":
+                    at = line.split()
+                    nchr = at[0]
+                    pos1 = int(at[1])
+                    site_depth = self._bamh.count(
+                        nchr, pos1 - 1, pos1, read_callback="all"
+                    )
+                    if "X" in nchr:
+                        self.x.append(site_depth)
+                    elif "Y" in nchr:
+                        self.y.append(site_depth)
         cov_x, cov_y = np.median(self.x), np.median(self.y)
         self._bamh.close()
         if cov_y / cov_x < 0.05:
