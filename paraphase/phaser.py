@@ -825,7 +825,7 @@ class Phaser:
             del_bases_count = all_bases.count("*")
             # get reference base
             offset_pos = pos - self.offset
-            ref_seq_genome = self._refh.fetch(self.nchr_old, offset_pos - 1, offset_pos)
+            ref_seq_genome = self._refh.fetch(self.nchr_old, offset_pos - 1, offset_pos).upper()
 
             if total_depth >= min_read_support and (
                 del_bases_count < min_read_support or self.allow_del_bases(pos)
