@@ -437,7 +437,9 @@ class VcfGenerater:
                 variants_info = dict(sorted(variants_info.items()))
                 for pos in variants_info:
                     call_info = variants_info[pos]
+                    # unique variants at this site
                     variant_observed = set([a[0] for a in call_info if a is not None])
+                    var_num = len(variant_observed)
                     for variant in variant_observed:
                         _, ref, alt = variant.split("_")
                         merge_gt = []
@@ -463,7 +465,11 @@ class VcfGenerater:
                                     merge_gt.append(".")
                                     merge_ad.append(".")
                         final_qual = "."
-                        if "1" in merge_gt:
+                        if ref == alt:
+                            alt = "."
+                        if (var_num == 1 and ("1" in merge_gt or "." in merge_gt)) or (
+                            var_num > 1 and alt != "."
+                        ):
                             merged_entry = [
                                 self.nchr,
                                 str(pos),

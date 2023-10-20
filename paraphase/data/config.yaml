@@ -32,12 +32,11 @@ pms2:
   realign_region: chr7:5965000-6010000
   extract_regions: chr7:5967000-5989062 chr7:6735630-6758000
   gene2_region: chr7:6735630-6758000
-  left_boundary: 5967000
-  right_boundary: 5986000
-  clip_3p_positions: [5989126, 5989052]
+  right_boundary: 5987500
+  pivot_site: 5986569
   noisy_region: [[5980880, 5980980], [5979663, 5979669], [5975950, 5976080]]
   is_reverse: True
-  add_sites: ["5989137_G_A"]
+  add_sites: ["5986569_G_A"]
 rccx: 
   genes: CYP21A2,C4A,C4B,TNXB
   is_tandem: True
@@ -102,7 +101,7 @@ ikbkg:
   clip_5p_positions: [154557136]
   add_sites: ["154555882_C_G", "154569800_T_G"]
   pivot_site: 154555882
-  left_boundary: 154555780
+  left_boundary: 154555700
   right_boundary: 154568820
   deletion1_size: 10806
   deletion1_name: "154558014_del_10806"

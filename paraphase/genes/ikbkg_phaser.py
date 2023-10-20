@@ -94,28 +94,31 @@ class IkbkgPhaser(Phaser):
         tmp = {}
         gene_counter = 0
         pseudo_counter = 0
+        unknown_counter = 0
         dup_counter = 0
         deletion_haplotypes = []
         pivot_index, index_found = self.get_pivot_site_index()
-        if index_found is True:
+        if index_found is False:
+            return self.GeneCall()
+        else:
             for i, hap in enumerate(ass_haps):
                 start_seq = hap[: pivot_index + 1]
                 if start_seq.startswith("0") is False:
-                    if start_seq.count("1") >= start_seq.count("2"):
+                    if start_seq.count("2") <= 5:
                         gene_counter += 1
                         hap_name = f"ikbkg_hap{gene_counter}"
-                        tmp.setdefault(hap, hap_name)
-                        if "3" in hap:
-                            deletion_haplotypes.append(hap_name)
-                    else:
+                    elif start_seq.count("2") >= 15:
                         pseudo_counter += 1
-                        hap_name = f"pseudo_hap{pseudo_counter}"
-                        tmp.setdefault(hap, hap_name)
-                        if "3" in hap:
-                            deletion_haplotypes.append(hap_name)
+                        hap_name = f"ikbkg_pseudo_hap{pseudo_counter}"
+                    else:
+                        unknown_counter += 1
+                        hap_name = f"ikbkg_unknown_hap{unknown_counter}"
+                    tmp.setdefault(hap, hap_name)
+                    if "3" in hap:
+                        deletion_haplotypes.append(hap_name)
                 else:
                     dup_counter += 1
-                    tmp.setdefault(hap, f"dup_hap{dup_counter}")
+                    tmp.setdefault(hap, f"ikbkg_dup_hap{dup_counter}")
         ass_haps = tmp
 
         haplotypes = None
@@ -124,29 +127,47 @@ class IkbkgPhaser(Phaser):
                 ass_haps,
                 uniquely_supporting_reads,
                 nonuniquely_supporting_reads,
+                known_del={
+                    "3": self.deletion1_name,
+                },
             )
 
         # this is on chrX, males have one copy of gene and one copy of pseudogene
+        if self.sample_sex is not None and self.sample_sex == "male":
+            if unknown_counter == 0 and (gene_counter > 1 or pseudo_counter > 1):
+                gene_counter = None
+                total_cn = None
         two_cp_haps = []
-        if gene_counter == 1 and pseudo_counter > 1:
-            two_cp_haps = self.compare_depth(haplotypes, loose=True)
-            if two_cp_haps == [] and read_counts is not None:
-                # check if one haplotype has more reads than others
-                haps = list(read_counts.keys())
-                counts = list(read_counts.values())
-                max_count = max(counts)
-                cp2_hap = haps[counts.index(max_count)]
-                others_max = sorted(counts, reverse=True)[1]
-                probs = self.depth_prob(max_count, others_max)
-                if probs[0] < 0.15 and others_max >= 10:
-                    two_cp_haps.append(ass_haps[cp2_hap])
-        for hap in two_cp_haps:
-            total_cn += 1
-            if "ikbkg" in hap:
-                gene_counter += 1
-        if gene_counter == 1 and pseudo_counter != 1:
-            gene_counter = None
-            total_cn = None
+        if (
+            unknown_counter == 0
+            and self.sample_sex is not None
+            and self.sample_sex == "female"
+            and (
+                (gene_counter > 1 and pseudo_counter == 1)
+                or (gene_counter == 1 and pseudo_counter > 1)
+            )
+        ):
+            if gene_counter == 1 and pseudo_counter == 1:
+                two_cp_haps = [a for a in ass_haps.values() if "dup" not in a]
+            else:
+                two_cp_haps = self.compare_depth(haplotypes, loose=True)
+                if two_cp_haps == [] and read_counts is not None:
+                    # check if one haplotype has more reads than others
+                    haps = list(read_counts.keys())
+                    counts = list(read_counts.values())
+                    max_count = max(counts)
+                    cp2_hap = haps[counts.index(max_count)]
+                    others_max = sorted(counts, reverse=True)[1]
+                    probs = self.depth_prob(max_count, others_max)
+                    if probs[0] < 0.15 and others_max >= 10:
+                        two_cp_haps.append(ass_haps[cp2_hap])
+            for hap in two_cp_haps:
+                total_cn += 1
+                if "ikbkg_hap" in hap:
+                    gene_counter += 1
+            if gene_counter == 1 and pseudo_counter != 1:
+                gene_counter = None
+                total_cn = None
 
         (
             alleles,
