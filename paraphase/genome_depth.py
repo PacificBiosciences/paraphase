@@ -15,6 +15,21 @@ class GenomeDepth:
         self.mad = None
         self.x = []
         self.y = []
+        self.chr_in_name = GenomeDepth.check_chr_name(self._bamh)
+
+    @staticmethod
+    def check_chr_name(bam_handle):
+        """
+        Check bam header to see if chromosome names contain "chr"
+        """
+        header = bam_handle.header
+        header = header.to_dict()
+        sq = header.get("SQ")
+        if sq is not None:
+            chr_names = [a.get("SN") for a in sq]
+            if True not in ["chr" in a for a in chr_names]:
+                return False
+        return True
 
     def get_genome_depth(self):
         depth = []
@@ -23,6 +38,8 @@ class GenomeDepth:
                 if line[0] != "#":
                     at = line.split()
                     nchr = at[0]
+                    if self.chr_in_name is False:
+                        nchr = nchr.replace("chr", "")
                     pos1 = int(at[1])
                     for pos in [pos1, pos1 + 1600]:
                         site_depth = self._bamh.count(
@@ -44,6 +61,8 @@ class GenomeDepth:
                 if line[0] != "#":
                     at = line.split()
                     nchr = at[0]
+                    if self.chr_in_name is False:
+                        nchr = nchr.replace("chr", "")
                     pos1 = int(at[1])
                     site_depth = self._bamh.count(
                         nchr, pos1 - 1, pos1, read_callback="all"

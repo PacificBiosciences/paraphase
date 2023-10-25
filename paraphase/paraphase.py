@@ -44,14 +44,14 @@ class Paraphase:
                     return line.split('"')[1]
         return None
 
-    def parse_configs(self, region_config=None):
+    def parse_configs(self, region_config=None, genome_build="38"):
         """
         Parse config files
         region_config: parameters for each region of interest
         gene_config: specifies some additional analyses triggered with some genes
         """
-        data_path = os.path.join(os.path.dirname(__file__), "data")
-        gene_config = os.path.join(data_path, "genes.yaml")
+        data_path = os.path.join(os.path.dirname(__file__), "data", genome_build)
+        gene_config = os.path.join(os.path.dirname(data_path), "genes.yaml")
         if region_config is None:
             region_config = os.path.join(data_path, "config.yaml")
         self.region_config_parsed = None
@@ -201,6 +201,7 @@ class Paraphase:
         num_threads=1,
         dcov={},
         novcf=False,
+        genome_build="38",
     ):
         """Main workflow"""
         for bam in bamlist:
@@ -226,7 +227,10 @@ class Paraphase:
                     depth = GenomeDepth(
                         bam,
                         os.path.join(
-                            os.path.dirname(__file__), "data", "genome_region.bed"
+                            os.path.dirname(__file__),
+                            "data",
+                            genome_build,
+                            "genome_region.bed",
                         ),
                     )
                     gdepth, gmad = depth.call()
@@ -240,7 +244,10 @@ class Paraphase:
                     depth = GenomeDepth(
                         bam,
                         os.path.join(
-                            os.path.dirname(__file__), "data", "sex_region.bed"
+                            os.path.dirname(__file__),
+                            "data",
+                            genome_build,
+                            "sex_region.bed",
                         ),
                     )
                     sample_sex = depth.check_sex()
@@ -346,7 +353,7 @@ class Paraphase:
         else:
             self.minimap2 = minimap2_check2[0]
 
-    def update_config(self, gene_list, ref_dir, genome):
+    def update_config(self, gene_list, ref_dir, genome, genome_build):
         """Get config info for each gene"""
         genome_ref = pysam.FastaFile(genome)
         data_path = os.path.join(os.path.dirname(__file__), "data")
@@ -362,18 +369,31 @@ class Paraphase:
             # update paths
             configs[gene].setdefault("data", {})
             data_paths = configs[gene]["data"]
+            genome_build_dir = genome_build
+            if genome_build == "37":
+                genome_build_dir = "19"
             for data_entry in data_paths:
                 old_data_file = data_paths[data_entry]
-                new_data_file = os.path.join(data_path, gene, old_data_file)
+                new_data_file = os.path.join(
+                    data_path, genome_build_dir, gene, old_data_file
+                )
                 data_paths[data_entry] = new_data_file
             # add reference fasta
             ref_file = os.path.join(ref_dir, f"{gene}_ref.fa")
             data_paths.setdefault("reference", ref_file)
             realign_region = configs[gene].get("realign_region")
+            if genome_build == "37":
+                realign_region = realign_region.replace("chr", "")
+                configs[gene]["realign_region"] = realign_region
+                extract_regions = configs[gene].get("extract_regions")
+                configs[gene]["extract_regions"] = extract_regions.replace("chr", "")
             self.make_ref_fasta(ref_file, realign_region, genome)
             # if gene2 is specified
             gene2_region = configs[gene].get("gene2_region")
             if gene2_region is not None:
+                if genome_build == "37":
+                    gene2_region = gene2_region.replace("chr", "")
+                    configs[gene]["gene2_region"] = gene2_region
                 nchr_gene2 = gene2_region.split(":")[0]
                 configs[gene].setdefault("nchr_gene2", nchr_gene2)
                 nchr_length_gene2 = genome_ref.get_reference_length(nchr_gene2)
@@ -526,7 +546,7 @@ class Paraphase:
             "-c",
             "--config",
             help="Optional path to a user-defined config file listing the full set of regions to analyze.\n"
-            + "By default Paraphase uses the config file in paraphase/data/config.yaml",
+            + "By default Paraphase uses the config file in paraphase/data/38/config.yaml",
             required=False,
         )
         parser.add_argument(
@@ -542,6 +562,14 @@ class Paraphase:
             required=False,
             type=int,
             default=1,
+        )
+        parser.add_argument(
+            "--genome",
+            help="Optionally specify which genome reference build the input BAM files are aligned against.\n"
+            + "Accepted values are 19, 37 and 38. Default is 38.\n"
+            + "Note that fewer genes are currently supported in 19/37. See paraphase/data/19/config.yaml",
+            required=False,
+            default="38",
         )
         parser.add_argument(
             "--novcf",
@@ -578,7 +606,11 @@ class Paraphase:
 
         try:
             prog_cmd = " ".join(sys.argv[1:])
-            self.parse_configs(region_config=args.config)
+            # for data files, genome build 37 uses the same ones as genome build 19
+            genome_build_dir = args.genome
+            if genome_build_dir == "37":
+                genome_build_dir = "19"
+            self.parse_configs(region_config=args.config, genome_build=genome_build_dir)
             self.get_samtools_minimap2_path(args)
             gene_list = self.get_gene_list(args.gene)
             if gene_list == []:
@@ -586,7 +618,7 @@ class Paraphase:
                 raise Exception(
                     f"Please provide valid gene name(s). Accepted genes are {all_genes_joined}."
                 )
-            configs = self.update_config(gene_list, tmpdir, args.reference)
+            configs = self.update_config(gene_list, tmpdir, args.reference, args.genome)
 
             # parse depth file
             dcov = {}
@@ -611,6 +643,7 @@ class Paraphase:
                         num_threads,
                         dcov,
                         args.novcf,
+                        genome_build_dir,
                     )
                 else:
                     logging.warning(f"{args.bam} bam or bai file doesn't exist")
@@ -632,6 +665,7 @@ class Paraphase:
                     prog_cmd=prog_cmd,
                     dcov=dcov,
                     novcf=args.novcf,
+                    genome_build=genome_build_dir,
                 )
                 bam_groups = [bamlist[i::num_threads] for i in range(num_threads)]
                 pool = mp.Pool(num_threads)
