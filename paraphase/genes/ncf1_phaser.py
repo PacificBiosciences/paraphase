@@ -75,11 +75,18 @@ class Ncf1Phaser(Phaser):
         counter_gene = 0
         counter_pseudo = 0
         # main variant is 74777266_GGT_G
-        for hap in haplotypes:
+        var_reads = self.check_variants_in_haplotypes(self.pivot_var)
+        for hap_seq, hap in ass_haps.items():
             var = haplotypes[hap]["variants"]
             if self.pivot_var not in var:
-                counter_gene += 1
-                hap_rename.setdefault(hap, f"ncf1_hap{counter_gene}")
+                hap_reads = uniquely_supporting_reads[hap_seq]
+                hap_var = [var_reads.get(a) for a in hap_reads]
+                if hap_var.count("alt") > (len(hap_var) - hap_var.count(None)) * 0.7:
+                    counter_pseudo += 1
+                    hap_rename.setdefault(hap, f"pseudo_hap{counter_pseudo}")
+                else:
+                    counter_gene += 1
+                    hap_rename.setdefault(hap, f"ncf1_hap{counter_gene}")
             else:
                 counter_pseudo += 1
                 hap_rename.setdefault(hap, f"pseudo_hap{counter_pseudo}")
