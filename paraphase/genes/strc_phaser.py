@@ -53,7 +53,9 @@ class StrcPhaser(Phaser):
         if self.check_coverage_before_analysis() is False:
             return self.GeneCall()
         genome_bamh = pysam.AlignmentFile(self.genome_bam, "rb")
-        intergenic_depth = self.get_regional_depth(genome_bamh, self.depth_region)[0]
+        intergenic_depth = self.get_regional_depth(genome_bamh, self.depth_region)[
+            0
+        ].median
         genome_bamh.close()
         self.get_homopolymer()
         self.del1_reads, self.del1_reads_partial = self.get_long_del_reads(
@@ -172,5 +174,5 @@ class StrcPhaser(Phaser):
             nonuniquely_supporting_reads,
             raw_read_haps,
             self.mdepth,
-            self.region_avg_depth,
+            self.region_avg_depth._asdict(),
         )

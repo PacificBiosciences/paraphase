@@ -44,6 +44,7 @@ class Phaser:
         fields,
         defaults=(None,) * len(fields),
     )
+    CoverageSummary = namedtuple("CoverageSummary", "median percentile80")
     MEAN_BASE_QUAL = 25
 
     def __init__(
@@ -149,7 +150,9 @@ class Phaser:
                     self.nchr, pos - 1, pos, read_callback="all"
                 )
                 depth.append(site_depth)
-            region_depth.append(np.median(depth))
+            region_depth.append(
+                self.CoverageSummary(np.median(depth), np.nanpercentile(depth, 80))
+            )
         return region_depth
 
     def check_coverage_before_analysis(self):
@@ -163,7 +166,10 @@ class Phaser:
         self.region_avg_depth = self.get_regional_depth(
             self._bamh, [[check_region_start, check_region_end]]
         )[0]
-        if np.isnan(self.region_avg_depth) or self.region_avg_depth < 10:
+        if np.isnan(self.region_avg_depth.median) or (
+            self.region_avg_depth.median < 10
+            and self.region_avg_depth.percentile80 < 50
+        ):
             logging.warning(
                 "This region does not appear to have coverage. Will not attempt to phase haplotypes."
             )
@@ -181,37 +187,6 @@ class Phaser:
             if new_pos in self.match:
                 return self.match[new_pos]
         return None
-
-    def get_homopolymer_old(self):
-        """
-        Get the homopolymer and dinucleotide sites
-        Variants for phasing:
-        SNVs, not matching excluded bases and sites labeled as 1
-        indels, not in excluded sites
-        """
-        seq = self._refh.fetch(self.nchr_old).upper()
-        nstart = self.offset
-        exclude = {}
-        for i in range(len(seq) - 5):
-            for nu in ["A", "C", "G", "T"]:
-                if seq[i : i + 5].count(nu) >= 5:
-                    for pos in range(i + nstart, i + 7 + nstart):
-                        exclude.setdefault(pos, [])
-                    # position before homopolymer
-                    if seq[i - 1] != nu:
-                        exclude[i + nstart].append(nu)
-                        exclude[i + 1 + nstart] = ["A", "C", "G", "T"]
-                    # position after homopolymer
-                    if seq[i + 5] != nu:
-                        exclude[i + 6 + nstart].append(nu)
-                        exclude[i + 6 + nstart].append("1")
-        exclude = dict(sorted(exclude.items()))
-        for pos in exclude:
-            bases = ",".join(list(set(exclude[pos])))
-            if exclude[pos] == []:
-                bases = "0"
-            self.homopolymer_sites.setdefault(pos, bases)
-            # print(pos, bases)
 
     def get_homopolymer(self):
         """
@@ -270,12 +245,8 @@ class Phaser:
             elif i == 0 or (i > 0 and drepeat_keys[i - 1] != pos - 1):
                 self.homopolymer_sites.setdefault(pos - 1 + nstart + 1, base)
                 self.homopolymer_sites.setdefault(pos_adjusted, "A,C,G,T")
-            # elif seq[pos] != base:
-            #    self.homopolymer_sites.setdefault(pos_adjusted, f"{base},{seq[pos]},1")
             else:
                 self.homopolymer_sites.setdefault(pos_adjusted, base)
-        # for a, b in self.homopolymer_sites.items():
-        #    print(a, b)
 
         # dinucleotide
         drepeat = {}
@@ -353,48 +324,6 @@ class Phaser:
                                         if dimer not in drepeat[pos]:
                                             drepeat[pos].append(dimer)
                                         extend = True
-                        """
-                        pos_to_check = i + 5
-                        if pos_to_check in drepeat and (
-                            dimer in drepeat[pos_to_check]
-                            or dimer[::-1] in drepeat[pos_to_check]
-                        ):
-                            for pos in range(i, i + 5):
-                                drepeat.setdefault(pos, [])
-                                if dimer not in drepeat[pos]:
-                                    drepeat[pos].append(dimer)
-                                extend = True
-                        pos_to_check = i + 6
-                        if pos_to_check in drepeat and (
-                            dimer in drepeat[pos_to_check]
-                            or dimer[::-1] in drepeat[pos_to_check]
-                        ):
-                            for pos in range(i, i + 6):
-                                drepeat.setdefault(pos, [])
-                                if dimer not in drepeat[pos]:
-                                    drepeat[pos].append(dimer)
-                                extend = True
-                        pos_to_check = i - 2
-                        if pos_to_check in drepeat and (
-                            dimer in drepeat[pos_to_check]
-                            or dimer[::-1] in drepeat[pos_to_check]
-                        ):
-                            for pos in range(i - 1, i + 4):
-                                drepeat.setdefault(pos, [])
-                                if dimer not in drepeat[pos]:
-                                    drepeat[pos].append(dimer)
-                                extend = True
-                        pos_to_check = i - 1
-                        if pos_to_check in drepeat and (
-                            dimer in drepeat[pos_to_check]
-                            or dimer[::-1] in drepeat[pos_to_check]
-                        ):
-                            for pos in range(i, i + 4):
-                                drepeat.setdefault(pos, [])
-                                if dimer not in drepeat[pos]:
-                                    drepeat[pos].append(dimer)
-                                extend = True
-                        """
             if extend is False:
                 break
         drepeat = dict(sorted(drepeat.items()))
@@ -407,8 +336,6 @@ class Phaser:
                     bases.append(nus[1])
                 bases = list(set(bases))  # + ["1"]
                 self.homopolymer_sites.setdefault(pos_adjusted, ",".join(bases))
-        # for a, b in self.homopolymer_sites.items():
-        #    print(a, b)
 
     @staticmethod
     def depth_prob(nread, haploid_depth):
@@ -799,7 +726,12 @@ class Phaser:
         return ref_seq, var_seq, indel_size
 
     def get_candidate_pos(
-        self, regions_to_check=[], min_read_support=5, min_vaf=0.11, white_list={}
+        self,
+        regions_to_check=[],
+        min_read_support=5,
+        min_vaf=0.11,
+        trusted_read_support=20,
+        white_list={},
     ):
         """
         Get all polymorphic sites in the region, update self.candidate_pos
@@ -871,10 +803,12 @@ class Phaser:
                     if found_ref or pos in white_list:
                         for var_seq, var_count in bases:
                             ref_seq = ref_seq_genome
-                            if (
-                                var_seq != ref_seq
-                                and var_count >= min_read_support
-                                and var_count / total_depth > min_vaf
+                            if var_seq != ref_seq and (
+                                (
+                                    var_count >= min_read_support
+                                    and var_count / total_depth > min_vaf
+                                )
+                                or var_count >= trusted_read_support
                             ):
                                 # SNV
                                 if "-" not in var_seq and "+" not in var_seq:
@@ -1132,10 +1066,13 @@ class Phaser:
             if self.gene2_region is not None:
                 bound1_in_other_gene = self.get_range_in_other_gene(hap_bound_start)
                 bound2_in_other_gene = self.get_range_in_other_gene(hap_bound_end)
-                boundary_gene2 = [
-                    min(bound1_in_other_gene, bound2_in_other_gene),
-                    max(bound1_in_other_gene, bound2_in_other_gene),
-                ]
+                if None not in [bound1_in_other_gene, bound2_in_other_gene]:
+                    boundary_gene2 = [
+                        min(bound1_in_other_gene, bound2_in_other_gene),
+                        max(bound1_in_other_gene, bound2_in_other_gene),
+                    ]
+                else:
+                    boundary_gene2 = [bound1_in_other_gene, bound2_in_other_gene]
             var_tmp = haplotype_variants[hap_name]
             var_tmp1 = [
                 a
@@ -1895,7 +1832,7 @@ class Phaser:
             nonuniquely_supporting_reads,
             raw_read_haps,
             self.mdepth,
-            self.region_avg_depth,
+            self.region_avg_depth._asdict(),
             self.sample_sex,
         )
 

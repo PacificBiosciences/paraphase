@@ -639,5 +639,5 @@ class Smn1Phaser(Phaser):
             raw_read_haps,
             {**smn1_haps, **smn2_haps, **smn2_del_haps},
             self.mdepth,
-            self.region_avg_depth,
+            self.region_avg_depth._asdict(),
         )

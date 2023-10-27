@@ -30,8 +30,8 @@ pms2:
   genes: PMS2
   check_nm: 0.1
   realign_region: chr7:5965000-6010000
-  extract_regions: chr7:5967000-5989062 chr7:6735630-6758000
-  gene2_region: chr7:6735630-6758000
+  extract_regions: chr7:5965000-5989062 chr7:6735629-6759796
+  gene2_region: chr7:6735629-6759796
   right_boundary: 5987500
   pivot_site: 5986569
   noisy_region: [[5980880, 5980980], [5979663, 5979669], [5975950, 5976080]]

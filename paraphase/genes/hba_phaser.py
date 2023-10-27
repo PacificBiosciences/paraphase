@@ -34,7 +34,7 @@ class HbaPhaser(Phaser):
         genome_bamh = pysam.AlignmentFile(self.genome_bam, "rb")
         surrounding_region_depth = self.get_regional_depth(
             genome_bamh, self.depth_region
-        )[0]
+        )[0].median
         genome_bamh.close()
 
         self.get_homopolymer()
@@ -166,6 +166,6 @@ class HbaPhaser(Phaser):
             nonuniquely_supporting_reads,
             raw_read_haps,
             self.mdepth,
-            self.region_avg_depth,
+            self.region_avg_depth._asdict(),
             self.sample_sex,
         )

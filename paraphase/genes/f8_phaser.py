@@ -79,7 +79,7 @@ class F8Phaser(Phaser):
             return self.GeneCall()
 
         genome_bamh = pysam.AlignmentFile(self.genome_bam, "rb")
-        e1_e22_depth = self.get_regional_depth(genome_bamh, self.depth_region)[0]
+        e1_e22_depth = self.get_regional_depth(genome_bamh, self.depth_region)[0].median
         genome_bamh.close()
 
         dpos5, dpos3 = self.get_read_positions()
@@ -192,6 +192,6 @@ class F8Phaser(Phaser):
             nonuniquely_supporting_reads,
             raw_read_haps,
             self.mdepth,
-            self.region_avg_depth,
+            self.region_avg_depth._asdict(),
             self.sample_sex,
         )

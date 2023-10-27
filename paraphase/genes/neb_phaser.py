@@ -168,6 +168,6 @@ class NebPhaser(Phaser):
             nonuniquely_supporting_reads,
             raw_read_haps,
             self.mdepth,
-            self.region_avg_depth,
+            self.region_avg_depth._asdict(),
             self.sample_sex,
         )
