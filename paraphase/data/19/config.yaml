@@ -95,16 +95,18 @@ ikbkg:
   genes: IKBKG
   use_supplementary: True
   realign_region: chrX:153783815-153803263
-  extract_regions: chrX:153784098-153797929 chrX:153862995-153876829
+  extract_regions: chrX:153784098-153800231 chrX:153860696-153876829
   gene2_region: chrX:153860252-153877274
   clip_3p_positions: [153797929]
   clip_5p_positions: [153785351]
   add_sites: ["153784097_C_G", "153798031_T_G"]
   pivot_site: 153784097
   left_boundary: 153783915
-  right_boundary: 153797051
-  deletion1_size: 10806
-  deletion1_name: "153786229_del_10806"
+  right_boundary: 153798051
+  deletion1_size: 11700
+  deletion1_name: "153786229_del_11700"
+  deletion1_in_gene1: "153786229_DEL_153797929"
+  deletion1_in_gene2: "153863876_DEL_153875576"
   del1_3p_pos1: 153786215
   del1_3p_pos2: 153786245
   del1_5p_pos1: 153797031

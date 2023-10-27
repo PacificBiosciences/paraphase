@@ -356,6 +356,8 @@ class VcfGenerater:
         self.ref = config["data"]["reference"]
         self.left_boundary = config.get("left_boundary")
         self.right_boundary = config.get("right_boundary")
+        self.deletion1_in_gene1 = config.get("deletion1_in_gene1")
+        self.deletion1_in_gene2 = config.get("deletion1_in_gene2")
         if self.left_boundary is None:
             self.left_boundary = int(self.nchr_old.split("_")[1])
         if self.right_boundary is None:
@@ -402,6 +404,17 @@ class VcfGenerater:
         fout.write(
             '##INFO=<ID=HapIDs,Number=R,Type=String,Description="Haplotype IDs">\n'
         )
+        if self.gene in ["ikbkg", "f8"]:
+            fout.write(
+                '##INFO=<ID=SVLEN,Number=1,Type=Integer,Description="Length of the SV">\n'
+            )
+            fout.write(
+                '##INFO=<ID=SVTYPE,Number=1,Type=String,Description="Type of the SV.">\n'
+            )
+            fout.write(
+                '##INFO=<ID=END,Number=1,Type=Integer,Description="End position of the structural variant">\n'
+            )
+            fout.write('##ALT=<ID=DEL,Description="Deletion">\n')
         fout.write('##FORMAT=<ID=GT,Number=R,Type=String,Description="Genotype">\n')
         fout.write('##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read depth">\n')
         fout.write(
@@ -470,22 +483,46 @@ class VcfGenerater:
                         if (var_num == 1 and ("1" in merge_gt or "." in merge_gt)) or (
                             var_num > 1 and alt != "."
                         ):
-                            merged_entry = [
-                                self.nchr,
-                                str(pos),
-                                ".",
-                                ref,
-                                alt,
-                                final_qual,
-                                "PASS",
-                                "HapIDs=" + ",".join(haps_ids),
-                                "GT:DP:AD",
-                                "/".join(merge_gt)
-                                + ":"
-                                + ",".join(merge_dp)
-                                + ":"
-                                + ",".join(merge_ad),
-                            ]
+                            if alt.isdigit() is False:
+                                merged_entry = [
+                                    self.nchr,
+                                    str(pos),
+                                    ".",
+                                    ref,
+                                    alt,
+                                    final_qual,
+                                    "PASS",
+                                    "HapIDs=" + ",".join(haps_ids),
+                                    "GT:DP:AD",
+                                    "/".join(merge_gt)
+                                    + ":"
+                                    + ",".join(merge_dp)
+                                    + ":"
+                                    + ",".join(merge_ad),
+                                ]
+                            else:
+                                nstart, var_type, nend = variant.split("_")
+                                nstart = int(nstart)
+                                nend = int(nend)
+                                var_size = nend - nstart
+                                merged_entry = [
+                                    self.nchr,
+                                    str(pos),
+                                    ".",
+                                    "N",
+                                    f"<{var_type}>",
+                                    final_qual,
+                                    "PASS",
+                                    f"SVTYPE={var_type};END={nend};SVLEN={var_size};"
+                                    + "HapIDs="
+                                    + ",".join(haps_ids),
+                                    "GT:DP:AD",
+                                    "/".join(merge_gt)
+                                    + ":"
+                                    + ",".join(merge_dp)
+                                    + ":"
+                                    + ",".join(merge_ad),
+                                ]
                             fout.write("\t".join(merged_entry) + "\n")
 
     @staticmethod
@@ -584,13 +621,37 @@ class VcfGenerater:
         vcf_out,
         min_depth=4,
         min_qual=25,
+        variants_to_add={},
     ):
         """
         Filter pileups and make variant calls.
         """
         ref_name = refh.references[0]
         variants = []
+        del_pos = []
         for pos in pileups_raw:
+            if pos in variants_to_add:
+                var_name = variants_to_add[pos]
+                nstart, var_type, nend = var_name.split("_")
+                nstart = int(nstart)
+                nend = int(nend)
+                var_size = nend - nstart
+                variants.append([nstart, var_name, ".", ".", [], "1"])
+                vcf_out_line = [
+                    self.nchr,
+                    str(nstart),
+                    ".",
+                    "N",
+                    f"<{var_type}>",
+                    ".",
+                    "PASS",
+                    f"SVTYPE={var_type};END={nend};SVLEN={var_size}",
+                    "GT:DP:AD",
+                    f"1:.:.",
+                ]
+                vcf_out.write("\t".join(vcf_out_line) + "\n")
+                del_pos = [nstart, nend]
+
             all_bases = pileups_raw[pos]
             if offset < 0:
                 true_pos = pos
@@ -600,9 +661,10 @@ class VcfGenerater:
                 refh_pos = pos
             ref_seq = refh.fetch(ref_name, refh_pos - 1, refh_pos)
             alt_all_reads = self.get_var(all_bases, ref_seq)
-            if hap_bound == [] or (
-                None not in hap_bound and hap_bound[0] < true_pos < hap_bound[1]
-            ):
+            if (
+                hap_bound == []
+                or (None not in hap_bound and hap_bound[0] < true_pos < hap_bound[1])
+            ) and (del_pos == [] or true_pos < del_pos[0] or true_pos > del_pos[1]):
                 # use only unique reads for positions at the edge
                 if (
                     hap_bound == []
@@ -674,6 +736,17 @@ class VcfGenerater:
             final_haps = call_sum.get("final_haplotypes")
         if final_haps is None:
             return
+        # special SV type variants to report for certain genes
+        special_variants = {}
+        if self.gene == "ikbkg":
+            del_haps = call_sum.get("deletion_haplotypes")
+            if del_haps is not None and del_haps != []:
+                for del_hap in del_haps:
+                    del_name = self.deletion1_in_gene1
+                    if "pseudo" in del_hap:
+                        del_name = self.deletion1_in_gene2
+                    special_variants.setdefault(del_hap, del_name)
+
         uniq_reads = []
         for read_set in self.call_sum["unique_supporting_reads"].values():
             for read_name in read_set:
@@ -756,6 +829,14 @@ class VcfGenerater:
             ):
                 continue
             hap_ids.append(hap_name)
+
+            variants_to_add = {}
+            if hap_name in special_variants:
+                variant_to_add = special_variants[hap_name]
+                variants_to_add.setdefault(
+                    int(variant_to_add.split("_")[0]), variant_to_add
+                )
+
             hap_bound = self.get_hap_bound(hap_name)
             # convert to positions in the other gene
             if match_range:
@@ -829,6 +910,7 @@ class VcfGenerater:
                 0 - offset,
                 hap_bound,
                 vcf_out,
+                variants_to_add=variants_to_add,
             )
             vcf_out.close()
 

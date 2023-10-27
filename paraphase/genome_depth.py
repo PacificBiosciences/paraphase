@@ -76,5 +76,7 @@ class GenomeDepth:
         if cov_y / cov_x < 0.05:
             return "female"
         elif cov_y / cov_x > 0.1:
+            if cov_x > 1.95 * cov_y:
+                return "female"
             return "male"
         return None

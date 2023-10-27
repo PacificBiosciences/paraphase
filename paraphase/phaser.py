@@ -1130,9 +1130,11 @@ class Phaser:
             hap_bound_end = min(hap_bound_end, self.right_boundary)
             boundary_gene2 = None
             if self.gene2_region is not None:
+                bound1_in_other_gene = self.get_range_in_other_gene(hap_bound_start)
+                bound2_in_other_gene = self.get_range_in_other_gene(hap_bound_end)
                 boundary_gene2 = [
-                    self.get_range_in_other_gene(hap_bound_start),
-                    self.get_range_in_other_gene(hap_bound_end),
+                    min(bound1_in_other_gene, bound2_in_other_gene),
+                    max(bound1_in_other_gene, bound2_in_other_gene),
                 ]
             var_tmp = haplotype_variants[hap_name]
             var_tmp1 = [
@@ -1440,6 +1442,9 @@ class Phaser:
                 if len(probs_fil) >= nsites * 0.5 and nsites >= 5:
                     two_cp_haps.append(hap)
 
+        # there can only be one such haplotype
+        if len(two_cp_haps) > 1:
+            return []
         return two_cp_haps
 
     def adjust_spurious_haplotypes(self, uniquely_supporting_reads, flanking_bp=10):

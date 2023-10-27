@@ -104,7 +104,10 @@ class IkbkgPhaser(Phaser):
             for i, hap in enumerate(ass_haps):
                 start_seq = hap[: pivot_index + 1]
                 if start_seq.startswith("0") is False:
-                    if start_seq.count("2") <= 5:
+                    if len(start_seq) < 15:
+                        unknown_counter += 1
+                        hap_name = f"ikbkg_unknown_hap{unknown_counter}"
+                    elif start_seq.count("2") <= 5:
                         gene_counter += 1
                         hap_name = f"ikbkg_hap{gene_counter}"
                     elif start_seq.count("2") >= 15:
@@ -142,14 +145,12 @@ class IkbkgPhaser(Phaser):
             unknown_counter == 0
             and self.sample_sex is not None
             and self.sample_sex == "female"
-            and (
-                (gene_counter > 1 and pseudo_counter == 1)
-                or (gene_counter == 1 and pseudo_counter > 1)
-            )
         ):
             if gene_counter == 1 and pseudo_counter == 1:
                 two_cp_haps = [a for a in ass_haps.values() if "dup" not in a]
-            else:
+            elif (gene_counter > 1 and pseudo_counter == 1) or (
+                gene_counter == 1 and pseudo_counter > 1
+            ):
                 two_cp_haps = self.compare_depth(haplotypes, loose=True)
                 if two_cp_haps == [] and read_counts is not None:
                     # check if one haplotype has more reads than others
