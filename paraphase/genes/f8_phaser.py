@@ -124,8 +124,27 @@ class F8Phaser(Phaser):
 
         total_cn = len(ass_haps)
         tmp = {}
+        h1_count = 0
+        h2_count = 0
+        h3_count = 0
+        unknown_count = 0
         for i, hap in enumerate(ass_haps):
-            tmp.setdefault(hap, f"hap{i+1}")
+            if len(hap) < 3:
+                unknown_count += 1
+                hap_name = f"unknown_hap{unknown_count}"
+            elif hap[-2:] == "00":
+                h1_count += 1
+                hap_name = f"int22h1_hap{h1_count}"
+            elif hap[-1] == "0" and hap[-2] != "x":
+                h3_count += 1
+                hap_name = f"int22h3_hap{h3_count}"
+            elif "x" not in hap[-2:] and "0" not in hap[-2:]:
+                h2_count += 1
+                hap_name = f"int22h2_hap{h2_count}"
+            else:
+                unknown_count += 1
+                hap_name = f"unknown_hap{unknown_count}"
+            tmp.setdefault(hap, hap_name)
         ass_haps = tmp
 
         haplotypes = None
@@ -161,16 +180,16 @@ class F8Phaser(Phaser):
         # we look for read evidence only at downstream region of region2 and region3
         # so we drop duplication as it involves upstream region of region2 and it's not pathogenic (?)
         for hap, links in flanking_sum.items():
-            if links == "region1-region2":
-                if self.mdepth is not None and self.sample_sex is not None:
-                    if self.sample_sex == "female":
+            if links == "region1-region2" and "int22h2" in hap:
+                if self.sample_sex is not None:
+                    if self.sample_sex == "female" and self.mdepth is not None:
                         prob = self.depth_prob(int(e1_e22_depth), self.mdepth / 2)
                         if prob[0] > 0.75:
                             sv_hap.setdefault(hap, "deletion")
                     if self.sample_sex == "male":
                         if e1_e22_depth < 1:
                             sv_hap.setdefault(hap, "deletion")
-            elif links == "region1-region3":
+            elif links == "region1-region3" and "int22h3" in hap:
                 sv_hap.setdefault(hap, "inversion")
 
         self.close_handle()

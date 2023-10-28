@@ -358,6 +358,7 @@ class VcfGenerater:
         self.right_boundary = config.get("right_boundary")
         self.deletion1_in_gene1 = config.get("deletion1_in_gene1")
         self.deletion1_in_gene2 = config.get("deletion1_in_gene2")
+        self.extract_regions = config.get("extract_regions")
         if self.left_boundary is None:
             self.left_boundary = int(self.nchr_old.split("_")[1])
         if self.right_boundary is None:
@@ -415,6 +416,7 @@ class VcfGenerater:
                 '##INFO=<ID=END,Number=1,Type=Integer,Description="End position of the structural variant">\n'
             )
             fout.write('##ALT=<ID=DEL,Description="Deletion">\n')
+            fout.write('##ALT=<ID=INV,Description="Inversion">\n')
         fout.write('##FORMAT=<ID=GT,Number=R,Type=String,Description="Genotype">\n')
         fout.write('##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read depth">\n')
         fout.write(
@@ -626,8 +628,31 @@ class VcfGenerater:
         """
         Filter pileups and make variant calls.
         """
-        ref_name = refh.references[0]
         variants = []
+        # for now, report F8 SVs in the haplotype vcfs. Ideally they should be in a diploid vcf.
+        if self.gene == "f8":
+            for pos in variants_to_add:
+                var_name = variants_to_add[pos]
+                nstart, var_type, nend = var_name.split("_")
+                nstart = int(nstart)
+                nend = int(nend)
+                var_size = nend - nstart
+                variants.append([nstart, var_name, ".", ".", [], "1"])
+                vcf_out_line = [
+                    self.nchr,
+                    str(nstart),
+                    ".",
+                    "N",
+                    f"<{var_type}>",
+                    ".",
+                    "PASS",
+                    f"SVTYPE={var_type};END={nend};SVLEN={var_size}",
+                    "GT:DP:AD",
+                    f"1:.:.",
+                ]
+                vcf_out.write("\t".join(vcf_out_line) + "\n")
+
+        ref_name = refh.references[0]
         del_pos = []
         for pos in pileups_raw:
             if pos in variants_to_add:
@@ -746,6 +771,24 @@ class VcfGenerater:
                     if "pseudo" in del_hap:
                         del_name = self.deletion1_in_gene2
                     special_variants.setdefault(del_hap, del_name)
+        if self.gene == "f8":
+            sv_called = call_sum.get("sv_called")
+            if sv_called is not None and sv_called != {}:
+                (
+                    extract_region1,
+                    extract_region2,
+                    extract_region3,
+                ) = self.extract_regions.split()
+                extract_region1_end = extract_region1.split("-")[1]
+                extract_region2_start = extract_region2.split(":")[1].split("-")[0]
+                extract_region3_start = extract_region3.split(":")[1].split("-")[0]
+                for sv_hap, sv in sv_called.items():
+                    if sv == "inversion":
+                        sv_name = f"{extract_region1_end}_INV_{extract_region3_start}"
+                        special_variants.setdefault(sv_hap, sv_name)
+                    elif sv == "deletion":
+                        sv_name = f"{extract_region1_end}_DEL_{extract_region2_start}"
+                        special_variants.setdefault(sv_hap, sv_name)
 
         uniq_reads = []
         for read_set in self.call_sum["unique_supporting_reads"].values():
