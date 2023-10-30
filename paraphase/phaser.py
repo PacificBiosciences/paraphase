@@ -1792,8 +1792,7 @@ class Phaser:
         # two pairs of identical copies
         if two_cp_haps == [] and total_cn == 2 and self.expect_cn2 is False:
             if self.mdepth is not None:
-                prob = self.depth_prob(int(self.region_avg_depth), self.mdepth)
-                # print(int(self.region_avg_depth), self.mdepth, prob)
+                prob = self.depth_prob(int(self.region_avg_depth.median), self.mdepth)
                 if prob[0] < 0.75:
                     total_cn = 4
 
