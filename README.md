@@ -2,6 +2,9 @@
 
 Many medically relevant genes fall into 'dark' regions where variat calling is limited due to high sequence homology with paralogs or pseudogenes. Paraphase is a Python tool that takes HiFi BAMs as input (whole-genome or enrichment), phases complete haplotypes for genes of the same family, determines copy numbers and makes phased variant calls. 
 
+![Paraphase diagram](docs/figures/paraphase_diagram.png)
+Paraphase takes all reads from a gene family, realigns to just the gene of interest and then phases them into haplotypes. This solves the problem of alignment difficulty due to sequence homology and allows us to examine all copies of genes in a gene family and call copy number changes and other variants.
+
 Paraphase supports 161 segmental duplication regions in GRCh38, listed in the [config](paraphase/data/38/config.yaml) file. Among these, there are 11 medically relevant regions that are also supported in GRCh37/hg19:
 - SMN1/SMN2 (spinal muscular atrophy)
 - RCCX module
@@ -86,7 +89,7 @@ Paraphase produces a few output files in the directory specified by `-o`, with t
 
 As genes of the same family can be highly similar to each other in sequence and not easy to differentiate, variant calls are made against one selected gene from the gene family (e.g. the gene is selected when the family has a gene and a pseudogene). Exceptions are SMN1 (paralog SMN2), PMS2 (pseudogene PMS2CL), STRC (pseudogene STRCP1), NCF1 (pseudogenes NCF1B and NCF1C) and IKBKG (pseudogene IKBKGP1). In these families, haplotypes are assigned to each gene in the family, i.e. gene or paralog/pseudogene, and variants are called against the gene (or paralog/pseudogene) for the gene (or paralog/pseudogene) haplotypes, respectively. Variants calls can be made against the gene only for these five families if `--gene1only` is specified. 
 
-2. `_realigned_tagged.bam`: This BAM file can be loaded into IGV for visualization of haplotypes (group reads by `HP` tag and color alignments by `YC` tag). Tutorials/Examples are provided for medically relevant genes (See below).  
+2. `_realigned_tagged.bam`: This BAM file can be loaded into IGV for visualization of haplotypes (group reads by `HP` tag and color alignments by `YC` tag). All haplotypes are aligned against the gene of interest. Tutorials/Examples are provided for medically relevant genes (See below).  
 
 3. `.json`: Output file summerizing haplotypes and variant calls for each sample. In brief, a few generally used fields are explained below.
 - `final_haplotypes`: phased haplotypes
@@ -106,5 +109,5 @@ Tutorials/Examples are provided for interpreting medically relevant genes:
 - [HBA1/HBA2](docs/HBA1_HBA2.md)
 - [IKBKG](docs/IKBKG.md)
 - [F8](docs/F8.md)
-- [NEB] (docs/NEB.md)
+- [NEB](docs/NEB.md)
 - [NCF1](docs/NCF1.md)

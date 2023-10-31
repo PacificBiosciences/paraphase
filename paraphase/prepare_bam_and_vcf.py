@@ -219,6 +219,7 @@ class BamTagger:
         read_details,
         alleles=[],
         random_assign=False,
+        gene2=False,
     ):
         """
         Add HP tag to each read.
@@ -231,7 +232,7 @@ class BamTagger:
         if (
             read.is_supplementary
             and self.use_supplementary
-            and self.gene2_region is None
+            and gene2 is False
             # coordinates are all changed after realigning to gene2
         ):
             read_name = (
@@ -323,6 +324,7 @@ class BamTagger:
                     read_details,
                     alleles,
                     random_assign=random_assign,
+                    gene2=gene2,
                 )
                 out_bamh.write(read)
         out_bamh.close()

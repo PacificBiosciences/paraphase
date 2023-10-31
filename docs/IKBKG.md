@@ -10,6 +10,10 @@ Note that this deletion is reported in the VCF as a structural variant (SV).
 
 ## Visualizing haplotypes
 
-To visualize phased haplotypes, load the output bam file in IGV, group reads by the `HP` tag and color alignments by `YC` tag. Green and purple represent two alleles, i.e. all haplotypes in green are on one one allele and all haplotypes in purple are on the other allele. Reads in gray are either unassigned or consistent with more than one possible haplotype. When two haplotypes are identical over a region, there can be more than one haplotype consistent with a read, and the read is randomly assigned to a haplotype and colored in gray. 
+To visualize phased haplotypes, load the output bam file in IGV, group reads by the `HP` tag and color alignments by `YC` tag. Green represents phased copies on one allele if there is duplication of the 11.7kb region. Reads in gray are either unassigned or consistent with more than one possible haplotype. When two haplotypes are identical over a region, there can be more than one haplotype consistent with a read, and the read is randomly assigned to a haplotype and colored in gray. 
 
-![IKBKG example](figures/RCCX.png)
+![IKBKG examples](figures/IKBKG.png)
+
+- In this set of examples, the top panel shows a female sample without structural variants, i.e. two copies of IKBKG and two copies of IKBKGP1.
+- The middle panel shows a female sample with a copy of IKBKGP1 that carries the 11.7kb deletion.
+- The bottom panel shows a female sample where there is a duplication (duplicated three times) of the 11.7kb region on a copy of IKBKGP1 (in green).
