@@ -1,0 +1,169 @@
+smn1: 
+  genes: SMN1,SMN2
+  data:
+    known_haplotypes: known_haplotypes.json
+  realign_region: chr5:70185827-70395827
+  gene2_region: chr5:69336353-69384373
+  extract_regions: chr5:69337353-69383373 chr5:70212773-70258827
+  pivot_site: 70247773
+  left_boundary: 70212927
+  right_boundary: 70257047
+  noisy_region: [[70242753, 70242785]]
+  add_sites: ["70247773_C_T"]
+  strip_c_region_start: 70220914
+  strip_c_region_end: 70248842
+  deletion1_size: 3559
+  deletion2_size: 6310
+  deletion1_name: "70213527_del_3559"
+  deletion2_name: "70244113_del_6310"
+  # delta7-8 positions to check
+  del2_3p_pos1: 70244113
+  del2_3p_pos2: 70244396
+  del2_5p_pos1: 70250410
+  del2_5p_pos2: 70250419
+  # smn1 upstream deletion
+  del1_3p_pos1: 70213527
+  del1_3p_pos2: 70213622
+  del1_5p_pos1: 70216894
+  del1_5p_pos2: 70217087
+pms2: 
+  genes: PMS2
+  check_nm: 0.1
+  realign_region: chr7:6004631-6049631
+  extract_regions: chr7:6004631-6028693 chr7:6775260-6799427
+  gene2_region: chr7:6775260-6799427
+  right_boundary: 6027131
+  pivot_site: 6026200
+  noisy_region: [[6020511, 6020611], [6019294, 6019300], [6015581, 6015711]]
+  is_reverse: True
+  add_sites: ["6026200_G_A"]
+rccx: 
+  genes: CYP21A2,C4A,C4B,TNXB
+  is_tandem: True
+  data:
+    snp_file: cyp21_diff_sites.txt
+  realign_region: chr6:31981017-32016777
+  extract_regions: chr6:31947777-32014577
+  pivot_site: 32008198
+  white_list: {32006858: "A"}
+  add_sites: ["31981042_A_T", "32014077_G_A"]
+  clip_3p_positions: [32013904]
+  clip_5p_positions: [31981047]
+  deletion1_size: 6367
+  deletion2_size: 120
+  deletion1_name: "31985208_del_6367"
+  deletion2_name: "32011495_del_120"
+  left_boundary: 31981077
+  right_boundary: 32013777
+  # 120bp sv
+  del2_3p_pos1: 32011477
+  del2_3p_pos2: 32011500
+  del2_5p_pos1: 32011605
+  del2_5p_pos2: 32011642
+  # 6.3kb sv in C4B
+  del1_3p_pos1: 31985177
+  del1_3p_pos2: 31985210
+  del1_5p_pos1: 31991565
+  del1_5p_pos2: 31991575
+strc: 
+  genes: STRC
+  check_nm: 0.1
+  realign_region: chr15:43891198-43912198
+  extract_regions: chr15:43891198-43912198 chr15:43991012-44011664
+  gene2_region: chr15:43991012-44011664
+  noisy_region: [[43894698, 43895898], [43894363, 43894374]]
+  depth_region: [[43902198, 43952198]]
+  add_sites: ["43894685_C_G"]
+  pivot_site: 43894685
+  left_boundary: 43891698
+  right_boundary: 43911798
+  # deletion in pseudogene
+  deletion1_size: 314
+  deletion1_name: "43894828_del_314"
+  del1_3p_pos1: 43894826
+  del1_3p_pos2: 43894829
+  del1_5p_pos1: 43895142
+  del1_5p_pos2: 43895146
+cfc1:
+  genes: CFC1,CFC1B
+  realign_region: chr2:131349573-131367573
+  extract_regions: chr2:131268326-131291314 chr2:131344573-131367573
+  pivot_site: 131350634
+  is_reverse: True
+  add_sites: ["131350634_A_G"]
+ikbkg: 
+  genes: IKBKG
+  use_supplementary: True
+  realign_region: chrX:153783815-153803263
+  extract_regions: chrX:153784098-153800231 chrX:153860696-153876829
+  gene2_region: chrX:153860252-153877274
+  clip_3p_positions: [153797929]
+  clip_5p_positions: [153785351]
+  add_sites: ["153784097_C_G", "153798031_T_G"]
+  pivot_site: 153784097
+  left_boundary: 153783915
+  right_boundary: 153797929
+  deletion1_size: 11700
+  deletion1_name: "153786229_del_11700"
+  deletion1_in_gene1: "153786229_DEL_153797929"
+  deletion1_in_gene2: "153863876_DEL_153875576"
+  del1_3p_pos1: 153786215
+  del1_3p_pos2: 153786245
+  del1_5p_pos1: 153797031
+  del1_5p_pos2: 153797071
+  noisy_region: [[153795215, 153795402], [153784084, 153784091], [153793571, 153793618]]
+  is_reverse: True
+ncf1:
+  genes: NCF1
+  check_nm: 0.1
+  realign_region: chr7:74174330-74234530
+  extract_regions: chr7:72629661-72652978 chr7:74183356-74206657 chr7:74569445-74592693
+  gene2_region: chr7:72629661-72652978
+  pivot_site: 74191611
+  pivot_var: "74191612_GGT_G"
+  left_boundary: 74183356
+  right_boundary: 74206657
+  add_sites: ["74191611_A_T"]
+neb: 
+  genes: NEB
+  is_tandem: True
+  realign_region: chr2:152435264-152445294
+  extract_regions: chr2:152435214-152466214
+  left_boundary: 152435314
+  right_boundary: 152445014
+  noisy_region: [[152436506, 152436536]]
+f8:   
+  genes: F8A1,F8A2,F8A3,H2AB1,H2AB2,H2AB3
+  realign_region: chrX:154605656-154616649
+  extract_regions: chrX:154108591-154118602 chrX:154605656-154615708 chrX:154684311-154694367
+  clip_3p_positions: [154615708, 154616376]
+  left_boundary: 154606156
+  right_boundary: 154615708
+  add_sites: ["154615949_A_C", "154616509_C_G"]
+  depth_region: [[154128275, 154248275]]
+opn1lw: 
+  genes: OPN1LW,OPN1MW,OPN1MW2,OPN1MW3,TEX28
+  is_tandem: True
+  use_r2k: True
+  realign_region: chrX:153405521-153447930
+  extract_regions: chrX:153405521-153522860
+  noisy_region: [[153430775, 153431273]]
+  left_boundary: 153409524
+  right_boundary: 153447689
+  pivot_site: 153408884
+  clip_5p_positions: [153409522]
+  add_sites: ["153408884_G_A"]
+  pivot_vars: ["153421854_A_T", "153421877_A_G"]
+  last_copy_vars: ["153447646_T_G", "153447655_A_C", "153447656_G_A"]
+  exon3_variants: [[["153418460_C_A"], "M", "L"], [["153418514_G_A", "153418516_G_T"], "I", "V"], [["153418524_C_T"], "V", "A"], [["153418535_A_G"], "V", "I"], [["153418541_T_G"], "A", "S"]]
+hba:
+  genes: HBA1,HBA2
+  realign_region: chr16:221799-223899
+  extract_regions: chr16:218655-227540
+  clip_5p_positions: [221988]
+  clip_3p_positions: [223728]
+  gene_start: 221988
+  gene_end: 223728
+  is_tandem: True
+  depth_region: [[209999, 239999]]
+  noisy_region: [[222416, 222417]]

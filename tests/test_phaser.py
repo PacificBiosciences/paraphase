@@ -4,29 +4,39 @@ import os
 from paraphase.phaser import Phaser
 
 
-class TestPhaser(object):
-
+def update_config(gene):
     cur_dir = os.path.dirname(__file__)
     sample_dir = os.path.join(cur_dir, "test_data")
-    sample_id = "HG00733"
-    data_dir = os.path.join(os.path.dirname(cur_dir), "paraphase", "data")
+    data_dir = os.path.join(os.path.dirname(cur_dir), "paraphase", "data", "38")
     config_file = os.path.join(data_dir, "config.yaml")
     with open(config_file, "r") as f:
         config = yaml.safe_load(f)
-    config = config["smn1"]
-    config.setdefault("gene", "smn1")
+    config = config[gene]
+    config.setdefault("gene", gene)
     realign_region = config["realign_region"]
     nchr = realign_region.split(":")[0]
     nchr_old = realign_region.replace(":", "_").replace("-", "_")
     config.setdefault("nchr", nchr)
     config.setdefault("nchr_old", nchr_old)
-    data_paths = config.get("data")
+    if "data" in config:
+        data_paths = config.get("data")
+    else:
+        data_paths = {}
     for data_entry in data_paths:
         old_data_file = data_paths[data_entry]
-        new_data_file = os.path.join(data_dir, "smn1", old_data_file)
+        new_data_file = os.path.join(data_dir, gene, old_data_file)
         data_paths[data_entry] = new_data_file
-    data_paths.setdefault("reference", os.path.join(sample_dir, "ref.fa"))
+    data_paths.setdefault("reference", os.path.join(sample_dir, f"{gene}_ref.fa"))
+    config.setdefault("data", data_paths)
+    return config
+
+
+class TestPhaser(object):
+    sample_id = "HG00733"
+    cur_dir = os.path.dirname(__file__)
+    sample_dir = os.path.join(cur_dir, "test_data")
     phaser = Phaser(sample_id, sample_dir)
+    config = update_config("smn1")
     phaser.set_parameter(config)
 
     def test_depth_prob(self):

@@ -14,6 +14,7 @@ class F8Phaser(Phaser):
     new_fields.remove("hap_links")
     new_fields.insert(3, "sv_called")
     new_fields.insert(3, "flanking_summary")
+    new_fields.insert(3, "exon1_to_exon22_depth")
     GeneCall = namedtuple(
         "GeneCall",
         new_fields,
@@ -27,6 +28,7 @@ class F8Phaser(Phaser):
 
     def set_parameter(self, config):
         super().set_parameter(config)
+        self.depth_region = config["depth_region"]
         self.extract_region1, self.extract_region2, self.extract_region3 = config[
             "extract_regions"
         ].split()
@@ -75,6 +77,11 @@ class F8Phaser(Phaser):
     def call(self):
         if self.check_coverage_before_analysis() is False:
             return self.GeneCall()
+
+        genome_bamh = pysam.AlignmentFile(self.genome_bam, "rb")
+        e1_e22_depth = self.get_regional_depth(genome_bamh, self.depth_region)[0].median
+        genome_bamh.close()
+
         dpos5, dpos3 = self.get_read_positions()
         self.get_homopolymer()
         self.get_candidate_pos()
@@ -86,7 +93,7 @@ class F8Phaser(Phaser):
                 var_found = True
                 break
         if var_found is False:
-            self.candidate_pos.add("155386300_A_C")
+            self.candidate_pos.add(self.add_sites[0])
 
         var_found = False
         for var in self.candidate_pos:
@@ -95,13 +102,14 @@ class F8Phaser(Phaser):
                 var_found = True
                 break
         if var_found is False:
-            self.candidate_pos.add("155386860_C_G")
+            self.candidate_pos.add(self.add_sites[1])
 
         self.het_sites = sorted(list(self.candidate_pos))
         self.remove_noisy_sites()
 
         raw_read_haps = self.get_haplotypes_from_reads(
-            check_clip=True, kept_sites=["155386300_A_C", "155386860_C_G"]
+            check_clip=True,
+            kept_sites=self.add_sites,
         )
 
         (
@@ -116,14 +124,32 @@ class F8Phaser(Phaser):
 
         total_cn = len(ass_haps)
         tmp = {}
+        h1_count = 0
+        h2_count = 0
+        h3_count = 0
+        unknown_count = 0
         for i, hap in enumerate(ass_haps):
-            tmp.setdefault(hap, f"hap{i+1}")
+            if len(hap) < 3:
+                unknown_count += 1
+                hap_name = f"unknown_hap{unknown_count}"
+            elif hap[-2:] == "00":
+                h1_count += 1
+                hap_name = f"int22h1_hap{h1_count}"
+            elif hap[-1] == "0" and hap[-2] != "x":
+                h3_count += 1
+                hap_name = f"int22h3_hap{h3_count}"
+            elif "x" not in hap[-2:] and "0" not in hap[-2:]:
+                h2_count += 1
+                hap_name = f"int22h2_hap{h2_count}"
+            else:
+                unknown_count += 1
+                hap_name = f"unknown_hap{unknown_count}"
+            tmp.setdefault(hap, hap_name)
         ass_haps = tmp
 
         haplotypes = None
-        dvar = None
         if self.het_sites != []:
-            haplotypes, dvar = self.output_variants_in_haplotypes(
+            haplotypes = self.output_variants_in_haplotypes(
                 ass_haps,
                 uniquely_supporting_reads,
                 nonuniquely_supporting_reads,
@@ -148,12 +174,22 @@ class F8Phaser(Phaser):
             flanking_sum.setdefault(
                 hap_name, "-".join(["/".join(p5region), "/".join(p3region)])
             )
+
+        # region2 and region3 are homologous at 5p for another 50kb,
+        # so we cannot separate the upstream regions
+        # we look for read evidence only at downstream region of region2 and region3
+        # so we drop duplication as it involves upstream region of region2 and it's not pathogenic (?)
         for hap, links in flanking_sum.items():
-            if links == "region1-region2":
-                sv_hap.setdefault(hap, "deletion")
-            elif links == "region2-region1":
-                sv_hap.setdefault(hap, "duplication")
-            elif links == "region3-region1" or links == "region1-region3":
+            if links == "region1-region2" and "int22h2" in hap:
+                if self.sample_sex is not None:
+                    if self.sample_sex == "female" and self.mdepth is not None:
+                        prob = self.depth_prob(int(e1_e22_depth), self.mdepth / 2)
+                        if prob[0] > 0.75:
+                            sv_hap.setdefault(hap, "deletion")
+                    if self.sample_sex == "male":
+                        if e1_e22_depth < 1:
+                            sv_hap.setdefault(hap, "deletion")
+            elif links == "region1-region3" and "int22h3" in hap:
                 sv_hap.setdefault(hap, "inversion")
 
         self.close_handle()
@@ -162,6 +198,7 @@ class F8Phaser(Phaser):
             total_cn,
             ass_haps,
             [],
+            e1_e22_depth,
             flanking_sum,
             sv_hap,
             hcn,
@@ -171,8 +208,9 @@ class F8Phaser(Phaser):
             self.het_no_phasing,
             self.homo_sites,
             haplotypes,
-            dvar,
             nonuniquely_supporting_reads,
             raw_read_haps,
             self.mdepth,
+            self.region_avg_depth._asdict(),
+            self.sample_sex,
         )

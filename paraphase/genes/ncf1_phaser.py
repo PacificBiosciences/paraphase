@@ -25,6 +25,7 @@ class Ncf1Phaser(Phaser):
 
     def set_parameter(self, config):
         super().set_parameter(config)
+        self.pivot_var = config.get("pivot_var")
 
     def call(self):
         if self.check_coverage_before_analysis() is False:
@@ -44,7 +45,7 @@ class Ncf1Phaser(Phaser):
         self.het_sites = sorted(list(self.candidate_pos))
         self.remove_noisy_sites()
 
-        raw_read_haps = self.get_haplotypes_from_reads(add_sites=["74777265_A_T"])
+        raw_read_haps = self.get_haplotypes_from_reads(add_sites=self.add_sites)
 
         (
             ass_haps,
@@ -63,9 +64,8 @@ class Ncf1Phaser(Phaser):
         ass_haps = tmp
 
         haplotypes = None
-        dvar = None
         if self.het_sites != []:
-            haplotypes, dvar = self.output_variants_in_haplotypes(
+            haplotypes = self.output_variants_in_haplotypes(
                 ass_haps,
                 uniquely_supporting_reads,
                 nonuniquely_supporting_reads,
@@ -75,12 +75,18 @@ class Ncf1Phaser(Phaser):
         counter_gene = 0
         counter_pseudo = 0
         # main variant is 74777266_GGT_G
-        pivot_var = "74777266_GGT_G"
-        for hap in haplotypes:
+        var_reads = self.check_variants_in_haplotypes(self.pivot_var)
+        for hap_seq, hap in ass_haps.items():
             var = haplotypes[hap]["variants"]
-            if pivot_var not in var:
-                counter_gene += 1
-                hap_rename.setdefault(hap, f"ncf1_hap{counter_gene}")
+            if self.pivot_var not in var:
+                hap_reads = uniquely_supporting_reads[hap_seq]
+                hap_var = [var_reads.get(a) for a in hap_reads]
+                if hap_var.count("alt") > (len(hap_var) - hap_var.count(None)) * 0.7:
+                    counter_pseudo += 1
+                    hap_rename.setdefault(hap, f"pseudo_hap{counter_pseudo}")
+                else:
+                    counter_gene += 1
+                    hap_rename.setdefault(hap, f"ncf1_hap{counter_gene}")
             else:
                 counter_pseudo += 1
                 hap_rename.setdefault(hap, f"pseudo_hap{counter_pseudo}")
@@ -136,8 +142,9 @@ class Ncf1Phaser(Phaser):
             self.het_no_phasing,
             self.homo_sites,
             haplotypes,
-            dvar,
             nonuniquely_supporting_reads,
             raw_read_haps,
             self.mdepth,
+            self.region_avg_depth._asdict(),
+            self.sample_sex,
         )

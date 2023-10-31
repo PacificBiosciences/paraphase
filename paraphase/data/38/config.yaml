@@ -1,0 +1,1259 @@
+smn1: 
+  genes: SMN1,SMN2
+  data:
+    known_haplotypes: known_haplotypes.json
+  realign_region: chr5:70890000-71100000
+  gene2_region: chr5:70040526-70088546
+  extract_regions: chr5:70041526-70087546 chr5:70916946-70963000
+  pivot_site: 70951946
+  left_boundary: 70917100
+  right_boundary: 70961220
+  noisy_region: [[70946926, 70946958]]
+  add_sites: ["70951946_C_T"]
+  strip_c_region_start: 70925087
+  strip_c_region_end: 70953015
+  deletion1_size: 3559
+  deletion2_size: 6310
+  deletion1_name: "70917700_del_3559"
+  deletion2_name: "70948286_del_6310"
+  # delta7-8 positions to check
+  del2_3p_pos1: 70948286
+  del2_3p_pos2: 70948569
+  del2_5p_pos1: 70954583
+  del2_5p_pos2: 70954592
+  # smn1 upstream deletion
+  del1_3p_pos1: 70917700
+  del1_3p_pos2: 70917795
+  del1_5p_pos1: 70921067
+  del1_5p_pos2: 70921260
+pms2: 
+  genes: PMS2
+  check_nm: 0.1
+  realign_region: chr7:5965000-6010000
+  extract_regions: chr7:5965000-5989062 chr7:6735629-6759796
+  gene2_region: chr7:6735629-6759796
+  right_boundary: 5987500
+  pivot_site: 5986569
+  noisy_region: [[5980880, 5980980], [5979663, 5979669], [5975950, 5976080]]
+  is_reverse: True
+  add_sites: ["5986569_G_A"]
+rccx: 
+  genes: CYP21A2,C4A,C4B,TNXB
+  is_tandem: True
+  data:
+    snp_file: cyp21_diff_sites.txt
+  realign_region: chr6:32013240-32049000
+  extract_regions: chr6:31980000-32046800
+  pivot_site: 32040421
+  white_list: {32039081: "A"}
+  add_sites: ["32013265_A_T", "32046300_G_A"]
+  clip_3p_positions: [32046127]
+  clip_5p_positions: [32013270]
+  deletion1_size: 6367
+  deletion2_size: 120
+  deletion1_name: "32017431_del_6367"
+  deletion2_name: "32043718_del_120"
+  left_boundary: 32013300
+  right_boundary: 32046000
+  # 120bp sv
+  del2_3p_pos1: 32043700
+  del2_3p_pos2: 32043723
+  del2_5p_pos1: 32043828
+  del2_5p_pos2: 32043865
+  # 6.3kb sv in C4B
+  del1_3p_pos1: 32017400
+  del1_3p_pos2: 32017433
+  del1_5p_pos1: 32023788
+  del1_5p_pos2: 32023798
+strc: 
+  genes: STRC
+  check_nm: 0.1
+  realign_region: chr15:43599000-43620000
+  extract_regions: chr15:43599000-43620000 chr15:43698814-43719466
+  gene2_region: chr15:43698814-43719466
+  noisy_region: [[43602500, 43603700], [43602165, 43602176]]
+  depth_region: [[43610000, 43660000]]
+  add_sites: ["43602487_C_G"]
+  pivot_site: 43602487
+  left_boundary: 43599500
+  right_boundary: 43619600
+  # deletion in pseudogene
+  deletion1_size: 314
+  deletion1_name: "43602630_del_314"
+  del1_3p_pos1: 43602628
+  del1_3p_pos2: 43602631
+  del1_5p_pos1: 43602944
+  del1_5p_pos2: 43602948
+cfc1:
+  genes: CFC1,CFC1B
+  realign_region: chr2:130592000-130610000
+  extract_regions: chr2:130510753-130533741 chr2:130587000-130610000
+  pivot_site: 130593061
+  is_reverse: True
+  add_sites: ["130593061_A_G"]
+ikbkg: 
+  genes: IKBKG
+  use_supplementary: True
+  realign_region: chrX:154555600-154575000
+  extract_regions: chrX:154555883-154572000 chrX:154632430-154648555
+  gene2_region: chrX:154632000-154649000
+  clip_3p_positions: [154569698]
+  clip_5p_positions: [154557136]
+  add_sites: ["154555882_C_G", "154569800_T_G"]
+  pivot_site: 154555882
+  left_boundary: 154555700
+  right_boundary: 154569698
+  deletion1_size: 11700
+  deletion1_name: "154558014_del_11700"
+  deletion1_in_gene1: "154558014_DEL_154569698"
+  deletion1_in_gene2: "154635610_DEL_154647302"
+  del1_3p_pos1: 154558000
+  del1_3p_pos2: 154558030
+  del1_5p_pos1: 154568800
+  del1_5p_pos2: 154568840
+  noisy_region: [[154566998, 154567171], [154555869, 154555876], [154565356, 154565401]]
+  is_reverse: True
+ncf1:
+  genes: NCF1
+  check_nm: 0.1
+  realign_region: chr7:74760000-74820000
+  extract_regions: chr7:73215625-73238945 chr7:74769011-74792315 chr7:75153639-75176964
+  gene2_region: chr7:73215625-73238945
+  pivot_site: 74777265
+  pivot_var: "74777266_GGT_G"
+  left_boundary: 74769011
+  right_boundary: 74792315
+  add_sites: ["74777265_A_T"]
+neb: 
+  genes: NEB
+  is_tandem: True
+  realign_region: chr2:151578750-151588780
+  extract_regions: chr2:151578700-151609700
+  left_boundary: 151578800
+  right_boundary: 151588500
+  noisy_region: [[151579992, 151580022]]
+f8:   
+  genes: F8A1,F8A2,F8A3,H2AB1,H2AB2,H2AB3
+  realign_region: chrX:155376007-155387000
+  extract_regions: chrX:154880316-154890327 chrX:155376007-155386059 chrX:155454650-155464706
+  clip_3p_positions: [155386059, 155386727]
+  left_boundary: 155376507
+  right_boundary: 155386059
+  add_sites: ["155386300_A_C", "155386860_C_G"]
+  depth_region: [[154900000, 155020000]]
+opn1lw: 
+  genes: OPN1LW,OPN1MW,OPN1MW2,OPN1MW3,TEX28
+  is_tandem: True
+  use_r2k: True
+  realign_region: chrX:154140047-154182441
+  extract_regions: chrX:154144047-154294510
+  noisy_region: [[154165300, 154165800]]
+  left_boundary: 154144050
+  right_boundary: 154182200
+  pivot_site: 154143410
+  clip_5p_positions: [154144048]
+  add_sites: ["154143410_G_A"]
+  pivot_vars: ["154156379_A_T", "154156402_A_G"]
+  last_copy_vars: ["154182157_T_G", "154182166_A_C", "154182167_G_A"]
+  exon3_variants: [[["154152987_A_C"], "L", "M"], [["154153041_G_A", "154153043_G_T"], "I", "V"], [["154153051_C_T"], "V", "A"], [["154153062_A_G"], "V", "I"], [["154153068_G_T"], "S", "A"]]
+hba:
+  genes: HBA1,HBA2
+  realign_region: chr16:171800-173900
+  extract_regions: chr16:168656-177541
+  clip_5p_positions: [171989]
+  clip_3p_positions: [173729]
+  gene_start: 171989
+  gene_end: 173729
+  is_tandem: True
+  depth_region: [[160000, 190000]]
+  noisy_region: [[172417, 172418]]
+
+SSX2: 
+  genes: SSX2,SSX2B
+  is_tandem: True
+  is_reverse: True
+  realign_region: chrX:52696000-52729000
+  extract_regions: chrX:52696000-52762432
+SSX4: 
+  genes: SSX4,SSX4B
+  is_tandem: True
+  is_reverse: True
+  realign_region: chrX:48380000-48396314
+  extract_regions: chrX:48380000-48417000
+  left_boundary: 48380500
+CR1:
+  genes: CR1
+  realign_region: chr1:207527100-207545700
+  extract_regions: chr1:207529087-207566209
+  is_tandem: True
+  check_nm: 0.02
+CENPVL2:
+  genes: CENPVL1,CENPVL2
+  realign_region: chrX:51675000-51692963
+  extract_regions: chrX:51675000-51692963 chrX:51700364-51718343  
+  is_tandem: True
+  is_reverse: True
+  noisy_region: [[51691779, 51691984]]
+DMRTC1:
+  genes: DMRTC1,DMRTC1B,FAM236A,FAM236B,FAM236C,FAM236D
+  realign_region: chrX:72861525-72944337
+  extract_regions: chrX:72861526-72944337 chrX:72776489-72859301
+  left_boundary: 72861527
+  right_boundary: 72944336
+  noisy_region: [[72943757, 72943880]]
+  is_tandem: True
+  is_reverse: True
+XAGE1A:
+  genes: XAGE1A,XAGE1B
+  realign_region: chrX:52490000-52502000
+  extract_regions: chrX:52490000-52502000 chrX:52510889-52522888  
+  is_tandem: True
+  is_reverse: True
+TRIM49D1:
+  genes: TRIM49D1,TRIM49D2
+  realign_region: chr11:89909105-89922500
+  extract_regions: chr11:89909105-89922500 chr11:89923849-89935370
+  left_boundary: 89909500
+  right_boundary: 89922500
+  clip_3p_positions: [89920623]
+  gene_end: 89920623
+  is_tandem: True
+  is_reverse: True
+CXorf51A:
+  genes: CXorf51A,CXorf51B
+  realign_region: chrX:146812425-146822425
+  extract_regions: chrX:146812425-146822425 chrX:146802090-146812090
+  is_tandem: True
+  is_reverse: True
+DDT:
+  genes: DDT,DDTL
+  realign_region: chr22:23971000-23982905
+  extract_regions: chr22:23971741-23982905 chr22:23958424-23969582
+  left_boundary: 23972100
+  is_tandem: True
+  is_reverse: True
+H3C14:
+  genes: H3C14,H3C15,H2AC18,H2AC19,H4C14,H4C15
+  realign_region: chr1:149828816-149845484
+  extract_regions: chr1:149828816-149843536 chr1:149850276-149865000
+  left_boundary: 149828816
+  right_boundary: 149843536
+  is_tandem: True
+  is_reverse: True
+MBD3L2:
+  genes: MBD3L2,MBD3L2B
+  realign_region: chr19:7037528-7060528
+  extract_regions: chr19:7037528-7051624 chr19:7019148-7033227
+  left_boundary: 7037528
+  right_boundary: 7051623
+  is_reverse: True
+  is_tandem: True
+DEFA1:
+  genes: DEFA1,DEFA1B,DEFA3
+  realign_region: chr8:6974238-6991000
+  extract_regions: chr8:6974238-7010103 chr8:7012454-7022661
+  left_boundary: 6974300
+  is_tandem: True
+  check_nm: 0.1
+  noisy_region: [[6984000, 6985910]]
+  clip_3p_positions: [6985908]
+  keep_truncated: True
+CCZ1:
+  genes: CCZ1
+  realign_region: chr7:5898000-5930000
+  extract_regions: chr7:5898000-5930000 chr7:6794958-6827006
+  is_reverse: True
+CSAG2:
+  genes: CSAG2,CSAG3,MAGEA2,MAGEA2B,MAGEA3,MAGEA6
+  realign_region: chrX:152690000-152720620
+  extract_regions: chrX:152690000-152720620 chrX:152747848-152778471
+  is_reverse: True
+OR4M2:
+  genes: OR4M2,OR4N4,OR4M2B,OR4N4C
+  realign_region: chr15:22071068-22105192
+  extract_regions: chr15:22071068-22105192 chr15:21628482-21662721 chr15_KI270727v1_random:362857-396966
+  noisy_region: [[22084673, 22084807]]
+RIMBP3B:
+  genes: RIMBP3B,RIMBP3,RIMBP3C
+  realign_region: chr22:21380000-21390000
+  extract_regions: chr22:21380000-21390000 chr22:21544835-21554839 chr22:18605293-18615282
+
+AMY2A:
+  genes: AMY2A
+  realign_region: chr1:103611603-103631603
+  extract_regions: chr1:103616000-103631603 chr1:103715324-103725728
+  left_boundary: 103616000
+  right_boundary: 103631602
+  clip_5p_positions: [103619306]
+AGAP9:
+  genes: AGAP9
+  realign_region: chr10:47501354-47524138
+  extract_regions: chr10:47501355-47524138 chr10:48009452-48032211
+  left_boundary: 47501356
+  right_boundary: 47524137
+ANXA8:
+  genes: ANXA8,ANXA8L1
+  realign_region: chr10:47466054-47486054
+  extract_regions: chr10:47466055-47484745 chr10:46375042-46393727
+  left_boundary: 47466056
+  right_boundary: 47484780
+  is_reverse: True
+C21orf140:
+  genes: C21orf140
+  realign_region: chr21:34390592-34410592
+  extract_regions: chr21:34390593-34406217 chr21:7760069-7775696
+  left_boundary: 34390594
+  right_boundary: 34406216
+  expect_cn2: True
+CDY1:
+  genes: CDY1,CDY1B
+  realign_region: chrY:25613509-25633509
+  extract_regions: chrY:25613510-25633509 chrY:24036622-24056621
+  left_boundary: 25613511
+  right_boundary: 25633508
+  is_reverse: True
+  check_nm: 0.015
+  expect_cn2: True
+CDY2A:
+  genes: CDY2A,CDY2B
+  realign_region: chrY:18016766-18036766
+  extract_regions: chrY:18016767-18036766 chrY:17869242-17889236
+  left_boundary: 18016768
+  right_boundary: 18036765
+  is_reverse: True
+  check_nm: 0.015
+  expect_cn2: True
+HSFY1:
+  genes: HSFY1,HSFY2
+  realign_region: chrY:18537656-18557656
+  extract_regions: chrY:18537657-18557656 chrY:18762746-18782750
+  left_boundary: 18537658
+  right_boundary: 18557655
+  is_reverse: True
+  expect_cn2: True
+PRY:
+  genes: PRY,PRY2
+  realign_region: chrY:22489897-22515137
+  extract_regions: chrY:22489898-22515137 chrY:22071256-22096507 chrY:23680940-23702786 chrY:25967288-25989136
+  left_boundary: 22493307
+  right_boundary: 
+  expect_cn2: True
+BPY2:
+  genes: BPY2,BPY2B,BPY2C
+  realign_region: chrY:22983763-23005965
+  extract_regions: chrY:22983764-23005965 chrY:24617505-24639707 chrY:25030401-25052603
+  left_boundary: 22983765
+  right_boundary: 23005964
+  expect_cn2: True
+CHRNA7:
+  genes: CHRNA7
+  realign_region: chr15:32030015-32173518
+  extract_regions: chr15:32030015-32173518 chr15:30360306-30375956
+  left_boundary: 32030015
+  right_boundary: 32173518
+  is_reverse: True
+  clip_5p_positions: [32153206]
+CNTNAP3C:
+  genes: CNTNAP3,CNTNAP3C
+  realign_region: chr9:61330217-61453530
+  extract_regions: chr9:61330217-61453530 chr9:39165433-39288814
+  left_boundary: 61330217
+  right_boundary: 61453530
+  is_reverse: True
+  expect_cn2: True
+  noisy_region: [[61409346, 61409399], [61367691, 61367733]]
+CTAGE6:
+  genes: CTAGE6,CTAGE15
+  realign_region: chr7:143746392-143762392
+  extract_regions: chr7:143746393-143762392 chr7:143563074-143579072
+  left_boundary: 143746394
+  right_boundary: 143762392
+  is_reverse: True
+CTAGE8:
+  genes: CTAGE8,CTAGE9,OR2A4,OR2A7,ENPP3
+  realign_region: chr7:144256000-144277981
+  extract_regions: chr7:144256421-144272351 chr6:131698188-131714119
+  left_boundary: 144256421
+  right_boundary: 144272350
+CXorf49:
+  genes: CXorf49,CXorf49B
+  realign_region: chrX:71706328-71726328
+  extract_regions: chrX:71706329-71726328 chrX:71755199-71775246
+  left_boundary: 71706330
+  right_boundary: 71726327
+  is_reverse: True
+
+DEFB109B:
+  genes: DEFB109B,USP17L1,USP17L3,USP17L4,USP17L8
+  realign_region: chr8:7306409-7339183
+  extract_regions: chr8:7306410-7339183 chr8:7971187-8003955
+  left_boundary: 7306411
+  right_boundary: 7330000
+  is_reverse: True
+  expect_cn2: True
+PRR23D1:
+  genes: PRR23D1,PRR23D2
+  realign_region: chr8:7531038-7546000
+  extract_regions: chr8:7531039-7551038 chr8:7770002-7790002
+  left_boundary: 7531040
+  right_boundary: 7546000
+  is_reverse: True
+
+DEFB107A:
+  genes: DEFB107A
+  realign_region: chr8:7803718-7823718
+  extract_regions: chr8:7803719-7823718 chr8:7487841-7517298
+  left_boundary: 7803720
+  right_boundary: 7823717
+  is_reverse: True
+DEFB105A:
+  genes: DEFB105A,DEFB105B
+  realign_region: chr8:7812442-7832442
+  extract_regions: chr8:7813693-7832442 chr8:7479103-7497875
+  left_boundary: 7813694
+  right_boundary: 7832441
+  is_reverse: True
+DEFB106A:
+  genes: DEFB106A,DEFB106B
+  realign_region: chr8:7817096-7837096
+  extract_regions: chr8:7817097-7837096 chr8:7474458-7494461
+  left_boundary: 7817098
+  right_boundary: 7837095
+  is_reverse: True
+DEFB104A:
+  genes: DEFB104A,DEFB104B
+  realign_region: chr8:7828839-7848839
+  extract_regions: chr8:7828840-7848839 chr8:7462711-7482717
+  left_boundary: 7828841
+  right_boundary: 7848838
+  is_reverse: True
+SPAG11A:
+  genes: SPAG11A,SPAG11B
+  realign_region: chr8:7844475-7864475
+  extract_regions: chr8:7844476-7864475 chr8:7447075-7467074
+  left_boundary: 7844477
+  right_boundary: 7864474
+  is_reverse: True
+DEFB103A:
+  genes: DEFB103A,DEFB103B
+  realign_region: chr8:7872027-7892027
+  extract_regions: chr8:7872028-7892027 chr8:7419516-7439523
+  left_boundary: 7872029
+  right_boundary: 7892026
+  is_reverse: True
+DEFB4A:
+  genes: DEFB4A,DEFB4B
+  realign_region: chr8:7885696-7905696
+  extract_regions: chr8:7885697-7905694 chr8:7405899-7425855
+  left_boundary: 7885698
+  right_boundary: 7905693
+  is_reverse: True
+  noisy_region: [[7895759, 7895889]]
+
+DEFB130A:
+  genes: DEFB130A,DEFB130B
+  realign_region: chr8:12304639-12324639
+  extract_regions: chr8:12304640-12323365 chr8:12058076-12076797
+  left_boundary: 12304641
+  right_boundary: 12323364
+  expect_cn2: True
+ZNF705D:
+  genes: ZNF705D
+  realign_region: chr8:12088838-12116016
+  extract_regions: chr8:12088839-12116016 chr8:12335087-12362253 chr8:7930859-7955249
+  left_boundary: 12088840
+  right_boundary: 12116015
+  check_nm: 0.2
+  noisy_region: [[12091626, 12101750]]
+FAM86B1:
+  genes: FAM86B1,FAM86B2
+  realign_region: chr8:12180000-12200000
+  extract_regions: chr8:12180000-12200000 chr8:12422319-12442278 chr8:8222630-8237853
+  check_nm: 0.2
+  clip_5p_positions: [12184797]
+
+DHX40:
+  genes: DHX40
+  realign_region: chr17:59565110-59608845
+  extract_regions: chr17:59572881-59600110 chr17:59975397-60002602
+  left_boundary: 59572882
+  right_boundary: 59600109
+  is_reverse: True
+EIF3C:
+  genes: EIF3C,EIF3CL
+  realign_region: chr16:28710964-28736096
+  extract_regions: chr16:28710965-28736096 chr16:28379215-28404340
+  left_boundary: 28710966
+  right_boundary: 28736095
+  is_reverse: True
+ETDA:
+  genes: ETDA,ETDB
+  realign_region: chrX:135242822-135262822
+  extract_regions: chrX:135242823-135262822 chrX:135116125-135129713
+  left_boundary: 135242824
+  right_boundary: 135262822
+  is_reverse: True
+  clip_3p_positions: [135256413]
+  gene_end: 135256413
+FAM156A:
+  genes: FAM156A,FAM156B
+  realign_region: chrX:52942886-52962886
+  extract_regions: chrX:52942887-52962886 chrX:52892928-52912927
+  left_boundary: 52942888
+  right_boundary: 52962885
+  is_reverse: True
+FAM246A:
+  genes: FAM246A,FAM246B
+  realign_region: chr22:21350950-21370950
+  extract_regions: chr22:21350951-21370950 chr22:18624338-18644332
+  left_boundary: 21350952
+  right_boundary: 21370949
+  is_reverse: True
+
+FCGR2C:
+  genes: FCGR2C
+  realign_region: chr1:161580571-161602000
+  extract_regions: chr1:161580572-161594218 chr1:161662376-161676049
+  left_boundary: 161580573
+  right_boundary: 161601300
+  clip_3p_positions: [161595612]
+  noisy_region: [[161593000, 161595500]]
+FRG2:
+  genes: FRG2,FRG2B
+  realign_region: chr4:190015811-190035811
+  extract_regions: chr4:190023009-190033154 chr10:133622567-133632698
+  left_boundary: 190023010
+  right_boundary: 190033153
+FRMPD2:
+  genes: FRMPD2
+  realign_region: chr10:48156062-48275196
+  extract_regions: chr10:48156063-48275196 chr10:46870204-46895821
+  left_boundary: 48156064
+  right_boundary: 48275196
+  clip_3p_positions: [48181659]
+  is_reverse: True
+
+TRAPPC10:
+  genes: TRAPPC10
+  realign_region: chr21:44011809-44107052
+  extract_regions: chr21:44011809-44107052 chr21:5155001-5166246
+  left_boundary: 44011809
+  right_boundary: 44107051
+  is_reverse: True
+  expect_cn2: True
+  noisy_region: [[44088700, 44089100]]
+PWP2:
+  genes: PWP2
+  realign_region: chr21:44106899-44131681
+  extract_regions: chr21:44106900-44131681 chr21:5130371-5155153
+  left_boundary: 44106901
+  right_boundary: 44131680
+  is_reverse: True
+  expect_cn2: True
+GATD3:
+  genes: GATD3
+  realign_region: chr21:44129697-44149697
+  extract_regions: chr21:44129698-44147864 chr21:5114188-5132354
+  left_boundary: 44129699
+  right_boundary: 44147500
+  is_reverse: True
+  expect_cn2: True
+
+GOLGA6L1:
+  genes: GOLGA6L1,GOLGA6L26
+  realign_region: chr15:23121944-23141944
+  extract_regions: chr15:23123715-23141944 chr15:23321180-23339370
+  left_boundary: 23123716
+  right_boundary: 23141943
+GOLGA6L24:
+  genes: GOLGA6L24,GOLGA6L25
+  realign_region: chr15:28342967-28362967
+  extract_regions: chr15:28342968-28362967 chr15:28548676-28568662
+  left_boundary: 28342969
+  right_boundary: 28362966
+  is_reverse: True
+GOLGA8A:
+  genes: GOLGA8A,GOLGA8B
+  realign_region: chr15:34378568-34438308
+  extract_regions: chr15:34378799-34431301 chr15:34525011-34577508
+  left_boundary: 34380000
+  right_boundary: 34420000
+GOLGA8F:
+  genes: GOLGA8F,GOLGA8G
+  realign_region: chr15:28375342-28395342
+  extract_regions: chr15:28375343-28395342 chr15:28516294-28536276
+  left_boundary: 28375344
+  right_boundary: 28395341
+  is_reverse: True
+GOLGA8K:
+  genes: GOLGA8K,GOLGA8T
+  realign_region: chr15:32386445-32406445
+  extract_regions: chr15:32386446-32406445 chr15:30131900-30151905
+  left_boundary: 32386447
+  right_boundary: 32406444
+  is_reverse: True
+GPAT2:
+  genes: GPAT2
+  realign_region: chr2:96018431-96038431
+  extract_regions: chr2:96018431-96038431 chr2:95786150-95800198
+  left_boundary: 96018431
+  right_boundary: 96038430
+  clip_5p_positions: [96024399]
+  is_reverse: True
+HSF2BP:
+  genes: HSF2BP,H2BC12L
+  realign_region: chr21:43528000-43659988
+  extract_regions: chr21:43528687-43659988 chr21:5966594-6009880
+  left_boundary: 43528688
+  right_boundary: 43659988
+  is_reverse: True
+  noisy_region: [[43535662, 43535796], [43581500, 43583500], [43532269, 43532387]]
+  expect_cn2: True
+HSFX1:
+  genes: HSFX1,HSFX2
+  realign_region: chrX:149765467-149785467
+  extract_regions: chrX:149767119-149785467 chrX:149583923-149602260
+  left_boundary: 149767120
+  right_boundary: 149785466
+  is_reverse: True
+IQCK:
+  genes: IQCK
+  realign_region: chr16:19717771-19858967
+  extract_regions: chr16:19760000-19830000 chr13:86252980-86269524
+  left_boundary: 19760000
+  right_boundary: 19830000
+  expect_cn2: True
+LGALS9B:
+  genes: LGALS9B,LGALS9C
+  realign_region: chr17:20448467-20468467
+  extract_regions: chr17:20448468-20468467 chr17:18475856-18495871
+  left_boundary: 20448469
+  right_boundary: 20468466
+  is_reverse: True
+LIMS3:
+  genes: LIMS3,LIMS4
+  realign_region: chr2:109898188-109926125
+  extract_regions: chr2:109898189-109926125 chr2:110445383-110473318
+  left_boundary: 109898190
+  right_boundary: 109926124
+  is_reverse: True
+MAGEA9:
+  genes: MAGEA9,MAGEA9B
+  realign_region: chrX:149774833-149794833
+  extract_regions: chrX:149774834-149794833 chrX:149574557-149594548
+  left_boundary: 149774835
+  right_boundary: 149794832
+  is_reverse: True
+MAGEH1:
+  genes: MAGEH1
+  realign_region: chrX:55442846-55462846
+  extract_regions: chrX:55453508-55462846 chrX:55510356-55519694
+  left_boundary: 55451000
+  right_boundary: 55462845
+  clip_5p_positions: [55453508]
+  is_reverse: True
+MALL:
+  genes: MALL
+  realign_region: chr2:110083370-110118500
+  extract_regions: chr2:110083371-110118500 chr2:110276211-110288005
+  left_boundary: 110083372
+  right_boundary: 110118500
+  is_reverse: True
+  clip_3p_positions: [110095177]
+MRPL23:
+  genes: MRPL23
+  realign_region: chr11:1941966-1961966
+  extract_regions: chr11:1944688-1961966 chr11_KI270721v1_random:1-17145
+  left_boundary: 1944689
+  right_boundary: 1961965
+  expect_cn2: True
+NOTCH2:
+  genes: NOTCH2,NOTCH2NLR
+  realign_region: chr1:119980000-120070162
+  extract_regions: chr1:120008822-120070162 chr1:120723414-120784768
+  left_boundary: 120008823
+  right_boundary: 120069700
+  noisy_region: [[120024344, 120024352]]
+  is_reverse: True
+NPIPA1:
+  genes: NPIPA1
+  realign_region: chr16:14934749-14954749
+  extract_regions: chr16:14934750-14952002 chr16:16333237-16350465
+  left_boundary: 14934751
+  right_boundary: 14952001
+NPIPA2:
+  genes: NPIPA2,NPIPA3
+  realign_region: chr16:14742033-14765962
+  extract_regions: chr16:14742034-14765962 chr16:14702912-14726842
+  left_boundary: 14742035
+  right_boundary: 14765961
+NPY4R:
+  genes: NPY4R,NPY4R2
+  realign_region: chr10:46453528-46473528
+  extract_regions: chr10:46453529-46473528 chr10:47911132-47931096
+  left_boundary: 46453530
+  right_boundary: 46473527
+  is_reverse: True
+NUDT4B:
+  genes: NUDT4B
+  realign_region: chr1:148740594-148760594
+  extract_regions: chr1:148740595-148760594 chr1:146289812-146309811
+  left_boundary: 148740596
+  right_boundary: 148760593
+NXF2:
+  genes: NXF2,NXF2B
+  realign_region: chrX:102246667-102327222
+  extract_regions: chrX:102246668-102327222 chrX:102359893-102440441
+  left_boundary: 102300000
+  right_boundary: 102327221
+  is_reverse: True
+OCLN:
+  genes: OCLN
+  realign_region: chr5:69492290-69558604
+  extract_regions: chr5:69492290-69558604 chr5:71069293-71093996
+  left_boundary: 69492290
+  right_boundary: 69558603
+  is_reverse: True
+  clip_5p_positions: [69533890, 69555102]
+OR1D5:
+  genes: OR1D5
+  realign_region: chr17:3053138-3073138
+  extract_regions: chr17:3053139-3073138 chr17:3231122-3251124
+  left_boundary: 3053140
+  right_boundary: 3073137
+  is_reverse: True
+OR2A1:
+  genes: OR2A1,OR2A42
+  realign_region: chr7:144307578-144327578
+  extract_regions: chr7:144307579-144327578 chr7:144223396-144243400
+  left_boundary: 144307580
+  right_boundary: 144327577
+  is_reverse: True
+OR2T5:
+  genes: OR2T5,OR2T29
+  realign_region: chr1:248479851-248499851
+  extract_regions: chr1:248483458-248499851 chr1:248548226-248564626
+  left_boundary: 248483459
+  right_boundary: 248499850
+  is_reverse: True
+OTOA:
+  genes: OTOA
+  realign_region: chr16:21663468-21761229
+  extract_regions: chr16:21663468-21761229 chr16:22545168-22577371
+  left_boundary: 21663468
+  right_boundary: 21761228
+  clip_5p_positions: [21729043]
+PABPC1L2A:
+  genes: PABPC1L2A,PABPC1L2B
+  realign_region: chrX:73068394-73088394
+  extract_regions: chrX:73068394-73086958 chrX:72996065-73005560
+  left_boundary: 73068394
+  right_boundary: 73086957
+  clip_5p_positions: [73077480]
+  is_reverse: True
+  gene_start: 73077480
+PDPK1:
+  genes: PDPK1
+  realign_region: chr16:2537521-2603688
+  extract_regions: chr16:2537521-2603688 chr16:2615333-2648513
+  left_boundary: 2537521
+  right_boundary: 2599224
+  clip_3p_positions: [2584851]
+  is_reverse: True
+POTEE:
+  genes: POTEE,POTEF
+  realign_region: chr2:131209036-131265778
+  extract_regions: chr2:131209037-131265778 chr2:130073149-130129844
+  left_boundary: 131209038
+  right_boundary: 131265777
+  is_reverse: True
+POTEI:
+  genes: POTEI,POTEJ
+  realign_region: chr2:130458955-130509828
+  extract_regions: chr2:130458956-130509067 chr2:130611590-130661737
+  left_boundary: 130458957
+  right_boundary: 130509066
+  is_reverse: True
+PPIAL4C:
+  genes: PPIAL4C,PPIAL4H
+  realign_region: chr1:149574227-149594227
+  extract_regions: chr1:149574228-149591872 chr1:146336747-146354323
+  left_boundary: 149574229
+  right_boundary: 149591871
+  is_reverse: True
+PPIP5K1:
+  genes: PPIP5K1
+  realign_region: chr15:43532975-43590708
+  extract_regions: chr15:43532975-43590708 chr15:43658492-43690540
+  left_boundary: 43532975
+  right_boundary: 43590707
+  clip_5p_positions: [43558938]
+
+PRAMEF10:
+  genes: PRAMEF10,PRAMEF33
+  realign_region: chr1:12885583-12905583
+  extract_regions: chr1:12885584-12905583 chr1:13296209-13316218
+  left_boundary: 12885585
+  right_boundary: 12905582
+  is_reverse: True
+PRAMEF7:
+  genes: PRAMEF7,PRAMEF8
+  realign_region: chr1:12908680-12928680
+  extract_regions: chr1:12908681-12928680 chr1:13273109-13293100
+  left_boundary: 12908682
+  right_boundary: 12928679
+  is_reverse: True
+PRAMEF5:
+  genes: PRAMEF5,PRAMEF6
+  realign_region: chr1:13248816-13268816
+  extract_regions: chr1:13248817-13268816 chr1:12932973-12952975
+  left_boundary: 13248818
+  right_boundary: 13268815
+  is_reverse: True
+PRAMEF25:
+  genes: PRAMEF25,PRAMEF26,HNRNPCL3,HNRNPCL4
+  realign_region: chr1:13058000-13084329
+  extract_regions: chr1:13058000-13084329 chr1:13142460-13171013
+  left_boundary: 13058000
+  right_boundary: 13084329
+  is_reverse: True
+PRAMEF13:
+  genes: PRAMEF13
+  realign_region: chr1:13191500-13208798
+  extract_regions: chr1:13188799-13208798 chr1:13020162-13040136
+  left_boundary: 13191500
+  right_boundary: 13208797
+  is_reverse: True
+PRAMEF18:
+  genes: PRAMEF18
+  realign_region: chr1:13220000-13234424
+  extract_regions: chr1:13220000-13234424 chr1:13004385-13014535
+  left_boundary: 13220900
+  right_boundary: 13234424
+  is_reverse: True
+
+POTED:
+  genes: POTED
+  realign_region: chr21:13609277-13646323
+  extract_regions: chr21:13609278-13646288 chrUn_GL000213v1:103302-140211
+  left_boundary: 13609279
+  right_boundary: 13646287
+  expect_cn2: True
+PRODH:
+  genes: PRODH
+  realign_region: chr22:18912281-18936793
+  extract_regions: chr22:18912282-18936793 chr22_KI270734v1_random:137587-162092
+  left_boundary: 18912283
+  right_boundary: 18936792
+  expect_cn2: True
+  noisy_region: [[18913128, 18913160], [18921716, 18921743]]
+DGCR6:
+  genes: DGCR6
+  realign_region: chr22:18899204-18919204
+  extract_regions: chr22:18899205-18919204 chr22_KI270734v1_random:124478-144502
+  left_boundary: 18899206
+  right_boundary: 18919203
+  noisy_region: [[18911361, 18911361], [18911378, 18911378]]
+  expect_cn2: True
+
+PTPN20:
+  genes: PTPN20
+  realign_region: chr10:46910928-47002822
+  extract_regions: chr10:46910929-47002822 chr10:48060017-48140915
+  left_boundary: 46910930
+  right_boundary: 47002822
+  is_reverse: True
+  clip_3p_positions: [46991847]
+PWWP4:
+  genes: PWWP4
+  realign_region: chrX:153262648-153282648
+  extract_regions: chrX:153262649-153282648 chrX:153117296-153137296
+  left_boundary: 153262650
+  right_boundary: 153282647
+  is_reverse: True
+RBPMS:
+  genes: RBPMS
+  realign_region: chr8:30384041-30572756
+  extract_regions: chr8:30384041-30448023 chrX:37085009-37099262
+  left_boundary: 30384041
+  right_boundary: 30448022
+  expect_cn2: True
+  noisy_region: [[30388300, 30388700], [30431315, 30431471]]
+RGPD1:
+  genes: RGPD1,RGPD2
+  realign_region: chr2:86941618-87014476
+  extract_regions: chr2:86945216-87014476 chr2:87755460-87824700
+  left_boundary: 86945217
+  right_boundary: 87014475
+  is_reverse: True
+PLGLB1:
+  genes: PLGLB1,PLGLB2
+  realign_region: chr2:87006034-87026034
+  extract_regions: chr2:87006035-87026034 chr2:87743902-87763901
+  left_boundary: 87006036
+  right_boundary: 87026033
+  is_reverse: True
+RGPD3:
+  genes: RGPD3,RGPD4
+  realign_region: chr2:106402906-106468913
+  extract_regions: chr2:106402907-106466996 chr2:107828900-107893038
+  left_boundary: 106402908
+  right_boundary: 106466000
+  is_reverse: True
+RHOXF2:
+  genes: RHOXF2,RHOXF2B
+  realign_region: chrX:120152121-120172121
+  extract_regions: chrX:120152122-120172121 chrX:120064181-120084181
+  left_boundary: 120152123
+  right_boundary: 120172120
+  is_reverse: True
+RMND5A:
+  genes: RMND5A
+  realign_region: chr2:86719791-86778541
+  extract_regions: chr2:86719792-86778541 chr2:87053644-87076936
+  left_boundary: 86719793
+  right_boundary: 86778541
+  is_reverse: True  
+  clip_3p_positions: [86743083]
+RSPH10B:
+  genes: RSPH10B,RSPH10B2
+  realign_region: chr7:5925636-5971189
+  extract_regions: chr7:5927074-5971189 chr7:6753603-6797888
+  left_boundary: 5927075
+  right_boundary: 5971188
+  is_reverse: True
+SERF1A:
+  genes: SERF1A,SERF1B
+  realign_region: chr5:70894392-70914392
+  extract_regions: chr5:70895416-70914392 chr5:70019993-70038975
+  left_boundary: 70895417
+  right_boundary: 70914391
+SIK1:
+  genes: SIK1
+  realign_region: chr21:43410807-43430807
+  extract_regions: chr21:43410808-43430807 chr21:6107453-6127452
+  left_boundary: 43418200
+  right_boundary: 43430806
+  is_reverse: True
+  expect_cn2: True
+
+SMIM11:
+  genes: SMIM11
+  realign_region: chr21:34372329-34392329
+  extract_regions: chr21:34374240-34392329 chr21:7743711-7761805
+  left_boundary: 34374241
+  right_boundary: 34392328
+  expect_cn2: True
+SMIM34:
+  genes: SMIM34
+  realign_region: chr21:34411333-34431333
+  extract_regions: chr21:34411334-34431333 chr21:7781322-7801320
+  left_boundary: 34411335
+  right_boundary: 34431332
+  expect_cn2: True
+SYT15:
+  genes: SYT15,SYT15B
+  realign_region: chr10:46575596-46595596
+  extract_regions: chr10:46575597-46595596 chr10:47746227-47766206
+  left_boundary: 46575598
+  right_boundary: 46595595
+  is_reverse: True
+TCAF1:
+  genes: TCAF1
+  realign_region: chr7:143850875-143902676
+  extract_regions: chr7:143850970-143902676 chr7:143587138-143610973
+  left_boundary: 143850971
+  right_boundary: 143902676
+  noisy_region: [[143859856, 143860063]]
+  clip_3p_positions: [143874696]
+  is_reverse: True
+TCP11X1:
+  genes: TCP11X1,TCP11X2
+  realign_region: chrX:102211048-102231048
+  extract_regions: chrX:102211049-102231048 chrX:102456062-102476064
+  left_boundary: 102211050
+  right_boundary: 102231047
+  is_reverse: True
+THOC3:
+  genes: THOC3
+  realign_region: chr5:175953923-175973923
+  extract_regions: chr5:175953924-175973923 chr5:177869882-177889862
+  left_boundary: 175953925
+  right_boundary: 175973922
+  is_reverse: True
+TMEM191B:
+  genes: TMEM191B,TMEM191C
+  realign_region: chr22:18519187-18539187
+  extract_regions: chr22:18519188-18539187 chr22:21458539-21478544
+  left_boundary: 18519189
+  right_boundary: 18539186
+TMLHE:
+  genes: TMLHE
+  realign_region: chrX:155488511-155613452
+  extract_regions: chrX:155488512-155504550 chrX:155336693-155352737
+  clip_3p_positions: [155504550]
+  left_boundary: 155488513
+  right_boundary: 155510000
+  is_reverse: True
+TRIM49:
+  genes: TRIM49,TRIM49C
+  realign_region: chr11:89793115-89813115
+  extract_regions: chr11:89793116-89811854 chr11:90027825-90046559
+  left_boundary: 89793117
+  right_boundary: 89811853
+  is_reverse: True
+TRIM64:
+  genes: TRIM64,TRIM64B
+  realign_region: chr11:89960054-89980054
+  extract_regions: chr11:89960055-89980054 chr11:89864456-89884481
+  left_boundary: 89960056
+  right_boundary: 89980053
+  is_reverse: True
+TRIM73:
+  genes: TRIM73,TRIM74
+  realign_region: chr7:75390617-75410617
+  extract_regions: chr7:75390618-75410617 chr7:72954468-72974474
+  left_boundary: 75390619
+  right_boundary: 75410616
+  is_reverse: True
+U2AF1:
+  genes: U2AF1
+  realign_region: chr21:43090263-43110263
+  extract_regions: chr21:43090264-43110263 chr21:6481931-6501941
+  left_boundary: 43090265
+  right_boundary: 43110262
+  expect_cn2: True
+
+UPK3BL1: 
+  genes: UPK3BL1,UPK3BL2
+  realign_region: chr7:102629908-102649908
+  extract_regions: chr7:102629909-102649908 chr7:102530825-102550815
+  left_boundary: 102629910
+  right_boundary: 102649907
+POLR2J2:
+  genes: POLR2J2,POLR2J3
+  realign_region: chr7:102658854-102678854
+  extract_regions: chr7:102658855-102678854 chr7:102559768-102579794
+  left_boundary: 102658856
+  right_boundary: 102678853
+
+ZNF595:
+  genes: ZNF595
+  realign_region: chr4:52821-88708
+  extract_regions: chr4:52822-88708 chrUn_KI270744v1:125448-141446
+  clip_3p_positions: [68825]
+  left_boundary: 52823
+  right_boundary: 88300
+
+FOXD4L4:
+  genes: FOXD4L4,FOXD4L5
+  realign_region: chr9:65727771-65747771
+  extract_regions: chr9:65727772-65747771 chr9:65273748-65293756 chr9:68293705-68301609
+  left_boundary: 65727773
+  right_boundary: 65738784
+  is_reverse: True
+  check_nm: 0.2
+  noisy_region: [[65735600, 65735970]]
+FOXD4L3:
+  genes: FOXD4L3,FOXD4L6
+  realign_region: chr9:68293975-68313975
+  extract_regions: chr9:68293976-68313975 chr9:41117361-41137343
+  left_boundary: 68293977
+  right_boundary: 68313974
+  is_reverse: True
+
+GTF2IRD2B:
+  genes: GTF2IRD2B,GTF2IRD2
+  realign_region: chr7:75092090-75150317
+  extract_regions: chr7:75092091-75150317 chr7:74795644-74852041
+  left_boundary: 75092092
+  right_boundary: 75150316
+  is_reverse: True
+NOTCH2NLA:
+  genes: NOTCH2NLA,NOTCH2NLB
+  realign_region: chr1:146148365-146229521
+  extract_regions: chr1:146148366-146229521 chr1:148599314-148680263
+  left_boundary: 146148367
+  right_boundary: 146229520
+ICOSLG:
+  genes: ICOSLG
+  realign_region: chr21:44221967-44241967
+  extract_regions: chr21:44221968-44241967 chr21:5021530-5041695
+  left_boundary: 44221969
+  right_boundary: 44241966
+  is_reverse: True
+  noisy_region: [[44229611, 44229631], [44225597, 44225597]]
+  expect_cn2: True
+MAGED4:
+  genes: MAGED4,MAGED4B
+  realign_region: chrX:52178578-52198578
+  extract_regions: chrX:52178579-52198578 chrX:52055517-52075516
+  left_boundary: 52178580
+  right_boundary: 52198577
+  is_reverse: True
+CBS:
+  genes: CBS
+  realign_region: chr21:43052691-43076335
+  extract_regions: chr21:43052692-43076335 chr21:6444370-6468013
+  left_boundary: 43052693
+  right_boundary: 43076334
+  expect_cn2: True
+CRYAA:
+  genes: CRYAA
+  realign_region: chr21:43160906-43180906
+  extract_regions: chr21:43160907-43173805 chr21:6552585-6565485
+  left_boundary: 43160908
+  right_boundary: 43173804
+  noisy_region: [[43173792, 43173797]]
+  expect_cn2: True
+KCNE1:
+  genes: KCNE1
+  realign_region: chr21:34446190-34512710
+  extract_regions: chr21:34446191-34495759 chr21:7816178-7865746
+  left_boundary: 34446192
+  right_boundary: 34495758
+  expect_cn2: True
+ARHGEF5:
+  genes: ARHGEF5,ARHGEF35
+  realign_region: chr7:144354902-144381132
+  extract_regions: chr7:144354903-144381132 chr7:144186949-144196136 chr7:144272352-144294716
+  left_boundary: 144354904
+  right_boundary: 144381132
+  clip_3p_positions: [144377283, 144364104]
+CASTOR2:
+  genes: CASTOR2
+  realign_region: chr7:74964205-75032028
+  extract_regions: chr7:74964206-75032028 chr7:73156189-73174784 chr7:75217889-75238192
+  left_boundary: 74965884
+  right_boundary: 75032028
+  clip_3p_positions: [74984489]
+CLEC18C:
+  genes: CLEC18A,CLEC18B,CLEC18C
+  realign_region: chr16:70170341-70190341
+  extract_regions: chr16:70170342-70190341 chr16:69947429-69967427 chr16:74405201-74425232
+  left_boundary: 70170343
+  right_boundary: 70190340
+GTF2H2:
+  genes: GTF2H2,GTF2H2C
+  realign_region: chr5:71034847-71068176
+  extract_regions: chr5:71034848-71068176 chr5:69559721-69593027 chr5:70414868-70448182
+  left_boundary: 71034849
+  right_boundary: 71068175
+GTF2I:
+  genes: GTF2I
+  realign_region: chr7:74657218-74761192
+  extract_regions: chr7:74657218-74761192 chr7:73174795-73207796 chr7:75184883-75217878
+  left_boundary: 74657218
+  right_boundary: 74761191
+  clip_5p_positions: [74728174]
+HIC2:
+  genes: HIC2
+  realign_region: chr22:21416871-21451963
+  extract_regions: chr22:21416872-21451963 chr22:18552241-18578459 chr22:21491762-21518016
+  left_boundary: 21416873
+  right_boundary: 21451963
+  clip_3p_positions: [21443089]
+NBPF4:
+  genes: NBPF4,NBPF6
+  realign_region: chr1:108221964-108244576
+  extract_regions: chr1:108222602-108244576 chr1:108449787-108471742 chr1:108375304-108383706
+  left_boundary: 108223000
+  right_boundary: 108244575
+  clip_5p_positions: [108236178]
+PPIAL4D:
+  genes: PPIAL4D,PPIAL4E,PPIAL4F
+  realign_region: chr1:145231794-145251794
+  extract_regions: chr1:145235770-145251794 chr1:144367229-144383246 chr1:144583278-144599298
+  left_boundary: 145235771
+  right_boundary: 145251793
+RGPD5:
+  genes: RGPD5,RGPD6,RGPD8
+  realign_region: chr2:109793805-109858205
+  extract_regions: chr2:109793806-109858205 chr2:110513302-110577684 chr2:112367869-112430717
+  left_boundary: 109795368
+  right_boundary: 109858204
+FAM72A:
+  genes: FAM72A
+  realign_region: chr1:206184509-206204509
+  extract_regions: chr1:206184510-206204509 chr1:121165986-121185983 chr1:143953624-143973625 chr1:145094364-145114349
+  left_boundary: 206184511
+  right_boundary: 206204508
+GOLGA8N:
+  genes: GOLGA8N,GOLGA8O,GOLGA8Q,GOLGA8R
+  realign_region: chr15:32590346-32610346
+  extract_regions: chr15:32590347-32607507 chr15:30400208-30417365 chr15:30548871-30566038 chr15:32441569-32458746
+  left_boundary: 32590348
+  right_boundary: 32606000
+POTEB:
+  genes: POTEB,POTEB2,POTE3
+  realign_region: chr15:21845829-21878235
+  extract_regions: chr15:21845830-21878235 chr15:20834873-20867269 chr15:21408465-21439843 chr15_KI270727v1_random:135661-167032
+  left_boundary: 21845831
+  right_boundary: 21877188
+SPATA31A1:
+  genes: SPATA31A1,SPATA31A3,SPATA31A5,SPATA31A7
+  realign_region: chr9:39348815-39368815
+  extract_regions: chr9:39348816-39368815 chr9:60907506-60927532 chr9:61184485-61203156 chr9:66979422-66998101
+  left_boundary: 39350176
+  right_boundary: 39368814
+NUTM2A:
+  genes: NUTM2A,NUTM2B,NUTM2D,NUTM2E
+  realign_region: chr10:87220213-87240213
+  extract_regions: chr10:87220214-87240213 chr10:79697989-79718012 chr10:87354483-87369657 chr10:79838172-79853341
+  left_boundary: 87222272
+  right_boundary: 87237439
+ANKRD20A1:
+  genes: ANKRD20A1
+  realign_region: chr9:67858431-67902894
+  extract_regions: chr9:67858432-67902894 chr9:40223065-40266892 chr9:64368680-64413189 chr9:66109347-66153849
+  left_boundary: 67859093
+  right_boundary: 67902893
+GRAPL:
+  genes: GRAPL,GRAP
+  realign_region: chr17:19127089-19159687
+  extract_regions: chr17:19127089-19159687 chr17:19025179-19047456 chr17:19092398-19103046 chr17:19218567-19229213
+  left_boundary: 19127089
+  right_boundary: 19159687
+  clip_5p_positions: [19149042]
+  clip_3p_positions: [19149358]
+ARL17A:
+  genes: ARL17A,ARL17B
+  realign_region: chr17:46552256-46580191
+  extract_regions: chr17:46552257-46580191 chr17:46334404-46362266
+  left_boundary: 46552258
+  right_boundary: 46580190
+NSF:
+  genes: NSF
+  realign_region: chr17:46590169-46757964
+  extract_regions: chr17:46590170-46707123 chr17:46372249-46489410
+  left_boundary: 46590171
+  right_boundary: 46707122
+
+AMY1A:
+  genes: AMY1A,AMY1B,AMY1C
+  realign_region: chr1:103650157-103669000
+  extract_regions: chr1:103650158-103668000 chr1:103684093-103701812 chr1:103744296-103762027
+  left_boundary: 103650159
+  right_boundary: 103667870
+  clip_3p_positions: [103667876]
+  noisy_region: [[103667000, 103667870]]
+  add_sites: ["103667950_T_A"]
+  use_supplementary: True
+CTAG1A:
+  genes: CTAG1A,CTAG1B
+  realign_region: chrX:154575974-154592000
+  extract_regions: chrX:154575975-154591500 chrX:154613097-154628455
+  left_boundary: 154575976
+  right_boundary: 154591300
+  clip_3p_positions: [154591326]
+  is_reverse: True
+  add_sites: ["154591380_A_G"]
+BOLA2:
+  genes: BOLA2,BOLA2B,SLX1A,SLX1B,SULT1A3,SULT1A4
+  realign_region: chr16:29448000-29470000
+  extract_regions: chr16:29449191-29472438 chr16:30188529-30211782
+  left_boundary: 29449200
+  right_boundary: 29470000
+  clip_5p_positions: [29449191]
+  add_sites: ["29449010_T_G"]
+  

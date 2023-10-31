@@ -2,31 +2,15 @@ import pytest
 import yaml
 import os
 from paraphase.genes.smn1_phaser import Smn1Phaser
+from .test_phaser import update_config
 
 
 class TestSmn1Phaser(object):
-
+    sample_id = "HG00733"
     cur_dir = os.path.dirname(__file__)
     sample_dir = os.path.join(cur_dir, "test_data")
-    sample_id = "HG00733"
-    data_dir = os.path.join(os.path.dirname(cur_dir), "paraphase", "data")
-    config_file = os.path.join(data_dir, "config.yaml")
-    with open(config_file, "r") as f:
-        config = yaml.safe_load(f)
-    config = config["smn1"]
-    config.setdefault("gene", "smn1")
-    realign_region = config["realign_region"]
-    nchr = realign_region.split(":")[0]
-    nchr_old = realign_region.replace(":", "_").replace("-", "_")
-    config.setdefault("nchr", nchr)
-    config.setdefault("nchr_old", nchr_old)
-    data_paths = config.get("data")
-    for data_entry in data_paths:
-        old_data_file = data_paths[data_entry]
-        new_data_file = os.path.join(data_dir, "smn1", old_data_file)
-        data_paths[data_entry] = new_data_file
-    data_paths.setdefault("reference", os.path.join(sample_dir, "ref.fa"))
     phaser = Smn1Phaser(sample_id, sample_dir)
+    config = update_config("smn1")
     phaser.set_parameter(config)
 
     def test_check_smn1_smn2_presence(self):

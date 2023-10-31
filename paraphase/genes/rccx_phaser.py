@@ -27,10 +27,10 @@ class RccxPhaser(Phaser):
         "het_sites_not_used_in_phasing",
         "homozygous_sites",
         "haplotype_details",
-        "variant_genotypes",
         "nonunique_supporting_reads",
         "read_details",
         "genome_depth",
+        "region_depth",
     )
     GeneCall = namedtuple(
         "GeneCall",
@@ -62,8 +62,11 @@ class RccxPhaser(Phaser):
                     "_".join([split_line[1], split_line[2], split_line[3]]),
                     split_line[-1],
                 )
+        self.white_list = config["white_list"]
         self.deletion1_size = config["deletion1_size"]
         self.deletion2_size = config["deletion2_size"]
+        self.deletion1_name = config["deletion1_name"]
+        self.deletion2_name = config["deletion2_name"]
         self.del2_3p_pos1 = config["del2_3p_pos1"]
         self.del2_3p_pos2 = config["del2_3p_pos2"]
         self.del2_5p_pos1 = config["del2_5p_pos1"]
@@ -89,104 +92,6 @@ class RccxPhaser(Phaser):
         ):
             return True
         return False
-
-    def output_variants_in_haplotypes(self, haps, reads, nonunique, two_cp_haps=[]):
-        """
-        Summarize all variants in each haplotype.
-        Output all variants and their genotypes.
-        Haplotypes are different length, so a range (boundary) is reported
-        """
-        het_sites = self.het_sites
-        haplotype_variants = {}
-        haplotype_info = {}
-        dvar = {}
-        var_no_phasing = copy.deepcopy(self.het_no_phasing)
-        for hap, hap_name in haps.items():
-            haplotype_variants.setdefault(hap_name, [])
-        # het sites not used in phasing
-        if reads != {}:
-            for var in var_no_phasing:
-                genotypes = []
-                var_reads = self.check_variants_in_haplotypes(var)
-                haps_with_variant = []
-                for hap, hap_name in haps.items():
-                    hap_reads = reads[hap]
-                    hap_reads_nonunique = [a for a in nonunique if hap in nonunique[a]]
-                    genotype = self.get_genotype_in_hap(
-                        var_reads, hap_reads, hap_reads_nonunique
-                    )
-                    genotypes.append(genotype)
-                    if genotype == "1":
-                        haps_with_variant.append(hap_name)
-                if haps_with_variant == []:
-                    self.het_no_phasing.remove(var)
-                else:
-                    for hap_name in haps_with_variant:
-                        haplotype_variants[hap_name].append(var)
-                    dvar.setdefault(var, genotypes)
-        # het sites and homo sites
-        for hap, hap_name in haps.items():
-            for i in range(len(hap)):
-                if hap[i] == "2":
-                    haplotype_variants[hap_name].append(het_sites[i])
-                elif (
-                    hap[i] == "3"
-                    and "32043718_del120" not in haplotype_variants[hap_name]
-                ):
-                    haplotype_variants[hap_name].append("32043718_del120")
-                elif (
-                    hap[i] == "4"
-                    and "32017431_del6367" not in haplotype_variants[hap_name]
-                ):
-                    haplotype_variants[hap_name].append("32017431_del6367")
-            if "32017431_del6367" in haplotype_variants[hap_name]:
-                pos1 = self.del1_3p_pos1
-                pos2 = self.del1_5p_pos2
-                for var in self.homo_sites:
-                    pos = int(var.split("_")[0])
-                    if pos < pos1 or pos > pos2:
-                        haplotype_variants[hap_name].append(var)
-            elif "32043718_del120" in haplotype_variants[hap_name]:
-                pos1 = self.del2_3p_pos1
-                pos2 = self.del2_5p_pos2
-                for var in self.homo_sites:
-                    pos = int(var.split("_")[0])
-                    if pos < pos1 or pos > pos2:
-                        haplotype_variants[hap_name].append(var)
-            else:
-                haplotype_variants[hap_name] += self.homo_sites
-
-            var_nstart, var_nend = self.get_hap_variant_ranges(hap)
-            var_tmp = haplotype_variants[hap_name]
-            var_tmp1 = [
-                a for a in var_tmp if var_nstart <= int(a.split("_")[0]) <= var_nend
-            ]
-            var_tmp1 = list(set(var_tmp1))
-            var_tmp2 = sorted(var_tmp1, key=lambda x: int(x.split("_")[0]))
-            haplotype_info.setdefault(
-                hap_name, {"variants": var_tmp2, "boundary": [var_nstart, var_nend]}
-            )
-
-        # summary per variant
-        all_haps = haps
-        nhap = len(all_haps)
-        for var in self.homo_sites:
-            dvar.setdefault(var, ["1"] * nhap)
-        for i, var in enumerate(het_sites):
-            dvar.setdefault(var, [])
-            for hap, hap_name in haps.items():
-                base_call = "."
-                if hap[i] == "2":
-                    base_call = "1"
-                elif hap[i] == "1":
-                    base_call = "0"
-                dvar[var].append(base_call)
-                if hap_name in two_cp_haps:
-                    dvar[var].append(base_call)
-
-        return haplotype_info, {
-            var: "|".join(dvar[var]) for var in dict(sorted(dvar.items()))
-        }
 
     @staticmethod
     def annotate_var(allele_var):
@@ -264,6 +169,7 @@ class RccxPhaser(Phaser):
         single_copies,
         starting_copies,
         ending_copies,
+        hcn,
     ):
         """Update phased alleles"""
         two_cp_haplotypes = []
@@ -341,6 +247,7 @@ class RccxPhaser(Phaser):
                     len(final_haps) in [3, 4]
                     and len(new_alleles) == 1
                     and len(new_alleles[0]) == 2
+                    and hcn == len(final_haps)
                 ):
                     remaining_hap = [
                         a for a in final_haps.values() if a not in new_alleles[0]
@@ -404,6 +311,14 @@ class RccxPhaser(Phaser):
         wrong_allele = False
         for allele in new_alleles:
             hp_set = set(allele)
+            # if both copies are starting or ending
+            if len(allele) == 2:
+                hp1, hp2 = allele
+                if (hp1 in starting_copies and hp2 in starting_copies) or (
+                    hp1 in ending_copies and hp2 in ending_copies
+                ):
+                    wrong_allele = True
+                    break
             for hp in hp_set:
                 if (
                     hp in ending_copies
@@ -454,7 +369,10 @@ class RccxPhaser(Phaser):
                 [self.del1_3p_pos1, self.del1_3p_pos2],
                 [self.del1_5p_pos1, self.del1_5p_pos2],
             ]
-        self.get_candidate_pos(regions_to_check=regions_to_check)
+        self.get_candidate_pos(
+            regions_to_check=regions_to_check,
+            white_list=self.white_list,
+        )
 
         # add last snp outside of repeat
         var_found = False
@@ -464,7 +382,7 @@ class RccxPhaser(Phaser):
                 var_found = True
                 break
         if var_found is False and self.candidate_pos != set():
-            self.candidate_pos.add("32046300_G_A")
+            self.candidate_pos.add(self.add_sites[1])
         # add last snp outside of repeat, 5prime
         var_found = False
         for var in self.candidate_pos:
@@ -473,7 +391,7 @@ class RccxPhaser(Phaser):
                 var_found = True
                 break
         if var_found is False and self.candidate_pos != set():
-            self.candidate_pos.add("32013265_A_T")
+            self.candidate_pos.add(self.add_sites[0])
 
         self.het_sites = sorted(list(self.candidate_pos))
         self.remove_noisy_sites()
@@ -481,7 +399,8 @@ class RccxPhaser(Phaser):
         raw_read_haps = self.get_haplotypes_from_reads(
             check_clip=True,
             partial_deletion_reads=self.del1_reads_partial,
-            kept_sites=["32046300_G_A", "32013265_A_T"],
+            kept_sites=self.add_sites,
+            multi_allelic_sites=self.white_list,
         )
 
         het_sites = self.het_sites
@@ -493,7 +412,7 @@ class RccxPhaser(Phaser):
                 self.del2_5p_pos2,
                 self.del2_reads_partial,
                 "3",
-                "32043718_del120",
+                self.deletion2_name,
             )
         if self.del1_reads_partial != set():
             raw_read_haps, het_sites = self.update_reads_for_deletions(
@@ -503,7 +422,7 @@ class RccxPhaser(Phaser):
                 self.del1_5p_pos2,
                 self.del1_reads_partial,
                 "4",
-                "32017431_del6367",
+                self.deletion1_name,
             )
         self.het_sites = het_sites
 
@@ -537,16 +456,24 @@ class RccxPhaser(Phaser):
         ]
 
         haplotypes = None
-        dvar = None
         if final_haps != {}:
-            haplotypes, dvar = self.output_variants_in_haplotypes(
+            haplotypes = self.output_variants_in_haplotypes(
                 final_haps,
                 uniquely_supporting_reads,
                 nonuniquely_supporting_reads,
+                known_del={
+                    "4": self.deletion1_name,
+                    "3": self.deletion2_name,
+                },
             )
 
         # phase haplotypes into alleles
-        (alleles, hap_links, _, _,) = self.phase_alleles(
+        (
+            alleles,
+            hap_links,
+            _,
+            _,
+        ) = self.phase_alleles(
             uniquely_supporting_reads,
             nonuniquely_supporting_reads,
             raw_read_haps,
@@ -561,6 +488,7 @@ class RccxPhaser(Phaser):
             single_copies,
             starting_copies,
             ending_copies,
+            hcn,
         )
 
         # annotate haplotypes by checking the diff sites
@@ -610,8 +538,8 @@ class RccxPhaser(Phaser):
             self.het_no_phasing,
             self.homo_sites,
             haplotypes,
-            dvar,
             nonuniquely_supporting_reads,
             raw_read_haps,
             self.mdepth,
+            self.region_avg_depth._asdict(),
         )

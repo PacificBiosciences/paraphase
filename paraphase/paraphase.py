@@ -13,6 +13,7 @@ import shutil
 import pysam
 import subprocess
 import traceback
+import random
 import multiprocessing as mp
 from argparse import RawTextHelpFormatter
 from functools import partial
@@ -35,14 +36,22 @@ class Paraphase:
         self.samtools = None
         self.minimap2 = None
 
-    def parse_configs(self, region_config=None):
+    @staticmethod
+    def get_version():
+        with open(os.path.join(os.path.dirname(__file__), "__init__.py")) as f:
+            for line in f:
+                if "version" in line:
+                    return line.split('"')[1]
+        return None
+
+    def parse_configs(self, region_config=None, genome_build="38"):
         """
         Parse config files
         region_config: parameters for each region of interest
         gene_config: specifies some additional analyses triggered with some genes
         """
-        data_path = os.path.join(os.path.dirname(__file__), "data")
-        gene_config = os.path.join(data_path, "genes.yaml")
+        data_path = os.path.join(os.path.dirname(__file__), "data", genome_build)
+        gene_config = os.path.join(os.path.dirname(data_path), "genes.yaml")
         if region_config is None:
             region_config = os.path.join(data_path, "config.yaml")
         self.region_config_parsed = None
@@ -52,9 +61,13 @@ class Paraphase:
         with open(gene_config, "r") as f:
             gene_config_parsed = yaml.safe_load(f)
         self.genes_to_call = gene_config_parsed.get("genes_to_call")
-        self.genome_depth_genes = gene_config_parsed.get("genome_depth_genes")
+        self.no_genome_depth_genes = gene_config_parsed.get("no_genome_depth_genes")
         self.no_vcf_genes = gene_config_parsed.get("no_vcf_genes")
+        ## need to update check_sex_genes based on chromosome
         self.check_sex_genes = gene_config_parsed.get("check_sex_genes")
+        self.two_reference_regions_genes = gene_config_parsed.get(
+            "two_reference_regions_genes"
+        )
 
     def process_gene(
         self,
@@ -67,6 +80,7 @@ class Paraphase:
         sample_sex,
         novcf,
         prog_cmd,
+        gene1only=False,
     ):
         """Workflow for each region"""
         phaser_calls = {}
@@ -105,8 +119,14 @@ class Paraphase:
                     )
                 elif gene == "f8":
                     phaser = genes.F8Phaser(sample_id, tmpdir, gdepth, bam, sample_sex)
+                elif gene == "opn1lw":
+                    phaser = genes.Opn1lwPhaser(
+                        sample_id, tmpdir, gdepth, bam, sample_sex
+                    )
+                elif gene == "hba":
+                    phaser = genes.HbaPhaser(sample_id, tmpdir, gdepth, bam, sample_sex)
                 else:
-                    phaser = Phaser(sample_id, tmpdir)
+                    phaser = Phaser(sample_id, tmpdir, gdepth)
 
                 config = configs[gene]
                 logging.info(
@@ -132,11 +152,19 @@ class Paraphase:
                 bam_tagger = BamTagger(sample_id, tmpdir, config, phaser_call)
                 bam_tagger.write_bam(random_assign=True)
 
+                # make a tagged bamlet for the second gene region
+                if gene in self.two_reference_regions_genes:
+                    logging.info(
+                        f"Realigning to gene2 region for {gene} for sample {sample_id} at {datetime.datetime.now()}..."
+                    )
+                    bam_realigner.write_realign_bam(gene2=True)
+                    bam_tagger.write_bam(random_assign=True, gene2=True)
+
                 if novcf is False and gene not in self.no_vcf_genes:
                     logging.info(
                         f"Generating VCFs for {gene} for sample {sample_id} at {datetime.datetime.now()}..."
                     )
-                    if gene == "smn1":
+                    if gene in self.two_reference_regions_genes and gene1only is False:
                         vcf_generater = TwoGeneVcfGenerater(
                             sample_id,
                             outdir,
@@ -174,6 +202,8 @@ class Paraphase:
         num_threads=1,
         dcov={},
         novcf=False,
+        genome_build="38",
+        gene1only=False,
     ):
         """Main workflow"""
         for bam in bamlist:
@@ -186,25 +216,43 @@ class Paraphase:
                 gdepth = None
                 sample_sex = None
                 query_genes = list(configs.keys())
-                if set(query_genes).intersection(set(self.genome_depth_genes)) != set():
-                    logging.info(
-                        f"Getting genome depth for sample {sample_id} at {datetime.datetime.now()}..."
+
+                logging.info(
+                    f"Getting genome depth for sample {sample_id} at {datetime.datetime.now()}..."
+                )
+                if sample_id in dcov:
+                    gdepth = dcov[sample_id]
+                if (
+                    gdepth is None
+                    and set(query_genes) - set(self.no_genome_depth_genes) != set()
+                ):
+                    depth = GenomeDepth(
+                        bam,
+                        os.path.join(
+                            os.path.dirname(__file__),
+                            "data",
+                            genome_build,
+                            "genome_region.bed",
+                        ),
                     )
-                    if sample_id in dcov:
-                        gdepth = dcov[sample_id]
-                    if gdepth is None:
-                        depth = GenomeDepth(
-                            bam,
-                            os.path.join(
-                                os.path.dirname(__file__), "data", "genome_region.bed"
-                            ),
+                    gdepth, gmad = depth.call()
+                    if gdepth < 10 or gmad > 0.25:
+                        logging.warning(
+                            f"For sample {sample_id}, due to low or highly variable genome coverage, genome coverage is not used for depth correction."
                         )
-                        gdepth, gmad = depth.call()
-                        if gdepth < 10 or gmad > 0.25:
-                            logging.warning(
-                                f"For sample {sample_id}, due to low or highly variable genome coverage, genome coverage is not used for depth correction."
-                            )
-                            gdepth = None
+                        gdepth = None
+                if set(query_genes).intersection(set(self.check_sex_genes)) != set():
+                    logging.info(f"Checking sample sex at {datetime.datetime.now()}...")
+                    depth = GenomeDepth(
+                        bam,
+                        os.path.join(
+                            os.path.dirname(__file__),
+                            "data",
+                            genome_build,
+                            "sex_region.bed",
+                        ),
+                    )
+                    sample_sex = depth.check_sex()
 
                 if num_threads == 1:
                     sample_out = self.process_gene(
@@ -217,6 +265,7 @@ class Paraphase:
                         sample_sex,
                         novcf,
                         prog_cmd,
+                        gene1only,
                     )
                 else:
                     process_gene_partial = partial(
@@ -229,6 +278,7 @@ class Paraphase:
                         sample_sex=sample_sex,
                         novcf=novcf,
                         prog_cmd=prog_cmd,
+                        gene1only=gene1only,
                     )
                     gene_groups = [
                         query_genes[i::num_threads] for i in range(num_threads)
@@ -258,8 +308,7 @@ class Paraphase:
                 )
                 traceback.print_exc()
 
-    @staticmethod
-    def merge_bams(query_genes, outdir, tmpdir, sample_id):
+    def merge_bams(self, query_genes, outdir, tmpdir, sample_id):
         """Merge realigned tagged bams for each gene into one bam"""
         bams = []
         for gene in query_genes:
@@ -268,6 +317,16 @@ class Paraphase:
                 gene_bam = os.path.join(tmpdir, f"{sample_id}_{gene}_realigned.bam")
             if os.path.exists(gene_bam):
                 bams.append(gene_bam)
+            if gene in self.two_reference_regions_genes:
+                gene2_bam = os.path.join(
+                    tmpdir, f"{sample_id}_{gene}_gene2_realigned_tagged.bam"
+                )
+                if os.path.exists(gene2_bam) is False:
+                    gene2_bam = os.path.join(
+                        tmpdir, f"{sample_id}_{gene}_gene2_realigned.bam"
+                    )
+                if os.path.exists(gene2_bam):
+                    bams.append(gene2_bam)
         bam_list_file = os.path.join(tmpdir, f"{sample_id}_bam_list.txt")
         with open(bam_list_file, "w") as fout:
             for bam in bams:
@@ -298,7 +357,7 @@ class Paraphase:
         else:
             self.minimap2 = minimap2_check2[0]
 
-    def update_config(self, gene_list, ref_dir, genome):
+    def update_config(self, gene_list, ref_dir, genome, genome_build):
         """Get config info for each gene"""
         genome_ref = pysam.FastaFile(genome)
         data_path = os.path.join(os.path.dirname(__file__), "data")
@@ -314,15 +373,46 @@ class Paraphase:
             # update paths
             configs[gene].setdefault("data", {})
             data_paths = configs[gene]["data"]
+            genome_build_dir = genome_build
+            if genome_build == "37":
+                genome_build_dir = "19"
             for data_entry in data_paths:
                 old_data_file = data_paths[data_entry]
-                new_data_file = os.path.join(data_path, gene, old_data_file)
+                new_data_file = os.path.join(
+                    data_path, genome_build_dir, gene, old_data_file
+                )
                 data_paths[data_entry] = new_data_file
             # add reference fasta
             ref_file = os.path.join(ref_dir, f"{gene}_ref.fa")
             data_paths.setdefault("reference", ref_file)
             realign_region = configs[gene].get("realign_region")
+            if genome_build == "37":
+                realign_region = realign_region.replace("chr", "")
+                configs[gene]["realign_region"] = realign_region
+                extract_regions = configs[gene].get("extract_regions")
+                configs[gene]["extract_regions"] = extract_regions.replace("chr", "")
             self.make_ref_fasta(ref_file, realign_region, genome)
+            # if gene2 is specified
+            gene2_region = configs[gene].get("gene2_region")
+            if gene2_region is not None:
+                if genome_build == "37":
+                    gene2_region = gene2_region.replace("chr", "")
+                    configs[gene]["gene2_region"] = gene2_region
+                nchr_gene2 = gene2_region.split(":")[0]
+                configs[gene].setdefault("nchr_gene2", nchr_gene2)
+                nchr_length_gene2 = genome_ref.get_reference_length(nchr_gene2)
+                configs[gene].setdefault("nchr_length_gene2", nchr_length_gene2)
+                gene2_ref_file = os.path.join(ref_dir, f"{gene}_gene2_ref.fa")
+                self.make_ref_fasta(gene2_ref_file, gene2_region, genome)
+                data_paths.setdefault("reference_gene2", gene2_ref_file)
+                position_match_file = os.path.join(
+                    ref_dir, f"{gene}_position_match.txt"
+                )
+                self.make_position_match_file(
+                    position_match_file, gene, realign_region, ref_dir
+                )
+                data_paths.setdefault("gene_position_match", position_match_file)
+
             # check files exist
             for data_file in list(data_paths.values()):
                 if os.path.exists(data_file) is False:
@@ -350,6 +440,56 @@ class Paraphase:
         )
         result.check_returncode()
         pysam.faidx(ref_file)
+
+    def make_position_match_file(
+        self, position_match_file, gene, realign_region, tmpdir
+    ):
+        """
+        For variant calling against a second gene, align both sequences
+        and extract matching positions
+        """
+        tmp_bam = os.path.join(tmpdir, f"{gene}_aln.bam")
+        ref_file = os.path.join(tmpdir, f"{gene}_ref.fa")
+        gene2_ref_file = os.path.join(tmpdir, f"{gene}_gene2_ref.fa")
+        minimap_cmd = f"{self.minimap2} -a {ref_file} {gene2_ref_file} | {self.samtools} view -bS | {self.samtools} sort > {tmp_bam}"
+        result = subprocess.run(minimap_cmd, capture_output=True, text=True, shell=True)
+        result.check_returncode()
+        pysam.index(tmp_bam)
+        tmp_bamh = pysam.AlignmentFile(tmp_bam, "rb")
+        ref_name = realign_region.replace(":", "_").replace("-", "_")
+        ref_name_split = ref_name.split("_")
+        ref_name_offset = int(ref_name_split[1])
+        with open(position_match_file, "w") as fout:
+            for pileupcolumn in tmp_bamh.pileup(ref_name):
+                ref_pos = pileupcolumn.pos
+                for read in pileupcolumn.pileups:
+                    if (
+                        not read.is_del
+                        and not read.is_refskip
+                        and read.alignment.is_supplementary is False
+                        and read.alignment.is_secondary is False
+                    ):
+                        read_name = read.alignment.query_name
+                        read_name_split = read_name.split("_")
+                        read_name_start = int(read_name_split[1])
+                        read_name_end = int(read_name_split[2])
+                        read_pos = read.query_position
+                        if read.alignment.is_reverse is False:
+                            fout.write(
+                                str(ref_pos + ref_name_offset)
+                                + "\t"
+                                + str(read_pos + read_name_start)
+                                + "\n"
+                            )
+                        else:
+                            fout.write(
+                                str(ref_pos + ref_name_offset)
+                                + "\t"
+                                + str(read_name_end - read_pos)
+                                + "\n"
+                            )
+                        break
+        tmp_bamh.close()
 
     def get_gene_list(self, gene_input):
         """Get a list of genes to analyze"""
@@ -410,7 +550,7 @@ class Paraphase:
             "-c",
             "--config",
             help="Optional path to a user-defined config file listing the full set of regions to analyze.\n"
-            + "By default Paraphase uses the config file in paraphase/data/config.yaml",
+            + "By default Paraphase uses the config file in paraphase/data/38/config.yaml",
             required=False,
         )
         parser.add_argument(
@@ -428,8 +568,24 @@ class Paraphase:
             default=1,
         )
         parser.add_argument(
+            "--genome",
+            help="Optionally specify which genome reference build the input BAM files are aligned against.\n"
+            + "Accepted values are 19, 37 and 38. Default is 38.\n"
+            + "Note that fewer genes are currently supported in 19/37. See paraphase/data/19/config.yaml",
+            required=False,
+            default="38",
+        )
+        parser.add_argument(
             "--novcf",
             help="Optional. If specified, paraphase will not write vcfs",
+            required=False,
+            action="store_true",
+        )
+        parser.add_argument(
+            "--gene1only",
+            help="Optional. If specified, variant calls will be made against the main gene only.\n"
+            + "By default, for SMN1, PMS2, STRC, NCF1 and IKBKG, haplotypes are assigned to gene or\n"
+            + "paralog/pseudogene, and variants are called against gene or paralog/pseudogene, respectively.\n",
             required=False,
             action="store_true",
         )
@@ -455,13 +611,18 @@ class Paraphase:
         outdir = args.out
         os.makedirs(outdir, exist_ok=True)
         tmpdir = os.path.join(
-            outdir, f"tmp_{datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S-%f')}"
+            outdir,
+            f"tmp_{datetime.datetime.now().strftime('%Y-%m-%d-%H-%M-%S-%f')}_{str(random.random())}",
         )
         os.makedirs(tmpdir, exist_ok=True)
 
         try:
             prog_cmd = " ".join(sys.argv[1:])
-            self.parse_configs(region_config=args.config)
+            # for data files, genome build 37 uses the same ones as genome build 19
+            genome_build_dir = args.genome
+            if genome_build_dir == "37":
+                genome_build_dir = "19"
+            self.parse_configs(region_config=args.config, genome_build=genome_build_dir)
             self.get_samtools_minimap2_path(args)
             gene_list = self.get_gene_list(args.gene)
             if gene_list == []:
@@ -469,7 +630,7 @@ class Paraphase:
                 raise Exception(
                     f"Please provide valid gene name(s). Accepted genes are {all_genes_joined}."
                 )
-            configs = self.update_config(gene_list, tmpdir, args.reference)
+            configs = self.update_config(gene_list, tmpdir, args.reference, args.genome)
 
             # parse depth file
             dcov = {}
@@ -494,6 +655,8 @@ class Paraphase:
                         num_threads,
                         dcov,
                         args.novcf,
+                        genome_build_dir,
+                        args.gene1only,
                     )
                 else:
                     logging.warning(f"{args.bam} bam or bai file doesn't exist")
@@ -515,6 +678,8 @@ class Paraphase:
                     prog_cmd=prog_cmd,
                     dcov=dcov,
                     novcf=args.novcf,
+                    genome_build=genome_build_dir,
+                    gene1only=args.gene1only,
                 )
                 bam_groups = [bamlist[i::num_threads] for i in range(num_threads)]
                 pool = mp.Pool(num_threads)

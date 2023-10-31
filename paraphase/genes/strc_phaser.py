@@ -21,10 +21,10 @@ class StrcPhaser(Phaser):
         "het_sites_not_used_in_phasing",
         "homozygous_sites",
         "haplotype_details",
-        "variant_genotypes",
         "nonunique_supporting_reads",
         "read_details",
         "genome_depth",
+        "region_depth",
     )
     GeneCall = namedtuple(
         "GeneCall",
@@ -42,6 +42,7 @@ class StrcPhaser(Phaser):
     def set_parameter(self, config):
         super().set_parameter(config)
         self.deletion1_size = config["deletion1_size"]
+        self.deletion1_name = config["deletion1_name"]
         self.del1_3p_pos1 = config["del1_3p_pos1"]
         self.del1_3p_pos2 = config["del1_3p_pos2"]
         self.del1_5p_pos1 = config["del1_5p_pos1"]
@@ -52,7 +53,9 @@ class StrcPhaser(Phaser):
         if self.check_coverage_before_analysis() is False:
             return self.GeneCall()
         genome_bamh = pysam.AlignmentFile(self.genome_bam, "rb")
-        intergenic_depth = self.get_regional_depth(genome_bamh, self.depth_region)[0]
+        intergenic_depth = self.get_regional_depth(genome_bamh, self.depth_region)[
+            0
+        ].median
         genome_bamh.close()
         self.get_homopolymer()
         self.del1_reads, self.del1_reads_partial = self.get_long_del_reads(
@@ -66,7 +69,7 @@ class StrcPhaser(Phaser):
         self.het_sites = sorted(list(self.candidate_pos))
         self.remove_noisy_sites()
 
-        raw_read_haps = self.get_haplotypes_from_reads(add_sites=["43602487_C_G"])
+        raw_read_haps = self.get_haplotypes_from_reads(add_sites=self.add_sites)
         het_sites = self.het_sites
         if self.del1_reads_partial != set():
             raw_read_haps, het_sites = self.update_reads_for_deletions(
@@ -76,7 +79,7 @@ class StrcPhaser(Phaser):
                 self.del1_5p_pos2,
                 self.del1_reads_partial,
                 "3",
-                "43602630_del314",
+                self.deletion1_name,
             )
         self.het_sites = het_sites
         (
@@ -105,10 +108,11 @@ class StrcPhaser(Phaser):
         ass_haps = tmp
 
         if self.het_sites != []:
-            haplotypes, dvar = self.output_variants_in_haplotypes(
+            haplotypes = self.output_variants_in_haplotypes(
                 ass_haps,
                 uniquely_supporting_reads,
                 nonuniquely_supporting_reads,
+                known_del={"3": self.deletion1_name},
             )
 
             if counter_gene == 1 or counter_pseudo == 1:
@@ -147,7 +151,7 @@ class StrcPhaser(Phaser):
         else:
             total_cn = 2
             # both copies are pseudogene
-            if self.del1_reads_partial != set() or "43604720_G_A" in self.homo_sites:
+            if self.del1_reads_partial != set():
                 counter_gene = 0
             else:
                 counter_gene = 2
@@ -167,8 +171,8 @@ class StrcPhaser(Phaser):
             self.het_no_phasing,
             self.homo_sites,
             haplotypes,
-            dvar,
             nonuniquely_supporting_reads,
             raw_read_haps,
             self.mdepth,
+            self.region_avg_depth._asdict(),
         )

@@ -27,18 +27,20 @@ class Smn1Phaser(Phaser):
         "het_sites_not_used_in_phasing",
         "homozygous_sites",
         "haplotype_details",
-        "variant_genotypes",
         "nonunique_supporting_reads",
         "read_details",
         "final_haplotypes",
         "genome_depth",
+        "region_depth",
     )
     GeneCall = namedtuple(
         "GeneCall",
         fields,
         defaults=(None,) * len(fields),
     )
-    HaplotypeInfo = namedtuple("HaplotypeInfo", "variants boundary haplogroup")
+    HaplotypeInfo = namedtuple(
+        "HaplotypeInfo", "variants boundary boundary_gene2 haplogroup is_truncated"
+    )
 
     def __init__(
         self, sample_id, outdir, genome_depth=None, genome_bam=None, sample_sex=None
@@ -59,6 +61,8 @@ class Smn1Phaser(Phaser):
         super().set_parameter(config)
         self.deletion1_size = config["deletion1_size"]
         self.deletion2_size = config["deletion2_size"]
+        self.deletion1_name = config["deletion1_name"]
+        self.deletion2_name = config["deletion2_name"]
         self.del2_3p_pos1 = config["del2_3p_pos1"]
         self.del2_3p_pos2 = config["del2_3p_pos2"]
         self.del2_5p_pos1 = config["del2_5p_pos1"]
@@ -127,7 +131,6 @@ class Smn1Phaser(Phaser):
         het_sites = self.het_sites
         haplotype_info = {}
         haplotype_variants = {}
-        dvar = {}
         var_no_phasing = copy.deepcopy(self.het_no_phasing)
         for smn_haps in [smn1_haps, smn2_haps, smn2_del_haps]:
             for hap, hap_name in smn_haps.items():
@@ -157,7 +160,6 @@ class Smn1Phaser(Phaser):
                 else:
                     for hap_name in haps_with_variant:
                         haplotype_variants[hap_name].append(var)
-                    dvar.setdefault(var, genotypes)
         # het sites and homo sites
         for hap, hap_name in smn1_haps.items():
             for i in range(len(hap)):
@@ -165,10 +167,10 @@ class Smn1Phaser(Phaser):
                     haplotype_variants[hap_name].append(het_sites[i])
                 elif (
                     hap[i] == "4"
-                    and "70917700_smn1_del" not in haplotype_variants[hap_name]
+                    and self.deletion1_name not in haplotype_variants[hap_name]
                 ):
-                    haplotype_variants[hap_name].append("70917700_smn1_del")
-            if "70917700_smn1_del" in haplotype_variants[hap_name]:
+                    haplotype_variants[hap_name].append(self.deletion1_name)
+            if self.deletion1_name in haplotype_variants[hap_name]:
                 pos1 = self.del1_3p_pos1
                 pos2 = self.del1_5p_pos2
                 for var in self.homo_sites:
@@ -212,9 +214,9 @@ class Smn1Phaser(Phaser):
                     haplotype_variants[hap_name].append(het_sites[i])
                 elif (
                     hap[i] == "3"
-                    and "70948286_smn2_del" not in haplotype_variants[hap_name]
+                    and self.deletion2_name not in haplotype_variants[hap_name]
                 ):
-                    haplotype_variants[hap_name].append("70948286_smn2_del")
+                    haplotype_variants[hap_name].append(self.deletion2_name)
             pos1 = self.del2_3p_pos1
             pos2 = self.del2_5p_pos2
             for var in self.homo_sites:
@@ -250,33 +252,20 @@ class Smn1Phaser(Phaser):
                 self.HaplotypeInfo(
                     haplotype_variants[hap_name][:-1],
                     haplotype_variants[hap_name][-1],
+                    [
+                        self.get_range_in_other_gene(
+                            haplotype_variants[hap_name][-1][0]
+                        ),
+                        self.get_range_in_other_gene(
+                            haplotype_variants[hap_name][-1][1]
+                        ),
+                    ],
                     haplogroup,
+                    False,
                 )._asdict(),
             )
 
-        # summarize variants
-        all_haps = (
-            list(smn1_haps.keys()) + list(smn2_haps.keys()) + list(smn2_del_haps.keys())
-        )
-        nhap = len(all_haps) + len(two_cp_haps)
-        for var in self.homo_sites:
-            dvar.setdefault(var, ["1"] * nhap)
-        for i, var in enumerate(het_sites):
-            dvar.setdefault(var, [])
-            for smn_haps in [smn1_haps, smn2_haps, smn2_del_haps]:
-                for hap, hap_name in smn_haps.items():
-                    base_call = "."
-                    if hap[i] == "2":
-                        base_call = "1"
-                    elif hap[i] == "1":
-                        base_call = "0"
-                    dvar[var].append(base_call)
-                    if hap_name in two_cp_haps:
-                        dvar[var].append(base_call)
-
-        return haplotype_info, {
-            var: "|".join(dvar[var]) for var in dict(sorted(dvar.items()))
-        }
+        return haplotype_info
 
     def assign_haps_to_gene(self, ass_haps):
         """Assign assembled haplotypes to smn1/smn2/smn2del"""
@@ -490,7 +479,7 @@ class Smn1Phaser(Phaser):
         else:
             best_match = None
         if best_match is not None and best_match == "S1-9":
-            if "70917700_smn1_del" in query_hap:
+            if self.deletion1_name in query_hap:
                 best_match = "S1-9d"
         return best_match, candidates1, candidates2
 
@@ -536,7 +525,10 @@ class Smn1Phaser(Phaser):
 
         self.het_sites = sorted(list(self.candidate_pos))
         self.remove_noisy_sites()
-        raw_read_haps = self.get_haplotypes_from_reads(add_sites=["70951946_C_T"])
+        homo_sites_to_add = self.add_homo_sites()
+        raw_read_haps = self.get_haplotypes_from_reads(
+            kept_sites=homo_sites_to_add, add_sites=self.add_sites
+        )
 
         # update reads for those overlapping known deletions
         het_sites = self.het_sites
@@ -548,7 +540,7 @@ class Smn1Phaser(Phaser):
                 self.del2_5p_pos2,
                 self.smn2_del_reads_partial,
                 "3",
-                "70948286_smn2_del",
+                self.deletion2_name,
             )
         if len(self.smn1_del_reads_partial) > 1:
             raw_read_haps, het_sites = self.update_reads_for_deletions(
@@ -558,7 +550,7 @@ class Smn1Phaser(Phaser):
                 self.del1_5p_pos2,
                 self.smn1_del_reads_partial,
                 "4",
-                "70917700_smn1_del",
+                self.deletion1_name,
             )
         self.het_sites = het_sites
 
@@ -613,9 +605,8 @@ class Smn1Phaser(Phaser):
 
         # summarize variants
         haplotypes = None
-        dvar = None
         if self.het_sites != []:
-            haplotypes, dvar = self.output_variants_in_haplotypes(
+            haplotypes = self.output_variants_in_haplotypes(
                 smn1_haps,
                 smn2_haps,
                 smn2_del_haps,
@@ -644,9 +635,9 @@ class Smn1Phaser(Phaser):
             self.het_no_phasing,
             self.homo_sites,
             haplotypes,
-            dvar,
             nonuniquely_supporting_reads,
             raw_read_haps,
             {**smn1_haps, **smn2_haps, **smn2_del_haps},
             self.mdepth,
+            self.region_avg_depth._asdict(),
         )

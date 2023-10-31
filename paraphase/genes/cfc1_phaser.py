@@ -18,8 +18,10 @@ class Cfc1Phaser(Phaser):
         self.get_candidate_pos()
         self.het_sites = sorted(list(self.candidate_pos))
         self.remove_noisy_sites()
-
-        raw_read_haps = self.get_haplotypes_from_reads(add_sites=["130593061_A_G"])
+        homo_sites_to_add = self.add_homo_sites()
+        raw_read_haps = self.get_haplotypes_from_reads(
+            kept_sites=homo_sites_to_add, add_sites=self.add_sites
+        )
 
         (
             ass_haps,
@@ -37,9 +39,8 @@ class Cfc1Phaser(Phaser):
         ass_haps = tmp
 
         haplotypes = None
-        dvar = None
         if self.het_sites != []:
-            haplotypes, dvar = self.output_variants_in_haplotypes(
+            haplotypes = self.output_variants_in_haplotypes(
                 ass_haps,
                 uniquely_supporting_reads,
                 nonuniquely_supporting_reads,
@@ -81,8 +82,9 @@ class Cfc1Phaser(Phaser):
             self.het_no_phasing,
             self.homo_sites,
             haplotypes,
-            dvar,
             nonuniquely_supporting_reads,
             raw_read_haps,
             self.mdepth,
+            self.region_avg_depth._asdict(),
+            self.sample_sex,
         )

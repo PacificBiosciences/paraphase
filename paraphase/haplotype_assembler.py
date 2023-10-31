@@ -165,7 +165,9 @@ class VariantGraph:
             if lhaps not in main_haps_candidates:
                 main_haps_candidates.append(lhaps)
         main_haps_candidates = sorted(
-            main_haps_candidates, key=lambda x: len(x), reverse=True
+            main_haps_candidates,
+            key=lambda x: (len(x), 0 - "".join(x).count("x")),
+            reverse=True,
         )
         main_haps = main_haps_candidates[0]
         highest_cn = len(main_haps)
@@ -806,6 +808,21 @@ class VariantGraph:
             for n in (node1, node2):
                 if n not in self.nodes:
                     self.nodes.append(n)
+
+        # check if entire position is missing
+        # if so, relax read support cutoff. one read is okay
+        for j in range(self.nvar):
+            this_position_nodes = [a for a in self.nodes if a.split("-")[1] == str(j)]
+            if this_position_nodes == []:
+                for i in range(5):
+                    node = f"{i}-{j}"
+                    hap = "x" * j + str(i) + "x" * (self.nvar - j - 1)
+                    read_support = self.match_reads_and_haplotypes(
+                        self.reads_original, [hap]
+                    )
+                    if hap in read_support.unique:
+                        self.nodes.append(node)
+
         self.get_positions()
         if debug:
             pprint(self.edge_per_position)

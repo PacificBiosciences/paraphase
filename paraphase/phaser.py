@@ -7,6 +7,7 @@ import os
 import copy
 import numpy as np
 from collections import Counter
+from itertools import product
 import re
 import logging
 from scipy.stats import poisson
@@ -32,16 +33,18 @@ class Phaser:
         "het_sites_not_used_in_phasing",
         "homozygous_sites",
         "haplotype_details",
-        "variant_genotypes",
         "nonunique_supporting_reads",
         "read_details",
         "genome_depth",
+        "region_depth",
+        "sample_sex",
     ]
     GeneCall = namedtuple(
         "GeneCall",
         fields,
         defaults=(None,) * len(fields),
     )
+    CoverageSummary = namedtuple("CoverageSummary", "median percentile80")
     MEAN_BASE_QUAL = 25
 
     def __init__(
@@ -74,26 +77,38 @@ class Phaser:
         self.nchr = config["nchr"]
         self.ref = config["data"]["reference"]
         self._refh = pysam.FastaFile(self.ref)
-        self.left_boundary = config.get("left_boundary")
-        self.right_boundary = config.get("right_boundary")
         self.pivot_site = None
         if "pivot_site" in config:
             self.pivot_site = config["pivot_site"]
         self.nchr_old = config["nchr_old"]
         self.offset = int(self.nchr_old.split("_")[1]) - 1
+
+        # define region boundary
+        self.left_boundary = config.get("left_boundary")
+        self.right_boundary = config.get("right_boundary")
         if self.left_boundary is None:
             self.left_boundary = int(self.nchr_old.split("_")[1])
         if self.right_boundary is None:
             self.right_boundary = int(self.nchr_old.split("_")[2])
+        self.gene_start = config.get("gene_start")
+        if self.gene_start is None:
+            self.gene_start = self.left_boundary
+        self.gene_end = config.get("gene_end")
+        if self.gene_end is None:
+            self.gene_end = self.right_boundary
+
         self.use_supplementary = False
-        if "use_supplementary" in config:
-            self.use_supplementary = config["use_supplementary"]
+        if "use_supplementary" in config or "is_tandem" in config:
+            self.use_supplementary = True
         self.to_phase = False
-        if "to_phase" in config:
-            self.to_phase = config["to_phase"]
+        if "to_phase" in config or "is_tandem" in config:
+            self.to_phase = True
         self.is_reverse = False
         if "is_reverse" in config:
             self.is_reverse = config["is_reverse"]
+        self.expect_cn2 = False
+        if "expect_cn2" in config:
+            self.expect_cn2 = True
         self.clip_3p_positions = []
         self.clip_5p_positions = []
         if "clip_3p_positions" in config:
@@ -103,6 +118,35 @@ class Phaser:
         self.noisy_region = []
         if "noisy_region" in config:
             self.noisy_region = config["noisy_region"]
+        self.add_sites = []
+        if "add_sites" in config:
+            self.add_sites = config["add_sites"]
+        self.match = {}
+        self.gene2_region = config.get("gene2_region")
+        if self.gene2_region is not None:
+            self.position_match = config["data"].get("gene_position_match")
+            if self.position_match is not None:
+                with open(self.position_match) as f:
+                    for line in f:
+                        at = line.split()
+                        self.match.setdefault(int(at[0]), int(at[1]))
+
+        self.del1_reads = set()
+        self.del1_reads_partial = set()
+        self.del2_reads = set()
+        self.del2_reads_partial = set()
+        self.deletion1_size = None
+        self.deletion2_size = None
+        self.deletion1_name = None
+        self.deletion2_name = None
+        self.del2_3p_pos1 = None
+        self.del2_3p_pos2 = None
+        self.del2_5p_pos1 = None
+        self.del2_5p_pos2 = None
+        self.del1_3p_pos1 = None
+        self.del1_3p_pos2 = None
+        self.del1_5p_pos1 = None
+        self.del1_5p_pos2 = None
 
     def get_regional_depth(self, bam_handle, query_region, ninterval=100):
         """Get depth of the query regions"""
@@ -115,45 +159,192 @@ class Phaser:
                     self.nchr, pos - 1, pos, read_callback="all"
                 )
                 depth.append(site_depth)
-            region_depth.append(np.median(depth))
+            region_depth.append(
+                self.CoverageSummary(np.median(depth), np.nanpercentile(depth, 80))
+            )
         return region_depth
 
     def check_coverage_before_analysis(self):
         """check low coverage regions for enrichment data"""
-        region_depth = self.get_regional_depth(
-            self._bamh, [[self.left_boundary, self.right_boundary]]
+        check_region_start = self.left_boundary
+        check_region_end = self.right_boundary
+        if self.clip_5p_positions != []:
+            check_region_start = max(self.left_boundary, max(self.clip_5p_positions))
+        if self.clip_3p_positions != []:
+            check_region_end = min(self.right_boundary, min(self.clip_3p_positions))
+        self.region_avg_depth = self.get_regional_depth(
+            self._bamh, [[check_region_start, check_region_end]]
         )[0]
-        if np.isnan(region_depth) or region_depth < 10:
+        if np.isnan(self.region_avg_depth.median) or (
+            self.region_avg_depth.median < 10
+            and self.region_avg_depth.percentile80 < 50
+        ):
             logging.warning(
                 "This region does not appear to have coverage. Will not attempt to phase haplotypes."
             )
             return False
         return True
 
+    def get_range_in_other_gene(self, pos, search_range=200):
+        """
+        Find the correponding coordinates in the other gene
+        """
+        if pos in self.match:
+            return self.match[pos]
+        for i in range(search_range):
+            new_pos = pos + i
+            if new_pos in self.match:
+                return self.match[new_pos]
+        return None
+
     def get_homopolymer(self):
-        """Get the homopolymer sites"""
+        """
+        Get the homopolymer and dinucleotide sites
+        Variants for phasing:
+        SNVs, not matching excluded bases and sites labeled as 1
+        indels, not in excluded sites
+        """
         seq = self._refh.fetch(self.nchr_old).upper()
         nstart = self.offset
-        exclude = {}
+        drepeat = {}
+        # start with 5mer
         for i in range(len(seq) - 5):
             for nu in ["A", "C", "G", "T"]:
                 if seq[i : i + 5].count(nu) >= 5:
-                    for pos in range(i + nstart, i + 7 + nstart):
-                        exclude.setdefault(pos, [])
-                    # position before homopolymer
-                    if seq[i - 1] != nu:
-                        exclude[i + nstart].append(nu)
-                        exclude[i + 1 + nstart] = ["A", "C", "G", "T"]
-                    # position after homopolymer
-                    if seq[i + 5] != nu:
-                        exclude[i + 6 + nstart].append(nu)
-                        exclude[i + 6 + nstart].append("1")
-        exclude = dict(sorted(exclude.items()))
-        for pos in exclude:
-            bases = ",".join(list(set(exclude[pos])))
-            if exclude[pos] == []:
-                bases = "0"
-            self.homopolymer_sites.setdefault(pos, bases)
+                    for pos in range(i, i + 5):
+                        drepeat.setdefault(pos, nu)
+        # add nearby 4mers (same base), separated by stretches of a different base
+        while True:
+            extend = False
+            for i in range(len(seq) - 4):
+                for nu in ["A", "C", "G", "T"]:
+                    if seq[i : i + 4].count(nu) == 4:
+                        for j in range(1, 5):
+                            if (
+                                i + 4 + j in drepeat
+                                and drepeat[i + 4 + j] == nu
+                                and len(set(seq[i + 4 : i + 4 + j])) == 1
+                            ):
+                                for pos in range(i, i + 4 + j):
+                                    if pos not in drepeat:
+                                        drepeat.setdefault(pos, nu)
+                                        extend = True
+                            if (
+                                i - 1 - j in drepeat
+                                and drepeat[i - 1 - j] == nu
+                                and len(set(seq[i - j : i])) == 1
+                            ):
+                                for pos in range(i - j, i + 4):
+                                    if pos not in drepeat:
+                                        drepeat.setdefault(pos, nu)
+                                        extend = True
+            if extend is False:
+                break
+        drepeat = dict(sorted(drepeat.items()))
+        drepeat_keys = list(drepeat.keys())
+        for i in range(len(drepeat)):
+            pos = drepeat_keys[i]
+            pos_adjusted = pos + nstart + 1
+            base = drepeat[pos]
+            if i + 1 == len(drepeat) or (
+                i + 1 < len(drepeat) and drepeat_keys[i + 1] != pos + 1
+            ):
+                self.homopolymer_sites.setdefault(pos_adjusted, base)
+                self.homopolymer_sites.setdefault(pos + 1 + nstart + 1, f"{base},1")
+            elif i == 0 or (i > 0 and drepeat_keys[i - 1] != pos - 1):
+                self.homopolymer_sites.setdefault(pos - 1 + nstart + 1, base)
+                self.homopolymer_sites.setdefault(pos_adjusted, "A,C,G,T")
+            else:
+                self.homopolymer_sites.setdefault(pos_adjusted, base)
+
+        # dinucleotide
+        drepeat = {}
+        # start with 4 copies of a dimer
+        for i in range(len(seq) - 8):
+            for dimer in [a + b for a, b in product("ACGT", repeat=2) if a != b]:
+                if seq[i : i + 8].count(dimer) == 4:
+                    for pos in range(i, i + 8):
+                        drepeat.setdefault(pos, []).append(dimer)
+        # add nearby any 2 copies of the same dimer, separated by either stretches of
+        # the same 2 bases or a different dimer
+        counter = 0
+        while counter < 3:
+            counter += 1
+            extend = False
+            for i in range(len(seq) - 4):
+                for dimer in [a + b for a, b in product("ACGT", repeat=2) if a != b]:
+                    if seq[i : i + 4].count(dimer) == 2:
+                        for j in range(8):
+                            pos_to_check = i + 4 + j
+                            to_add = False
+                            if pos_to_check in drepeat and (
+                                dimer in drepeat[pos_to_check]
+                                or dimer[::-1] in drepeat[pos_to_check]
+                            ):
+                                if j <= 1:
+                                    to_add = True
+                                else:
+                                    mid_seq = seq[i + 4 : i + 4 + j]
+                                    reduced_nu = list(set(mid_seq))
+                                    if len(reduced_nu) == 2:
+                                        base1 = reduced_nu[0]
+                                        base2 = reduced_nu[1]
+                                        if (
+                                            (
+                                                base1 + base1 not in mid_seq
+                                                and base2 + base2 not in mid_seq
+                                            )
+                                            or base1 + base2 == dimer
+                                            or base2 + base1 == dimer
+                                        ):
+                                            to_add = True
+                                if to_add is True:
+                                    for pos in range(i, i + 4 + j):
+                                        drepeat.setdefault(pos, [])
+                                        if dimer not in drepeat[pos]:
+                                            drepeat[pos].append(dimer)
+                                        extend = True
+                            pos_to_check = i - 1 - j
+                            to_add = False
+                            if pos_to_check in drepeat and (
+                                dimer in drepeat[pos_to_check]
+                                or dimer[::-1] in drepeat[pos_to_check]
+                            ):
+                                if j <= 1:
+                                    to_add = True
+                                else:
+                                    mid_seq = seq[i - j : i]
+                                    reduced_nu = list(set(mid_seq))
+                                    if len(reduced_nu) == 2:
+                                        base1 = reduced_nu[0]
+                                        base2 = reduced_nu[1]
+                                        if (
+                                            (
+                                                base1 + base1 not in mid_seq
+                                                and base2 + base2 not in mid_seq
+                                            )
+                                            or base1 + base2 == dimer
+                                            or base2 + base1 == dimer
+                                        ):
+                                            to_add = True
+                                if to_add is True:
+                                    for pos in range(i - j, i + 4):
+                                        drepeat.setdefault(pos, [])
+                                        if dimer not in drepeat[pos]:
+                                            drepeat[pos].append(dimer)
+                                        extend = True
+            if extend is False:
+                break
+        drepeat = dict(sorted(drepeat.items()))
+        for pos in drepeat:
+            pos_adjusted = pos + nstart + 1
+            if pos_adjusted not in self.homopolymer_sites:
+                bases = []
+                for nus in drepeat[pos]:
+                    bases.append(nus[0])
+                    bases.append(nus[1])
+                bases = list(set(bases))  # + ["1"]
+                self.homopolymer_sites.setdefault(pos_adjusted, ",".join(bases))
 
     @staticmethod
     def depth_prob(nread, haploid_depth):
@@ -168,6 +359,43 @@ class Phaser:
             return None
         post_prob = [float(a) / float(sum_prob) for a in prob]
         return post_prob
+
+    def find_big_deletion(self, min_size=5000, min_count=3, padding=50):
+        """Call big deletions from data"""
+        del_reads = []
+        for read in self._bamh.fetch(
+            self.nchr, self.left_boundary, self.right_boundary
+        ):
+            read_cigar = read.cigarstring
+            del_len = [int(a[:-1]) for a in re.findall(Phaser.deletion, read_cigar)]
+            if del_len != []:
+                longest_del_size = max(del_len)
+                if longest_del_size >= min_size:
+                    cigar_before_del = read_cigar.split(f"{longest_del_size}D")[0]
+                    del_pos = read.reference_start + sum(
+                        [
+                            int(a[:-1])
+                            for a in re.findall(r"\d+D|\d+M", cigar_before_del)
+                        ]
+                    )
+                    del_reads.append((del_pos, del_pos + longest_del_size))
+        counter = Counter(del_reads).most_common(2)
+        if len(counter) > 0 and counter[0][1] >= min_count:
+            nstart, nend = counter[0][0]
+            self.deletion1_size = nend - nstart
+            self.deletion1_name = f"{nstart}_del_{nend-nstart}"
+            self.del1_3p_pos1 = nstart - padding
+            self.del1_3p_pos2 = nstart + padding
+            self.del1_5p_pos1 = nend - padding
+            self.del1_5p_pos2 = nend + padding
+        if len(counter) > 1 and counter[1][1] >= min_count:
+            nstart, nend = counter[1][0]
+            self.deletion2_size = nend - nstart
+            self.deletion2_name = f"{nstart}_del_{nend-nstart}"
+            self.del2_3p_pos1 = nstart - padding
+            self.del2_3p_pos2 = nstart + padding
+            self.del2_5p_pos1 = nend - padding
+            self.del2_5p_pos2 = nend + padding
 
     @staticmethod
     def check_del(read, del_size):
@@ -275,6 +503,7 @@ class Phaser:
         partial_deletion_reads=[],
         kept_sites=[],
         add_sites=[],
+        multi_allelic_sites={},
     ):
         """
         Go through reads and get bases at sites of interest.
@@ -286,12 +515,41 @@ class Phaser:
             min_clip_len,
             check_clip,
             partial_deletion_reads,
+            multi_allelic_sites,
         )
         self.remove_var(raw_read_haps, kept_sites)
         if self.het_sites != []:
             for var in add_sites:
                 if var not in self.het_sites:
                     self.het_sites.append(var)
+        # add sites before 5p clip and after 3p clip
+        if self.clip_5p_positions != [] and self.het_sites != []:
+            clip_pos = min(self.clip_5p_positions)
+            var_before_clip = [
+                a for a in self.het_sites if int(a.split("_")[0]) < clip_pos
+            ]
+            if var_before_clip == []:
+                var_pos = clip_pos - 30
+                ref_base = self._refh.fetch(
+                    self.nchr_old, var_pos - self.offset - 1, var_pos - self.offset
+                ).upper()
+                var_base = [a for a in ["A", "C", "G", "T"] if a != ref_base][0]
+                new_var = f"{var_pos}_{ref_base}_{var_base}"
+                self.het_sites.append(new_var)
+        if self.clip_3p_positions != [] and self.het_sites != []:
+            clip_pos = max(self.clip_3p_positions)
+            var_after_clip = [
+                a for a in self.het_sites if int(a.split("_")[0]) > clip_pos
+            ]
+            if var_after_clip == []:
+                var_pos = clip_pos + 30
+                ref_base = self._refh.fetch(
+                    self.nchr_old, var_pos - self.offset - 1, var_pos - self.offset
+                ).upper()
+                var_base = [a for a in ["A", "C", "G", "T"] if a != ref_base][0]
+                new_var = f"{var_pos}_{ref_base}_{var_base}"
+                self.het_sites.append(new_var)
+
         self.het_sites = sorted(self.het_sites)
         raw_read_haps = self.get_haplotypes_from_reads_step(
             exclude_reads,
@@ -299,6 +557,7 @@ class Phaser:
             min_clip_len,
             check_clip,
             partial_deletion_reads,
+            multi_allelic_sites,
         )
         return raw_read_haps
 
@@ -309,6 +568,7 @@ class Phaser:
         min_clip_len=50,
         check_clip=False,
         partial_deletion_reads=[],
+        multi_allelic_sites={},
     ):
         """
         Go through reads and get bases at sites of interest
@@ -361,13 +621,19 @@ class Phaser:
                                     hap = read_seq[start_pos:end_pos]
                                     if read_name not in read_haps:
                                         read_haps.setdefault(read_name, ["x"] * nvar)
-                                    if hap.upper() == allele1.upper():
+                                    if hap.upper() == allele1.upper() or (
+                                        snp_position in multi_allelic_sites
+                                        and hap.upper()
+                                        == multi_allelic_sites[snp_position]
+                                    ):
                                         read_haps[read_name][dsnp_index] = "1"
                                     elif hap.upper() == allele2.upper():
                                         read_haps[read_name][dsnp_index] = "2"
 
         # for softclips starting at a predefined position, mark sites as 0 instead of x
-        if check_clip:
+        if check_clip and (
+            self.clip_3p_positions != [] or self.clip_5p_positions != []
+        ):
             for dsnp_index, allele_site in enumerate(het_sites):
                 snp_position_gene1, allele1, allele2, *at = allele_site.split("_")
                 snp_position = int(snp_position_gene1)
@@ -424,7 +690,9 @@ class Phaser:
             this_var = self.het_sites[pos]
             if bases_x == len(bases):
                 sites_to_remove.append(this_var)
-            elif bases_ref + bases_alt == len(bases) - bases_x and bases_alt <= 3:
+            elif bases_ref + bases_alt == len(bases) - bases_x and (
+                bases_alt <= 3 or bases_ref <= 3
+            ):
                 if this_var not in kept_sites:
                     sites_to_remove.append(this_var)
         for var in sites_to_remove:
@@ -432,6 +700,20 @@ class Phaser:
                 self.het_sites.remove(var)
 
     def allow_del_bases(self, pos):
+        """
+        During variant calling, allow "bases in deletions" for positions in
+        two long deletions
+        """
+        if (
+            self.del2_reads_partial != set()
+            and self.del2_3p_pos1 <= pos <= self.del2_5p_pos2
+        ):
+            return True
+        if (
+            self.del1_reads_partial != set()
+            and self.del1_3p_pos1 <= pos <= self.del1_5p_pos2
+        ):
+            return True
         return False
 
     def process_indel(self, pos, ref_seq, var_seq):
@@ -452,7 +734,14 @@ class Phaser:
             )
         return ref_seq, var_seq, indel_size
 
-    def get_candidate_pos(self, regions_to_check=[], min_read_support=5, min_vaf=0.11):
+    def get_candidate_pos(
+        self,
+        regions_to_check=[],
+        min_read_support=5,
+        min_vaf=0.11,
+        trusted_read_support=20,
+        white_list={},
+    ):
         """
         Get all polymorphic sites in the region, update self.candidate_pos
         """
@@ -477,7 +766,9 @@ class Phaser:
             del_bases_count = all_bases.count("*")
             # get reference base
             offset_pos = pos - self.offset
-            ref_seq_genome = self._refh.fetch(self.nchr_old, offset_pos - 1, offset_pos)
+            ref_seq_genome = self._refh.fetch(
+                self.nchr_old, offset_pos - 1, offset_pos
+            ).upper()
 
             if total_depth >= min_read_support and (
                 del_bases_count < min_read_support or self.allow_del_bases(pos)
@@ -489,7 +780,8 @@ class Phaser:
                 # homozygous
                 if len(counter) == 1 or (
                     len(counter) >= 2
-                    and bases[0][1] > len(all_bases) - min_read_support
+                    and bases[0][1]
+                    > max(len(all_bases) - min_read_support, len(all_bases) * 0.85)
                 ):
                     var_seq = bases[0][0]
                     ref_seq = ref_seq_genome
@@ -517,13 +809,15 @@ class Phaser:
                                 self.homo_sites.append(f"{pos}_{ref_seq}_{var_seq}")
                 elif len(counter) >= 2:
                     found_ref = ref_seq_genome in [a[0] for a in bases]
-                    if found_ref:
+                    if found_ref or pos in white_list:
                         for var_seq, var_count in bases:
                             ref_seq = ref_seq_genome
-                            if (
-                                var_seq != ref_seq
-                                and var_count >= min_read_support
-                                and var_count / total_depth > min_vaf
+                            if var_seq != ref_seq and (
+                                (
+                                    var_count >= min_read_support
+                                    and var_count / total_depth > min_vaf
+                                )
+                                or var_count >= trusted_read_support
                             ):
                                 # SNV
                                 if "-" not in var_seq and "+" not in var_seq:
@@ -560,10 +854,16 @@ class Phaser:
             var_to_check = [a for a in variants if region[0] < a < region[1]]
             excluded_variants += var_to_check
         for pos in variants:
-            # for now, filter out multi-allelic sites
-            if pos not in excluded_variants and len(variants[pos]) == 1:
-                ref_seq, var_seq = variants[pos][0]
-                self.candidate_pos.add(f"{pos}_{ref_seq}_{var_seq}")
+            # for now, filter out multi-allelic sites, except in white list
+            if pos not in excluded_variants:
+                if len(variants[pos]) == 1:
+                    ref_seq, var_seq = variants[pos][0]
+                    self.candidate_pos.add(f"{pos}_{ref_seq}_{var_seq}")
+                elif pos in white_list:
+                    for ref_seq, var_seq in variants[pos]:
+                        if var_seq != white_list[pos]:
+                            self.candidate_pos.add(f"{pos}_{ref_seq}_{var_seq}")
+                            break
 
         excluded_variants = []
         for region in regions_to_check:
@@ -656,7 +956,7 @@ class Phaser:
             nend_next_pos = int(self.het_sites[nend_next].split("_")[0]) - 1
         return nstart_previous_pos, nend_next_pos
 
-    def output_variants_in_haplotypes(self, haps, reads, nonunique, two_cp_haps=[]):
+    def output_variants_in_haplotypes(self, haps, reads, nonunique, known_del={}):
         """
         Summarize all variants in each haplotype.
         Output all variants and their genotypes.
@@ -665,7 +965,6 @@ class Phaser:
         het_sites = self.het_sites
         haplotype_variants = {}
         haplotype_info = {}
-        dvar = {}
         var_no_phasing = copy.deepcopy(self.het_no_phasing)
         for hap, hap_name in haps.items():
             haplotype_variants.setdefault(hap_name, [])
@@ -689,46 +988,119 @@ class Phaser:
                 else:
                     for hap_name in haps_with_variant:
                         haplotype_variants[hap_name].append(var)
-                    dvar.setdefault(var, genotypes)
         # het sites and homo sites
         for hap, hap_name in haps.items():
+            # find boundary for confident variant calling
+            hap_bound_start, hap_bound_end = self.get_hap_variant_ranges(hap)
+            is_truncated = False
+            # het sites
             for i in range(len(hap)):
                 if hap[i] == "2":
                     haplotype_variants[hap_name].append(het_sites[i])
-            # need some coordinate check if there is long deletion
-            haplotype_variants[hap_name] += self.homo_sites
+                elif hap[i] in known_del:
+                    del_name = known_del[hap[i]]
+                    if del_name not in haplotype_variants[hap_name]:
+                        haplotype_variants[hap_name].append(del_name)
+            # homo sites
+            filtered_homo_sites = self.homo_sites
+            # check known deletions
+            del1_name = None
+            del2_name = None
+            if known_del != {}:
+                known_del_names = list(known_del.values())
+                del1_name = known_del_names[0]
+                if len(known_del_names) > 1:
+                    del2_name = known_del_names[1]
+            if del1_name in haplotype_variants[hap_name]:
+                pos1 = self.del1_3p_pos1
+                pos2 = self.del1_5p_pos2
+                filtered_homo_sites = [
+                    a
+                    for a in filtered_homo_sites
+                    if int(a.split("_")[0]) < pos1 or int(a.split("_")[0]) > pos2
+                ]
+            if del2_name in haplotype_variants[hap_name]:
+                pos1 = self.del2_3p_pos1
+                pos2 = self.del2_5p_pos2
+                filtered_homo_sites = [
+                    a
+                    for a in filtered_homo_sites
+                    if int(a.split("_")[0]) < pos1 or int(a.split("_")[0]) > pos2
+                ]
+            # haps with clips
+            if hap.startswith("0") and self.clip_5p_positions != []:
+                for first_pos_after_clip, base in enumerate(hap):
+                    if base != "0":
+                        break
+                first_pos_after_clip_position = int(
+                    het_sites[first_pos_after_clip].split("_")[0]
+                )
+                for clip_position in sorted(self.clip_5p_positions, reverse=True):
+                    if clip_position < first_pos_after_clip_position:
+                        break
+                filtered_homo_sites = [
+                    a
+                    for a in filtered_homo_sites
+                    if int(a.split("_")[0]) > clip_position
+                ]
+                hap_bound_start = max(hap_bound_start, clip_position)
+                haplotype_variants[hap_name].append(f"{clip_position}_clip_5p")
+                if clip_position > self.gene_start:
+                    is_truncated = True
+            if hap.endswith("0") and self.clip_3p_positions != []:
+                for first_pos_before_clip in reversed(range(len(hap))):
+                    if hap[first_pos_before_clip] != "0":
+                        break
+                first_pos_before_clip_position = int(
+                    het_sites[first_pos_before_clip].split("_")[0]
+                )
+                for clip_position in sorted(self.clip_3p_positions):
+                    if clip_position > first_pos_before_clip_position:
+                        break
+                filtered_homo_sites = [
+                    a
+                    for a in filtered_homo_sites
+                    if int(a.split("_")[0]) < clip_position
+                ]
+                hap_bound_end = min(hap_bound_end, clip_position)
+                haplotype_variants[hap_name].append(f"{clip_position}_clip_3p")
+                if clip_position < self.gene_end:
+                    is_truncated = True
 
-            var_nstart, var_nend = self.get_hap_variant_ranges(hap)
+            haplotype_variants[hap_name] += filtered_homo_sites
+
+            hap_bound_start = max(hap_bound_start, self.left_boundary)
+            hap_bound_end = min(hap_bound_end, self.right_boundary)
+            boundary_gene2 = None
+            if self.gene2_region is not None:
+                bound1_in_other_gene = self.get_range_in_other_gene(hap_bound_start)
+                bound2_in_other_gene = self.get_range_in_other_gene(hap_bound_end)
+                if None not in [bound1_in_other_gene, bound2_in_other_gene]:
+                    boundary_gene2 = [
+                        min(bound1_in_other_gene, bound2_in_other_gene),
+                        max(bound1_in_other_gene, bound2_in_other_gene),
+                    ]
+                else:
+                    boundary_gene2 = [bound1_in_other_gene, bound2_in_other_gene]
             var_tmp = haplotype_variants[hap_name]
             var_tmp1 = [
-                a for a in var_tmp if var_nstart <= int(a.split("_")[0]) <= var_nend
+                a
+                for a in var_tmp
+                if hap_bound_start <= int(a.split("_")[0]) <= hap_bound_end
             ]
             var_tmp1 = list(set(var_tmp1))
             var_tmp2 = sorted(var_tmp1, key=lambda x: int(x.split("_")[0]))
             haplotype_info.setdefault(
-                hap_name, {"variants": var_tmp2, "boundary": [var_nstart, var_nend]}
+                hap_name,
+                {
+                    "variants": var_tmp2,
+                    "boundary": [hap_bound_start, hap_bound_end],
+                    "boundary_gene2": boundary_gene2,
+                    "is_truncated": is_truncated,
+                },
             )
 
-        # summary per variant
-        all_haps = haps
-        nhap = len(all_haps)
-        for var in self.homo_sites:
-            dvar.setdefault(var, ["1"] * nhap)
-        for i, var in enumerate(het_sites):
-            dvar.setdefault(var, [])
-            for hap, hap_name in haps.items():
-                base_call = "."
-                if hap[i] == "2":
-                    base_call = "1"
-                elif hap[i] == "1":
-                    base_call = "0"
-                dvar[var].append(base_call)
-                if hap_name in two_cp_haps:
-                    dvar[var].append(base_call)
-
-        return haplotype_info, {
-            var: "|".join(dvar[var]) for var in dict(sorted(dvar.items()))
-        }
+        return haplotype_info
 
     def get_genotype_in_hap(self, var_reads, hap_reads, hap_reads_nonunique):
         """For a given variant, return its status in a haplotype"""
@@ -803,11 +1175,13 @@ class Phaser:
     def get_read_counts(self, uniquely_supporting_haps):
         """
         Get unique supporting read counts for each haplotype
+        over a region where all haplotypes have defined bases
         """
         if uniquely_supporting_haps == {}:
             return {}
         nhap = len(uniquely_supporting_haps)
         nvar = len(self.het_sites)
+        # depth per site for haplotype
         hap_bases = []
         for i in range(nhap):
             hap_bases.append([])
@@ -816,7 +1190,7 @@ class Phaser:
             reads = uniquely_supporting_haps[hap]
             for i in range(nvar):
                 bases = [a[i] for a in reads]
-                hap_bases[j].append(len(bases) - bases.count("x"))
+                hap_bases[j].append(len(bases) - bases.count("x") - bases.count("0"))
             j += 1
         ranges = []
         for i in range(nvar):
@@ -885,6 +1259,19 @@ class Phaser:
         ) = self.get_read_support(raw_read_haps, haplotypes_to_reads, ass_haps)
 
         # remove low-support ones
+        read_counts = [
+            len(uniquely_supporting_reads[a]) for a in uniquely_supporting_reads
+        ]
+        read_counts = sorted(read_counts)
+        # more stringent if one copy is low but others are high
+        if (
+            len(read_counts) > 2
+            and read_counts[0] <= 4
+            and read_counts[1] >= 12
+            and "x" not in "".join(ass_haps)
+        ):
+            min_support = 5
+
         ass_haps = [
             a
             for a in uniquely_supporting_reads
@@ -934,7 +1321,7 @@ class Phaser:
             read_counts,
         )
 
-    def compare_depth(self, haplotypes, loose=False):
+    def compare_depth(self, haplotypes, loose=False, stringent=False):
         """
         For each haplotype, identify the variants where it's different
         from other haplotypes. Check depth at those variant sites and
@@ -992,12 +1379,18 @@ class Phaser:
             for n1, n2 in counts:
                 probs.append(self.depth_prob(n1, n2 / other_cn))
             probs_fil = [a for a in probs if a[0] < 0.25]
-            if len(probs_fil) >= nsites * 0.6 and nsites >= 5:
+            if stringent is True:
+                if len(probs_fil) >= nsites * 0.8 and nsites >= 5:
+                    two_cp_haps.append(hap)
+            elif len(probs_fil) >= nsites * 0.6 and nsites >= 5:
                 two_cp_haps.append(hap)
             elif loose is True:
                 if len(probs_fil) >= nsites * 0.5 and nsites >= 5:
                     two_cp_haps.append(hap)
 
+        # there can only be one such haplotype
+        if len(two_cp_haps) > 1:
+            return []
         return two_cp_haps
 
     def adjust_spurious_haplotypes(self, uniquely_supporting_reads, flanking_bp=10):
@@ -1053,7 +1446,7 @@ class Phaser:
             ):
                 for read in pileupcolumn.pileups:
                     if not read.is_del and not read.is_refskip:
-                        read_name = read.alignment.query_name
+                        read_name = self.get_read_name(read.alignment)
                         read_seq = read.alignment.query_sequence
                         read_pos = read.query_position
                         if (
@@ -1069,7 +1462,8 @@ class Phaser:
                                 hap2_reads_at_pos.append(read_seq[start_pos:end_pos])
 
             if set(hap1_reads_at_pos).intersection(set(hap2_reads_at_pos)) != set():
-                passing_haplotypes.remove(hap2)
+                if hap2 in passing_haplotypes:
+                    passing_haplotypes.remove(hap2)
         return passing_haplotypes
 
     @staticmethod
@@ -1256,16 +1650,107 @@ class Phaser:
             alleles = new_alleles
         return alleles
 
+    def add_homo_sites(self, min_no_var_region_size=10000, max_homo_var_to_add=10):
+        """add some homozygous sites to het sites in long homozygous regions"""
+        if self.het_sites == []:
+            return []
+        het_pos = [int(a.split("_")[0]) for a in self.het_sites]
+        min_pos = min(het_pos)
+        max_pos = max(het_pos)
+        homo_sites_to_add = []
+        if min_pos - self.left_boundary > min_no_var_region_size:
+            for var in self.homo_sites:
+                pos, ref, alt = var.split("_")
+                if int(pos) < min_pos and len(ref) == 1 and len(alt) == 1:
+                    homo_sites_to_add.append(var)
+        if self.right_boundary - max_pos > min_no_var_region_size:
+            for var in self.homo_sites:
+                pos, ref, alt = var.split("_")
+                if int(pos) > max_pos and len(ref) == 1 and len(alt) == 1:
+                    homo_sites_to_add.append(var)
+        if homo_sites_to_add != []:
+            homo_sites_to_add = sorted(homo_sites_to_add)
+            homo_sites_to_add_size = len(homo_sites_to_add)
+            homo_sites_to_add = homo_sites_to_add[
+                :: int(np.ceil(homo_sites_to_add_size / max_homo_var_to_add))
+            ]
+            self.het_sites += homo_sites_to_add
+            self.het_sites = sorted(self.het_sites)
+            self.remove_noisy_sites()
+        return homo_sites_to_add
+
     def call(self):
         """Main function to phase haplotypes and call copy numbers"""
         if self.check_coverage_before_analysis() is False:
             return self.GeneCall()
         self.get_homopolymer()
-        self.get_candidate_pos()
+        # self.get_homopolymer_old()
+        self.find_big_deletion()
+
+        if self.deletion1_size is not None:
+            self.del1_reads, self.del1_reads_partial = self.get_long_del_reads(
+                self.del1_3p_pos1,
+                self.del1_3p_pos2,
+                self.del1_5p_pos1,
+                self.del1_5p_pos2,
+                self.deletion1_size,
+            )
+        if self.deletion2_size is not None:
+            self.del2_reads, self.del2_reads_partial = self.get_long_del_reads(
+                self.del2_3p_pos1,
+                self.del2_3p_pos2,
+                self.del2_5p_pos1,
+                self.del2_5p_pos2,
+                self.deletion2_size,
+            )
+
+        # scan for polymorphic sites
+        regions_to_check = []
+        if self.del2_reads_partial != set():
+            regions_to_check += [
+                [self.del2_3p_pos1, self.del2_3p_pos2],
+                [self.del2_5p_pos1, self.del2_5p_pos2],
+            ]
+        if self.del1_reads_partial != set():
+            regions_to_check += [
+                [self.del1_3p_pos1, self.del1_3p_pos2],
+                [self.del1_5p_pos1, self.del1_5p_pos2],
+            ]
+        self.get_candidate_pos(regions_to_check=regions_to_check)
+
         self.het_sites = sorted(list(self.candidate_pos))
         self.remove_noisy_sites()
+        homo_sites_to_add = self.add_homo_sites()
 
-        raw_read_haps = self.get_haplotypes_from_reads()
+        raw_read_haps = self.get_haplotypes_from_reads(
+            check_clip=True, kept_sites=homo_sites_to_add, add_sites=self.add_sites
+        )
+
+        het_sites = self.het_sites
+        known_del = {}
+        if self.del1_reads_partial != set():
+            raw_read_haps, het_sites = self.update_reads_for_deletions(
+                raw_read_haps,
+                het_sites,
+                self.del1_3p_pos1,
+                self.del1_5p_pos2,
+                self.del1_reads_partial,
+                "3",
+                self.deletion1_name,
+            )
+            known_del.setdefault("3", self.deletion1_name)
+        if self.del2_reads_partial != set():
+            raw_read_haps, het_sites = self.update_reads_for_deletions(
+                raw_read_haps,
+                het_sites,
+                self.del2_3p_pos1,
+                self.del2_5p_pos2,
+                self.del2_reads_partial,
+                "4",
+                self.deletion2_name,
+            )
+            known_del.setdefault("4", self.deletion2_name)
+        self.het_sites = het_sites
 
         (
             ass_haps,
@@ -1284,16 +1769,41 @@ class Phaser:
         ass_haps = tmp
 
         haplotypes = None
-        dvar = None
         if ass_haps != {}:
-            haplotypes, dvar = self.output_variants_in_haplotypes(
+            haplotypes = self.output_variants_in_haplotypes(
                 ass_haps,
                 uniquely_supporting_reads,
                 nonuniquely_supporting_reads,
+                known_del=known_del,
             )
 
-        two_cp_haps = self.compare_depth(haplotypes)
+        two_cp_haps = []
+        if len(ass_haps) == 3:
+            two_cp_haps = self.compare_depth(haplotypes, stringent=True)
+            if two_cp_haps == [] and read_counts is not None:
+                # check if one haplotype has more reads than others
+                haps = list(read_counts.keys())
+                counts = list(read_counts.values())
+                max_count = max(counts)
+                cp2_hap = haps[counts.index(max_count)]
+                others_max = sorted(counts, reverse=True)[1]
+                probs = self.depth_prob(max_count, others_max)
+                # print(counts, probs)
+                if probs[0] < 0.05 and others_max >= 10:
+                    two_cp_haps.append(ass_haps[cp2_hap])
+
         total_cn = len(ass_haps) + len(two_cp_haps)
+
+        # fully homozygous
+        if self.het_sites == [] or total_cn == 1:
+            total_cn = 2
+
+        # two pairs of identical copies
+        if two_cp_haps == [] and total_cn == 2 and self.expect_cn2 is False:
+            if self.mdepth is not None:
+                prob = self.depth_prob(int(self.region_avg_depth.median), self.mdepth)
+                if prob[0] < 0.75:
+                    total_cn = 4
 
         # phase
         alleles = []
@@ -1327,10 +1837,11 @@ class Phaser:
             self.het_no_phasing,
             self.homo_sites,
             haplotypes,
-            dvar,
             nonuniquely_supporting_reads,
             raw_read_haps,
             self.mdepth,
+            self.region_avg_depth._asdict(),
+            self.sample_sex,
         )
 
     def close_handle(self):
