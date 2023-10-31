@@ -102,7 +102,7 @@ ikbkg:
   add_sites: ["153784097_C_G", "153798031_T_G"]
   pivot_site: 153784097
   left_boundary: 153783915
-  right_boundary: 153798051
+  right_boundary: 153797929
   deletion1_size: 11700
   deletion1_name: "153786229_del_11700"
   deletion1_in_gene1: "153786229_DEL_153797929"
@@ -113,7 +113,6 @@ ikbkg:
   del1_5p_pos2: 153797071
   noisy_region: [[153795215, 153795402], [153784084, 153784091], [153793571, 153793618]]
   is_reverse: True
-  keep_truncated: True
 ncf1:
   genes: NCF1
   check_nm: 0.1
@@ -163,7 +162,8 @@ hba:
   extract_regions: chr16:218655-227540
   clip_5p_positions: [221988]
   clip_3p_positions: [223728]
+  gene_start: 221988
+  gene_end: 223728
   is_tandem: True
-  keep_truncated: True
   depth_region: [[209999, 239999]]
   noisy_region: [[222416, 222417]]

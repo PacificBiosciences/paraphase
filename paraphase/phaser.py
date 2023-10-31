@@ -77,17 +77,26 @@ class Phaser:
         self.nchr = config["nchr"]
         self.ref = config["data"]["reference"]
         self._refh = pysam.FastaFile(self.ref)
-        self.left_boundary = config.get("left_boundary")
-        self.right_boundary = config.get("right_boundary")
         self.pivot_site = None
         if "pivot_site" in config:
             self.pivot_site = config["pivot_site"]
         self.nchr_old = config["nchr_old"]
         self.offset = int(self.nchr_old.split("_")[1]) - 1
+
+        # define region boundary
+        self.left_boundary = config.get("left_boundary")
+        self.right_boundary = config.get("right_boundary")
         if self.left_boundary is None:
             self.left_boundary = int(self.nchr_old.split("_")[1])
         if self.right_boundary is None:
             self.right_boundary = int(self.nchr_old.split("_")[2])
+        self.gene_start = config.get("gene_start")
+        if self.gene_start is None:
+            self.gene_start = self.left_boundary
+        self.gene_end = config.get("gene_end")
+        if self.gene_end is None:
+            self.gene_end = self.right_boundary
+
         self.use_supplementary = False
         if "use_supplementary" in config or "is_tandem" in config:
             self.use_supplementary = True
@@ -1036,7 +1045,7 @@ class Phaser:
                 ]
                 hap_bound_start = max(hap_bound_start, clip_position)
                 haplotype_variants[hap_name].append(f"{clip_position}_clip_5p")
-                if clip_position > self.left_boundary:
+                if clip_position > self.gene_start:
                     is_truncated = True
             if hap.endswith("0") and self.clip_3p_positions != []:
                 for first_pos_before_clip in reversed(range(len(hap))):
@@ -1055,7 +1064,7 @@ class Phaser:
                 ]
                 hap_bound_end = min(hap_bound_end, clip_position)
                 haplotype_variants[hap_name].append(f"{clip_position}_clip_3p")
-                if clip_position < self.right_boundary:
+                if clip_position < self.gene_end:
                     is_truncated = True
 
             haplotype_variants[hap_name] += filtered_homo_sites

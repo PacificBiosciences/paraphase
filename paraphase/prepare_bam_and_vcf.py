@@ -770,7 +770,7 @@ class VcfGenerater:
             if del_haps is not None and del_haps != []:
                 for del_hap in del_haps:
                     del_name = self.deletion1_in_gene1
-                    if "pseudo" in del_hap:
+                    if "pseudo" in del_hap and gene2 is True:
                         del_name = self.deletion1_in_gene2
                     special_variants.setdefault(del_hap, del_name)
         if self.gene == "f8":
@@ -810,15 +810,12 @@ class VcfGenerater:
             if self.call_sum["haplotype_details"][a]["is_truncated"] is False
             or self.keep_truncated is True
         ]
-        # exclude dup copies in IKBKG
-        haps_not_truncated = [
-            a for a in haps_not_truncated if self.gene != "ikbkg" or "dup" not in a
-        ]
         nhap = len(haps_not_truncated) + len(
             [a for a in two_cp_haplotypes if a in haps_not_truncated]
         )
         hap_ids = []
 
+        # gene1only, or two-gene mode but gene1 side
         if gene2 is False or match_range is False:
             bamh = pysam.AlignmentFile(self.bam, "rb")
             refh = pysam.FastaFile(self.ref)
@@ -877,8 +874,6 @@ class VcfGenerater:
                 self.call_sum["haplotype_details"][hap_name]["is_truncated"] is True
                 and self.keep_truncated is False
             ):
-                continue
-            if self.gene == "ikbkg" and "dup" in hap_name:
                 continue
             hap_ids.append(hap_name)
 

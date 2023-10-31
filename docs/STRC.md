@@ -2,8 +2,8 @@
 
 ## Fields in the `json` file
 
-- `total_cn`: total copy number of PMS2 and PMS2CL
-- `gene_cn`: copy number of the gene of interest, i.e. PMS2
+- `total_cn`: total copy number of STRC and STRCP1
+- `gene_cn`: copy number of the gene of interest, i.e. STRC
 - `two_copy_haplotypes`: haplotypes that are present in two copies based on depth. This happens when (in a small number of cases) two haplotypes are identical and we infer that there exist two of them instead of one by checking the read depth.
 
 ## Visualizing haplotypes

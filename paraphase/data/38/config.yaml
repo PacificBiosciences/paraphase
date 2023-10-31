@@ -102,7 +102,7 @@ ikbkg:
   add_sites: ["154555882_C_G", "154569800_T_G"]
   pivot_site: 154555882
   left_boundary: 154555700
-  right_boundary: 154569820
+  right_boundary: 154569698
   deletion1_size: 11700
   deletion1_name: "154558014_del_11700"
   deletion1_in_gene1: "154558014_DEL_154569698"
@@ -113,7 +113,6 @@ ikbkg:
   del1_5p_pos2: 154568840
   noisy_region: [[154566998, 154567171], [154555869, 154555876], [154565356, 154565401]]
   is_reverse: True
-  keep_truncated: True
 ncf1:
   genes: NCF1
   check_nm: 0.1
@@ -142,7 +141,6 @@ f8:
   right_boundary: 155386059
   add_sites: ["155386300_A_C", "155386860_C_G"]
   depth_region: [[154900000, 155020000]]
-
 opn1lw: 
   genes: OPN1LW,OPN1MW,OPN1MW2,OPN1MW3,TEX28
   is_tandem: True
@@ -164,8 +162,9 @@ hba:
   extract_regions: chr16:168656-177541
   clip_5p_positions: [171989]
   clip_3p_positions: [173729]
+  gene_start: 171989
+  gene_end: 173729
   is_tandem: True
-  keep_truncated: True
   depth_region: [[160000, 190000]]
   noisy_region: [[172417, 172418]]
 
@@ -217,9 +216,9 @@ TRIM49D1:
   left_boundary: 89909500
   right_boundary: 89922500
   clip_3p_positions: [89920623]
+  gene_end: 89920623
   is_tandem: True
   is_reverse: True
-  keep_truncated: True
 CXorf51A:
   genes: CXorf51A,CXorf51B
   realign_region: chrX:146812425-146822425
@@ -495,7 +494,7 @@ ETDA:
   right_boundary: 135262822
   is_reverse: True
   clip_3p_positions: [135256413]
-  keep_truncated: True
+  gene_end: 135256413
 FAM156A:
   genes: FAM156A,FAM156B
   realign_region: chrX:52942886-52962886
@@ -752,7 +751,7 @@ PABPC1L2A:
   right_boundary: 73086957
   clip_5p_positions: [73077480]
   is_reverse: True
-  keep_truncated: True
+  gene_start: 73077480
 PDPK1:
   genes: PDPK1
   realign_region: chr16:2537521-2603688
