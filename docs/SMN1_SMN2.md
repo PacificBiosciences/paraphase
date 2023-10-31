@@ -14,17 +14,17 @@
 - `two_copy_haplotypes`: haplotypes that are present in two copies based on depth. This happens when (in a small number of cases) two haplotypes are identical and we infer that there exist two of them instead of one by checking the read depth.
 - `haplotype_details`: lists information about each haplotype 
   - `boundary`: The boundary of the region that is resolved on the haplotype. This is useful when a haplotype is only partially phased.
-  - `haplogroup`: The haplogroup that the haplotype is assigned to
+  - `haplogroup`: The haplogroup that the haplotype is assigned to. For more information on haplogroups, please refer to our [paper](https://www.cell.com/ajhg/fulltext/S0002-9297(23)00001-0).
 
 ## Visualizing haplotypes
 
-We can visualize the haplotypes by loading the output bam file into IGV and grouping reads by the `HP` tag (also color alignments by `YC` tag).
+We can visualize the haplotypes by loading the Paraphase output bam file into IGV and grouping reads by the `HP` tag (also color alignments by `YC` tag).
 
 ### Example 1
 
 ![example1](figures/HG01175_smn1.png)
 
-In this example, there are two copies of SMN1, one copy of SMN2Δ7–8, and one copy of intact SMN2. All reads are aligned to SMN1. Polymorphic sites used for phasing/assembling haplotypes are shown in the top panel. The `Unassigned` category contains reads that carry bases that do not agree with any haplotypes (this could be due to sequencing errors or short haplotypes).
+In this example, there are two copies of SMN1, one copy of SMN2Δ7–8, and one copy of intact SMN2. All reads are realigned to SMN1. Polymorphic sites used for phasing/assembling haplotypes are shown in the top panel. The `Unassigned` category contains reads that carry bases that do not support any haplotypes (this could be due to sequencing errors or partially phased haplotypes).
 
 ### Example 2
 
@@ -38,4 +38,4 @@ In this example, there are three copies of SMN1 and one copy of SMN2. Reads in b
 
 In this example, Paraphase assembles one SMN1 haplotype and two SMN2 haplotypes. The depth of `smn1hap1` suggests that it is present in two copies, so Paraphase infers that there are two copies of SMN1 (their haplotype sequences are identical). Note that the majority of the `Unassigned` reads are "unassigned" because they do not overlap any polymorphic site.
 
-For more examples, IGV session files for 107 Coriell samples can be downloaded from [here](https://github.com/xiao-chen-xc/SMN_phased_data).
+For more examples on SMN1/SMN2, IGV session files for 107 Coriell samples can be downloaded from [here](https://github.com/xiao-chen-xc/SMN_phased_data).

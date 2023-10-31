@@ -5,13 +5,15 @@ For this [region](https://www.ncbi.nlm.nih.gov/books/NBK1435/), Paraphase calls 
 ## Fields in the `json` file
 
 - `genotype`: reports the genotype of this family. Possible alleles include `aa`, `aaa` (duplication), `-a` (deletion) or `--` (double deletion).
-- `alleles_final`: different copies of HBA are phased into alleles with read based phasing. 
+- `alleles_final`: when possible, different copies of HBA are phased into alleles with read based phasing. 
 
 ## Visualizing haplotypes
 
-To visualize phased haplotypes, load the output bam file in IGV, group reads by the `HP` tag and color alignments by `YC` tag. Green and purple represent two alleles, i.e. all haplotypes in green are on one one allele and all haplotypes in purple are on the other allele. Reads in gray are either unassigned or consistent with more than one possible haplotype. When two haplotypes are identical over a region, there can be more than one haplotype consistent with a read, and the read is randomly assigned to a haplotype and colored in gray. 
+To visualize phased haplotypes, load the output bam file in IGV, group reads by the `HP` tag and color alignments by `YC` tag. Green and purple represent two alleles, i.e. all haplotypes in green are on one one allele and all haplotypes in purple are on the other allele. 
+
+Reads in gray are either unassigned or consistent with more than one possible haplotype. When two haplotypes are identical over a region, there can be more than one haplotype consistent with a read, and the read is randomly assigned to a haplotype and colored in gray. 
 
 ![HBA example](figures/HBA.png)
 
 - The top panel shows a sample with two copies of HBA1 and two copies of HBA2, one on each allele. 
-- The bottom panel shows a sample with a `-a` allele, where there is a deletion, leaving only one copy of HBA.
+- The bottom panel shows a sample with a `-a` allele, where there is a deletion, leaving only one copy of HBA (`hba_del_hap1`).
