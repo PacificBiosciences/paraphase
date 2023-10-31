@@ -113,6 +113,7 @@ ikbkg:
   del1_5p_pos2: 154568840
   noisy_region: [[154566998, 154567171], [154555869, 154555876], [154565356, 154565401]]
   is_reverse: True
+  keep_truncated: True
 ncf1:
   genes: NCF1
   check_nm: 0.1

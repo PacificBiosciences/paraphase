@@ -803,11 +803,16 @@ class VcfGenerater:
                     uniq_reads.append(read_name)
         variants_info = {}
         two_cp_haplotypes = self.call_sum.get("two_copy_haplotypes")
+        # exclude truncated copies
         haps_not_truncated = [
             a
             for a in final_haps.values()
             if self.call_sum["haplotype_details"][a]["is_truncated"] is False
             or self.keep_truncated is True
+        ]
+        # exclude dup copies in IKBKG
+        haps_not_truncated = [
+            a for a in haps_not_truncated if self.gene != "ikbkg" or "dup" not in a
         ]
         nhap = len(haps_not_truncated) + len(
             [a for a in two_cp_haplotypes if a in haps_not_truncated]
@@ -872,6 +877,8 @@ class VcfGenerater:
                 self.call_sum["haplotype_details"][hap_name]["is_truncated"] is True
                 and self.keep_truncated is False
             ):
+                continue
+            if self.gene == "ikbkg" and "dup" in hap_name:
                 continue
             hap_ids.append(hap_name)
 

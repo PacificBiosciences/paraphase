@@ -80,6 +80,7 @@ class Paraphase:
         sample_sex,
         novcf,
         prog_cmd,
+        gene1only=False,
     ):
         """Workflow for each region"""
         phaser_calls = {}
@@ -163,7 +164,7 @@ class Paraphase:
                     logging.info(
                         f"Generating VCFs for {gene} for sample {sample_id} at {datetime.datetime.now()}..."
                     )
-                    if gene in self.two_reference_regions_genes:
+                    if gene in self.two_reference_regions_genes and gene1only is False:
                         vcf_generater = TwoGeneVcfGenerater(
                             sample_id,
                             outdir,
@@ -202,6 +203,7 @@ class Paraphase:
         dcov={},
         novcf=False,
         genome_build="38",
+        gene1only=False,
     ):
         """Main workflow"""
         for bam in bamlist:
@@ -263,6 +265,7 @@ class Paraphase:
                         sample_sex,
                         novcf,
                         prog_cmd,
+                        gene1only,
                     )
                 else:
                     process_gene_partial = partial(
@@ -275,6 +278,7 @@ class Paraphase:
                         sample_sex=sample_sex,
                         novcf=novcf,
                         prog_cmd=prog_cmd,
+                        gene1only=gene1only,
                     )
                     gene_groups = [
                         query_genes[i::num_threads] for i in range(num_threads)
@@ -578,6 +582,14 @@ class Paraphase:
             action="store_true",
         )
         parser.add_argument(
+            "--gene1only",
+            help="Optional. If specified, variant calls will be made against the main gene only.\n"
+            + "By default, for SMN1, PMS2, STRC, NCF1 and IKBKG, haplotypes are assigned to gene or\n"
+            + "paralog/pseudogene, and variants are called against gene or paralog/pseudogene, respectively.\n",
+            required=False,
+            action="store_true",
+        )
+        parser.add_argument(
             "--samtools",
             help="Optional path to samtools",
             required=False,
@@ -644,6 +656,7 @@ class Paraphase:
                         dcov,
                         args.novcf,
                         genome_build_dir,
+                        args.gene1only,
                     )
                 else:
                     logging.warning(f"{args.bam} bam or bai file doesn't exist")
@@ -666,6 +679,7 @@ class Paraphase:
                     dcov=dcov,
                     novcf=args.novcf,
                     genome_build=genome_build_dir,
+                    gene1only=args.gene1only,
                 )
                 bam_groups = [bamlist[i::num_threads] for i in range(num_threads)]
                 pool = mp.Pool(num_threads)
