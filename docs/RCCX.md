@@ -1,7 +1,7 @@
 # RCCX module
 
-Medically relevant genes in this [region](https://www.ncbi.nlm.nih.gov/books/NBK1171/) include:
-  - CYP21A2 (21-Hydroxylase-Deficient Congenital Adrenal Hyperplasia)
+Medically relevant genes in this region include:
+  - [CYP21A2](https://www.ncbi.nlm.nih.gov/books/NBK1171/) (21-Hydroxylase-Deficient Congenital Adrenal Hyperplasia)
   - TNXB (Ehlers-Danlos syndrome)
   - C4A/C4B (relevant in autoimmune diseases)
 
@@ -29,7 +29,7 @@ Green and purple represent two alleles, i.e. all haplotypes in green are on one 
 
 ![RCCX examples](figures/RCCX.png)
 
-- In this set of examples, the top panel shows a sample with no copy number change. There are four copies of RCCX, two on each allele. On each allele, one copy carries CYP21A2 and the other copy carries CYP21A1P (marked by a cluster of mismatches when aligned to CYP21A2).
-- The middle panel shows a sample with a fusion deletion (purple allele). There is only one copy of RCCX on this allele. The deletion breakpoint is in CYP21A2, creating a fusion gene between CYP21A1P and CYP21A2.
-- The bottom panel shows a sample with a CYP21A2 duplication that carries Q319X (green allele). On this allele, there are two copies of CYP21A2, among which one copy is WT and the other (the one that's next to TNXB) carries Q319X.
+- In this set of examples, the top panel shows a sample with no copy number change (both alleles are `WT`). There are four copies of RCCX, two on each allele. On each allele, one copy carries CYP21A2 and the other copy carries CYP21A1P (marked by a cluster of mismatches when aligned to CYP21A2).
+- The middle panel shows a sample with a fusion deletion (purple allele `deletion_P31L,G111Vfs`). There is only one copy of RCCX on this allele. The deletion breakpoint is in CYP21A2, creating a fusion gene between CYP21A1P and CYP21A2.
+- The bottom panel shows a sample with a CYP21A2 duplication that carries Q319X (purple allele `duplication_WT_plus_Q319X`). On this allele, there are two copies of CYP21A2, among which one copy is WT and the other (the one next to TNXB) carries Q319X.
 
