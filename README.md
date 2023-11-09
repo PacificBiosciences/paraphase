@@ -5,7 +5,7 @@ Many medically relevant genes fall into 'dark' regions where variant calling is 
 ![Paraphase diagram](docs/figures/paraphase_diagram.png)
 Paraphase takes all reads from a gene family, realigns to just the gene of interest and then phases them into haplotypes. This solves the problem of alignment difficulty due to sequence homology and allows us to examine all copies of genes in a gene family and call copy number changes and other variants.
 
-Paraphase supports 161 segmental duplication [regions](docs/regions.txt) in GRCh38. Among these, there are 11 medically relevant regions that are also supported in GRCh37/hg19:
+Paraphase supports 161 segmental duplication [regions](docs/regions.md) in GRCh38. Among these, there are 11 medically relevant regions that are also supported in GRCh37/hg19:
 - SMN1/SMN2 (spinal muscular atrophy)
 - RCCX module
   - CYP21A2 (21-Hydroxylase-Deficient Congenital Adrenal Hyperplasia)
@@ -72,9 +72,9 @@ Required parameters:
 Please note that the input BAM should be one that's aligned to the ENTIRE reference genome (either GRCh38 or GRCh37/hg19), and this reference should NOT include ALT contigs. The fasta file of this reference genome should be provided to Paraphase with `-r`. 
 
 Optional parameters:
-- `-g`: Region(s) to analyze, separated by comma. All supported [regions](docs/regions.txt) will be analyzed if not specified. Please use region name, i.e. first column in the doc.
+- `-g`: Region(s) to analyze, separated by comma. All supported [regions](docs/regions.md) will be analyzed if not specified. Please use region name, i.e. first column in the doc.
 - `-t`: Number of threads.
-- `--genome`: Genome reference build. Default is `38`. If `37` or `19` is specified, Paraphase will run the analysis for GRCh37 or hg19, respectively (note that only 11 medically relevant [regions](docs/regions.txt) are supported now for GRCh37/hg19).
+- `--genome`: Genome reference build. Default is `38`. If `37` or `19` is specified, Paraphase will run the analysis for GRCh37 or hg19, respectively (note that only 11 medically relevant [regions](docs/regions.md) are supported now for GRCh37/hg19).
 - `gene1only`: If specified, variants calls will be made against the main gene only for SMN1, PMS2, STRC, NCF1 and IKBKG, see [below](#interpreting-the-output).
 - `--novcf`: If specified, no VCF files will be produced.
 - `--samtools`: path to samtools. If the paths to samtools or minimap2 are not already in the PATH environment variable, they can be provided through the `--samtools` and `--minimap2` parameters.
