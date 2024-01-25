@@ -133,4 +133,5 @@ class Pms2Phaser(Phaser):
             self.mdepth,
             self.region_avg_depth._asdict(),
             self.sample_sex,
+            None,
         )

@@ -38,6 +38,7 @@ class Phaser:
         "genome_depth",
         "region_depth",
         "sample_sex",
+        "fusions_called",
     ]
     GeneCall = namedtuple(
         "GeneCall",
@@ -97,6 +98,9 @@ class Phaser:
         if self.gene_end is None:
             self.gene_end = self.right_boundary
 
+        self.call_fusion = False
+        if "call_fusion" in config:
+            self.call_fusion = config["call_fusion"]
         self.use_supplementary = False
         if "use_supplementary" in config or "is_tandem" in config:
             self.use_supplementary = True
@@ -1679,6 +1683,19 @@ class Phaser:
             self.remove_noisy_sites()
         return homo_sites_to_add
 
+    def call_breakpoint(self, hap):
+        """Given a haplotype sequence, get the switch point from 1s to 2s or 2s to 1s"""
+        counts = []
+        for i, base in enumerate(hap):
+            counts.append(
+                min(
+                    hap[:i].count("1") + hap[i:].count("2"),
+                    hap[:i].count("2") + hap[i:].count("1"),
+                )
+            )
+        fusion_breakpoint = counts.index(min(counts))
+        return int(self.het_sites[fusion_breakpoint].split("_")[0])
+
     def call(self):
         """Main function to phase haplotypes and call copy numbers"""
         if self.check_coverage_before_analysis() is False:
@@ -1805,6 +1822,22 @@ class Phaser:
                 if prob[0] < 0.75:
                     total_cn = 4
 
+        # call fusion
+        fusions_called = None
+        if self.call_fusion:
+            fusions_called = {}
+            for hap, hap_name in ass_haps.items():
+                if hap.endswith("x") is False and hap.startswith("x") is False:
+                    if (hap.endswith("0") is False and hap.startswith("0") is True) or (
+                        hap.endswith("0") is True and hap.startswith("0") is False
+                    ):
+                        fusions_called.setdefault(hap_name, {})
+                        fusions_called[hap_name].setdefault("sequence", hap)
+                        fusion_breakpoint = self.call_breakpoint(hap)
+                        fusions_called[hap_name].setdefault(
+                            "breakpoint", fusion_breakpoint
+                        )
+
         # phase
         alleles = []
         hap_links = {}
@@ -1842,6 +1875,7 @@ class Phaser:
             self.mdepth,
             self.region_avg_depth._asdict(),
             self.sample_sex,
+            fusions_called,
         )
 
     def close_handle(self):

@@ -1261,8 +1261,8 @@ CYP2D6:
   extract_regions: chr22:42123196-42145723
   use_r2k: True
   is_tandem: True
-  check_nm: 0.08
-  noisy_region: [[42125955, 42126005]]
+  check_nm: 0.07
+  noisy_region: [[42125955, 42126005], [42132023, 42132051]]
   clip_5p_positions: [42123192]
   clip_3p_positions: [42132193]
   call_fusion: True
@@ -1275,7 +1275,7 @@ GBA:
   noisy_region: [[155236300, 155237300], [155238800, 155240500], [155241400, 155241900]]
   use_supplementary: True
   clip_5p_positions: [155230976]
-  clip_3p_positions: [155241990]
+  clip_3p_positions: [155242229]
   call_fusion: True
 CYP11B1:
   genes: CYP11B1,CYP11B2
@@ -1298,7 +1298,7 @@ CFH:
   noisy_region: [[196744000, 196748500], [196768000, 196770000]]
   call_fusion: True
 CFHR3:
-  genes: CFHR3,CFHR4,CFHR1
+  genes: CFHR3,CFHR4,CFHR1,CFHR2
   realign_region: chr1:196786000-196830000
   extract_regions: chr1:196786000-196830000 chr1:196911478-196948804
   check_nm: 0.1
