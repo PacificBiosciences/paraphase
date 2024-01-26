@@ -1259,51 +1259,59 @@ CYP2D6:
   genes: CYP2D6
   realign_region: chr22:42122800-42132500
   extract_regions: chr22:42123196-42145723
+  gene2_region: chr22:42135344-42145873
   use_r2k: True
   is_tandem: True
   check_nm: 0.07
   noisy_region: [[42125955, 42126005], [42132023, 42132051]]
   clip_5p_positions: [42123192]
   clip_3p_positions: [42132193]
-  call_fusion: True
+  call_fusion: 5p
+  keep_truncated: True
 GBA:
   genes: GBA1
   realign_region: chr1:155230000-155242500
   extract_regions: chr1:155210828-155219269 chr1:155230976-155241500
+  gene2_region: chr1:155210380-155219657
   check_nm: 0.2
   use_r2k: True
   noisy_region: [[155236300, 155237300], [155238800, 155240500], [155241400, 155241900]]
   use_supplementary: True
   clip_5p_positions: [155230976]
   clip_3p_positions: [155242229]
-  call_fusion: True
+  call_fusion: 3p
+  keep_truncated: True
 CYP11B1:
   genes: CYP11B1,CYP11B2
   realign_region: chr8:142872000-142880500
   extract_regions: chr8:142872000-142880500 chr8:142910559-142917843
+  gene2_region: chr8:142910760-142917977
   check_nm: 0.2
   use_r2k: True
   clip_5p_positions: [142873164]
   clip_3p_positions: [142879950]
   gene_end: 142879825
-  call_fusion: True
+  call_fusion: 5p
+  keep_truncated: True
 CFH:
   genes: CFH,CFHR1
   realign_region: chr1:196740000-196772000
   extract_regions: chr1:196740000-196772000 chr1:196827188-196855916
+  gene2_region: chr1:196827188-196855916
   check_nm: 0.1
   use_r2k: True
   clip_5p_positions: [196742575]
   clip_3p_positions: [196771224]
   noisy_region: [[196744000, 196748500], [196768000, 196770000]]
-  call_fusion: True
+  call_fusion: 5p
 CFHR3:
   genes: CFHR3,CFHR4,CFHR1,CFHR2
   realign_region: chr1:196786000-196830000
   extract_regions: chr1:196786000-196830000 chr1:196911478-196948804
+  gene2_region: chr1:196911478-196948804
   check_nm: 0.1
   use_r2k: True
   clip_5p_positions: [196786955]
   clip_3p_positions: [196827189]
   noisy_region: [[196789200, 196790000], [196808500, 196809600], [196817000, 196817600], [196826400, 196827100]]
-  call_fusion: True
+  call_fusion: 5p

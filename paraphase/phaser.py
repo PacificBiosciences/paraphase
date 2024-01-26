@@ -98,7 +98,7 @@ class Phaser:
         if self.gene_end is None:
             self.gene_end = self.right_boundary
 
-        self.call_fusion = False
+        self.call_fusion = None
         if "call_fusion" in config:
             self.call_fusion = config["call_fusion"]
         self.use_supplementary = False
@@ -1685,16 +1685,42 @@ class Phaser:
 
     def call_breakpoint(self, hap):
         """Given a haplotype sequence, get the switch point from 1s to 2s or 2s to 1s"""
-        counts = []
-        for i, base in enumerate(hap):
-            counts.append(
-                min(
-                    hap[:i].count("1") + hap[i:].count("2"),
-                    hap[:i].count("2") + hap[i:].count("1"),
+        new_hap = ""
+        all_sites = sorted(
+            self.homo_sites + self.het_sites, key=lambda x: int(x.split("_")[0])
+        )
+        all_sites = [
+            a
+            for a in all_sites
+            if max(self.clip_5p_positions)
+            < int(a.split("_")[0])
+            < min(self.clip_3p_positions)
+        ]
+        for var_site in all_sites:
+            if var_site in self.homo_sites:
+                new_hap += "2"
+            elif var_site in self.het_sites:
+                new_hap += hap[self.het_sites.index(var_site)]
+        if hap.startswith("0") is True and hap.endswith("0") is False:
+            counts = []
+            for i, base in enumerate(new_hap):
+                counts.append(
+                    new_hap[:i].count("2") + new_hap[i:].count("1"),
                 )
-            )
-        fusion_breakpoint = counts.index(min(counts))
-        return int(self.het_sites[fusion_breakpoint].split("_")[0])
+            fusion_breakpoint = counts.index(max(counts))
+            bp1 = int(all_sites[fusion_breakpoint].split("_")[0])
+            bp2 = self.get_range_in_other_gene(bp1, search_range=1000)
+            return (min(bp1, bp2), max(bp1, bp2))
+        elif hap.startswith("0") is False and hap.endswith("0") is True:
+            counts = []
+            for i, base in enumerate(new_hap):
+                counts.append(
+                    new_hap[:i].count("1") + new_hap[i:].count("2"),
+                )
+            fusion_breakpoint = counts.index(max(counts))
+            bp1 = int(all_sites[fusion_breakpoint].split("_")[0])
+            bp2 = self.get_range_in_other_gene(bp1, search_range=1000)
+            return (min(bp1, bp2), max(bp1, bp2))
 
     def call(self):
         """Main function to phase haplotypes and call copy numbers"""
@@ -1809,6 +1835,71 @@ class Phaser:
                 if probs[0] < 0.05 and others_max >= 10:
                     two_cp_haps.append(ass_haps[cp2_hap])
 
+        # call fusion
+        fusions_called = None
+        if self.call_fusion is not None:
+            if True not in [a.startswith("x") or a.endswith("x") for a in ass_haps]:
+                gene1s = [
+                    a
+                    for a in ass_haps
+                    if a.endswith("0") is False and a.startswith("0") is False
+                ]
+                gene2s = [
+                    a
+                    for a in ass_haps
+                    if a.endswith("0") is True and a.startswith("0") is True
+                ]
+                fusions = [
+                    a
+                    for a in ass_haps
+                    if (a.endswith("0") is False and a.startswith("0") is True)
+                    or (a.endswith("0") is True and a.startswith("0") is False)
+                ]
+                if fusions == [] and len(ass_haps) < 4:
+                    if len(gene1s) == 1 and ass_haps[gene1s[0]] not in two_cp_haps:
+                        two_cp_haps.append(ass_haps[gene1s[0]])
+                    if len(gene2s) == 1 and ass_haps[gene2s[0]] not in two_cp_haps:
+                        two_cp_haps.append(ass_haps[gene2s[0]])
+
+            fusions_called = {}
+            for hap, hap_name in ass_haps.items():
+                if hap.endswith("x") is False and hap.startswith("x") is False:
+                    if (hap.endswith("0") is False and hap.startswith("0") is True) or (
+                        hap.endswith("0") is True and hap.startswith("0") is False
+                    ):
+                        fusions_called.setdefault(hap_name, {})
+                        if self.call_fusion == "5p":
+                            if (
+                                hap.endswith("0") is False
+                                and hap.startswith("0") is True
+                            ):
+                                fusions_called[hap_name].setdefault(
+                                    "type", "duplication"
+                                )
+                            elif (
+                                hap.endswith("0") is True
+                                and hap.startswith("0") is False
+                            ):
+                                fusions_called[hap_name].setdefault("type", "deletion")
+                        elif self.call_fusion == "3p":
+                            if (
+                                hap.endswith("0") is False
+                                and hap.startswith("0") is True
+                            ):
+                                fusions_called[hap_name].setdefault("type", "deletion")
+                            elif (
+                                hap.endswith("0") is True
+                                and hap.startswith("0") is False
+                            ):
+                                fusions_called[hap_name].setdefault(
+                                    "type", "duplication"
+                                )
+                        fusions_called[hap_name].setdefault("sequence", hap)
+                        fusion_breakpoint = self.call_breakpoint(hap)
+                        fusions_called[hap_name].setdefault(
+                            "breakpoint", fusion_breakpoint
+                        )
+
         total_cn = len(ass_haps) + len(two_cp_haps)
 
         # fully homozygous
@@ -1821,22 +1912,6 @@ class Phaser:
                 prob = self.depth_prob(int(self.region_avg_depth.median), self.mdepth)
                 if prob[0] < 0.75:
                     total_cn = 4
-
-        # call fusion
-        fusions_called = None
-        if self.call_fusion:
-            fusions_called = {}
-            for hap, hap_name in ass_haps.items():
-                if hap.endswith("x") is False and hap.startswith("x") is False:
-                    if (hap.endswith("0") is False and hap.startswith("0") is True) or (
-                        hap.endswith("0") is True and hap.startswith("0") is False
-                    ):
-                        fusions_called.setdefault(hap_name, {})
-                        fusions_called[hap_name].setdefault("sequence", hap)
-                        fusion_breakpoint = self.call_breakpoint(hap)
-                        fusions_called[hap_name].setdefault(
-                            "breakpoint", fusion_breakpoint
-                        )
 
         # phase
         alleles = []
