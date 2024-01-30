@@ -232,10 +232,11 @@ H3C14:
   genes: H3C14,H3C15,H2AC18,H2AC19,H4C14,H4C15
   realign_region: chr1:149828816-149845484
   extract_regions: chr1:149828816-149843536 chr1:149850276-149865000
-  left_boundary: 149828816
-  right_boundary: 149843536
+  clip_3p_positions: [149843518]
+  noisy_region: [[149837998, 149838086]]
   is_tandem: True
   is_reverse: True
+  gene_end: 149842750
 MBD3L2:
   genes: MBD3L2,MBD3L2B,MBD3L3,MBD3L4,MBD3L5
   realign_region: chr19:7037528-7051735
@@ -393,6 +394,7 @@ PRR23D1:
   left_boundary: 7531040
   right_boundary: 7546000
   is_reverse: True
+  noisy_region: [[7538337, 7538352]]
 
 DEFB107A:
   genes: DEFB107A
