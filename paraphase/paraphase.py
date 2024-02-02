@@ -382,6 +382,12 @@ class Paraphase:
                     data_path, genome_build_dir, gene, old_data_file
                 )
                 data_paths[data_entry] = new_data_file
+            # add fusion gene definition file
+            if configs[gene].get("call_fusion") is not None:
+                data_paths.setdefault(
+                    "fusion_json",
+                    os.path.join(data_path, genome_build_dir, "fusion_genes.json"),
+                )
             # add reference fasta
             ref_file = os.path.join(ref_dir, f"{gene}_ref.fa")
             data_paths.setdefault("reference", ref_file)

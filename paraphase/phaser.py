@@ -10,6 +10,7 @@ from collections import Counter
 from itertools import product
 import re
 import logging
+import json
 from scipy.stats import poisson
 from collections import namedtuple
 from .haplotype_assembler import VariantGraph
@@ -101,6 +102,10 @@ class Phaser:
         self.call_fusion = None
         if "call_fusion" in config:
             self.call_fusion = config["call_fusion"]
+            fusion_json = config["data"].get("fusion_json")
+            self.fusion_gene_def_variants = []
+            with open(fusion_json) as f:
+                self.fusion_gene_def_variants = json.load(f).get(self.gene)
         self.use_supplementary = False
         if "use_supplementary" in config or "is_tandem" in config:
             self.use_supplementary = True
@@ -1686,21 +1691,31 @@ class Phaser:
     def call_breakpoint(self, hap):
         """Given a haplotype sequence, get the switch point from 1s to 2s or 2s to 1s"""
         new_hap = ""
-        all_sites = sorted(
-            self.homo_sites + self.het_sites, key=lambda x: int(x.split("_")[0])
-        )
-        all_sites = [
-            a
-            for a in all_sites
-            if max(self.clip_5p_positions)
-            < int(a.split("_")[0])
-            < min(self.clip_3p_positions)
-        ]
-        for var_site in all_sites:
-            if var_site in self.homo_sites:
-                new_hap += "2"
-            elif var_site in self.het_sites:
-                new_hap += hap[self.het_sites.index(var_site)]
+        if self.fusion_gene_def_variants != []:
+            all_sites = self.fusion_gene_def_variants
+            for var_site in all_sites:
+                base = "1"
+                if var_site in self.homo_sites:
+                    base = "2"
+                elif var_site in self.het_sites:
+                    base = hap[self.het_sites.index(var_site)]
+                new_hap += base
+        else:
+            all_sites = sorted(
+                self.homo_sites + self.het_sites, key=lambda x: int(x.split("_")[0])
+            )
+            all_sites = [
+                a
+                for a in all_sites
+                if max(self.clip_5p_positions)
+                < int(a.split("_")[0])
+                < min(self.clip_3p_positions)
+            ]
+            for var_site in all_sites:
+                if var_site in self.homo_sites:
+                    new_hap += "2"
+                elif var_site in self.het_sites:
+                    new_hap += hap[self.het_sites.index(var_site)]
         if hap.startswith("0") is True and hap.endswith("0") is False:
             counts = []
             for i, base in enumerate(new_hap):
@@ -1710,7 +1725,18 @@ class Phaser:
             fusion_breakpoint = counts.index(max(counts))
             bp1 = int(all_sites[fusion_breakpoint].split("_")[0])
             bp2 = self.get_range_in_other_gene(bp1, search_range=1000)
-            return (min(bp1, bp2), max(bp1, bp2))
+            bp3 = int(all_sites[fusion_breakpoint - 1].split("_")[0])
+            bp4 = self.get_range_in_other_gene(bp3, search_range=1000)
+            if bp1 < bp2:
+                return (
+                    (bp3, bp1),
+                    (bp4, bp2),
+                ), new_hap
+            else:
+                return (
+                    (bp4, bp2),
+                    (bp3, bp1),
+                ), new_hap
         elif hap.startswith("0") is False and hap.endswith("0") is True:
             counts = []
             for i, base in enumerate(new_hap):
@@ -1720,7 +1746,18 @@ class Phaser:
             fusion_breakpoint = counts.index(max(counts))
             bp1 = int(all_sites[fusion_breakpoint].split("_")[0])
             bp2 = self.get_range_in_other_gene(bp1, search_range=1000)
-            return (min(bp1, bp2), max(bp1, bp2))
+            bp3 = int(all_sites[fusion_breakpoint - 1].split("_")[0])
+            bp4 = self.get_range_in_other_gene(bp3, search_range=1000)
+            if bp1 < bp2:
+                return (
+                    (bp3, bp1),
+                    (bp4, bp2),
+                ), new_hap
+            else:
+                return (
+                    (bp4, bp2),
+                    (bp3, bp1),
+                ), new_hap
 
     def call(self):
         """Main function to phase haplotypes and call copy numbers"""
@@ -1838,6 +1875,7 @@ class Phaser:
         # call fusion
         fusions_called = None
         if self.call_fusion is not None:
+            two_cp_haps = []
             if True not in [a.startswith("x") or a.endswith("x") for a in ass_haps]:
                 gene1s = [
                     a
@@ -1867,38 +1905,43 @@ class Phaser:
                     if (hap.endswith("0") is False and hap.startswith("0") is True) or (
                         hap.endswith("0") is True and hap.startswith("0") is False
                     ):
-                        fusions_called.setdefault(hap_name, {})
-                        if self.call_fusion == "5p":
-                            if (
-                                hap.endswith("0") is False
-                                and hap.startswith("0") is True
-                            ):
-                                fusions_called[hap_name].setdefault(
-                                    "type", "duplication"
-                                )
-                            elif (
-                                hap.endswith("0") is True
-                                and hap.startswith("0") is False
-                            ):
-                                fusions_called[hap_name].setdefault("type", "deletion")
-                        elif self.call_fusion == "3p":
-                            if (
-                                hap.endswith("0") is False
-                                and hap.startswith("0") is True
-                            ):
-                                fusions_called[hap_name].setdefault("type", "deletion")
-                            elif (
-                                hap.endswith("0") is True
-                                and hap.startswith("0") is False
-                            ):
-                                fusions_called[hap_name].setdefault(
-                                    "type", "duplication"
-                                )
-                        fusions_called[hap_name].setdefault("sequence", hap)
-                        fusion_breakpoint = self.call_breakpoint(hap)
-                        fusions_called[hap_name].setdefault(
-                            "breakpoint", fusion_breakpoint
-                        )
+                        fusion_breakpoint, new_hap = self.call_breakpoint(hap)
+                        if "1" in new_hap and "2" in new_hap:
+                            fusions_called.setdefault(hap_name, {})
+                            if self.call_fusion == "5p":
+                                if (
+                                    hap.endswith("0") is False
+                                    and hap.startswith("0") is True
+                                ):
+                                    fusions_called[hap_name].setdefault(
+                                        "type", "duplication"
+                                    )
+                                elif (
+                                    hap.endswith("0") is True
+                                    and hap.startswith("0") is False
+                                ):
+                                    fusions_called[hap_name].setdefault(
+                                        "type", "deletion"
+                                    )
+                            elif self.call_fusion == "3p":
+                                if (
+                                    hap.endswith("0") is False
+                                    and hap.startswith("0") is True
+                                ):
+                                    fusions_called[hap_name].setdefault(
+                                        "type", "deletion"
+                                    )
+                                elif (
+                                    hap.endswith("0") is True
+                                    and hap.startswith("0") is False
+                                ):
+                                    fusions_called[hap_name].setdefault(
+                                        "type", "duplication"
+                                    )
+                            fusions_called[hap_name].setdefault("sequence", new_hap)
+                            fusions_called[hap_name].setdefault(
+                                "breakpoint", fusion_breakpoint
+                            )
 
         total_cn = len(ass_haps) + len(two_cp_haps)
 

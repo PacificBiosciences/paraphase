@@ -1277,7 +1277,7 @@ GBA:
   gene2_region: chr1:155210380-155219657
   check_nm: 0.2
   use_r2k: True
-  noisy_region: [[155236300, 155237300], [155238800, 155240500], [155241400, 155241900]]
+  noisy_region: [[155236583, 155237172], [155238947, 155239582], [155240160, 155240489], [155241400, 155241900]]
   use_supplementary: True
   clip_5p_positions: [155230976]
   clip_3p_positions: [155242229]
@@ -1290,6 +1290,7 @@ CYP11B1:
   gene2_region: chr8:142910760-142917977
   check_nm: 0.2
   use_r2k: True
+  noisy_region: [[142874825, 142874950]]
   clip_5p_positions: [142873164]
   clip_3p_positions: [142879950]
   gene_end: 142879825
@@ -1304,7 +1305,7 @@ CFH:
   use_r2k: True
   clip_5p_positions: [196742575]
   clip_3p_positions: [196771224]
-  noisy_region: [[196744000, 196748500], [196768000, 196770000]]
+  noisy_region: [[196748050, 196748125], [196768556, 196768896]]
   call_fusion: 5p
 CFHR3:
   genes: CFHR3,CFHR4,CFHR1,CFHR2
@@ -1315,5 +1316,5 @@ CFHR3:
   use_r2k: True
   clip_5p_positions: [196786955]
   clip_3p_positions: [196827189]
-  noisy_region: [[196789200, 196790000], [196808500, 196809600], [196817000, 196817600], [196826400, 196827100]]
+  noisy_region: [[196809513, 196812537], [196817000, 196817020], [196826466, 196826515]]
   call_fusion: 5p
