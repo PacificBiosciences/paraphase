@@ -63,6 +63,10 @@ class Cfc1Phaser(Phaser):
                     two_cp_haps.append(ass_haps[cp2_hap])
 
         total_cn = len(ass_haps) + len(two_cp_haps)
+
+        if self.het_sites == []:
+            total_cn = 4
+
         if total_cn < 4:
             total_cn = None
 
