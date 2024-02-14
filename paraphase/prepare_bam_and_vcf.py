@@ -342,12 +342,14 @@ class VcfGenerater:
     """
 
     search_range = 200
+    min_base_quality_for_variant_calling = 25
 
-    def __init__(self, sample_id, outdir, call_sum):
+    def __init__(self, sample_id, outdir, call_sum, allvcf):
         self.sample_id = sample_id
         self.outdir = outdir
         self.call_sum = call_sum
         self.match = {}
+        self.allvcf = allvcf
 
     def set_parameter(self, config, tmpdir=None, prog_cmd=None):
         self.gene = config["gene"]
@@ -804,12 +806,15 @@ class VcfGenerater:
         variants_info = {}
         two_cp_haplotypes = self.call_sum.get("two_copy_haplotypes")
         # exclude truncated copies
-        haps_not_truncated = [
-            a
-            for a in final_haps.values()
-            if self.call_sum["haplotype_details"][a]["is_truncated"] is False
-            or self.keep_truncated is True
-        ]
+        if self.allvcf:
+            haps_not_truncated = [a for a in final_haps.values()]
+        else:
+            haps_not_truncated = [
+                a
+                for a in final_haps.values()
+                if self.call_sum["haplotype_details"][a]["is_truncated"] is False
+                or self.keep_truncated is True
+            ]
         nhap = len(haps_not_truncated) + len(
             [a for a in two_cp_haplotypes if a in haps_not_truncated]
         )
@@ -839,7 +844,7 @@ class VcfGenerater:
             for pileupcolumn in bamh.pileup(
                 nchr,
                 truncate=True,
-                min_base_quality=30,
+                min_base_quality=self.min_base_quality_for_variant_calling,
             ):
                 pos = pileupcolumn.pos + 1
                 this_pos_bases = [
@@ -873,6 +878,7 @@ class VcfGenerater:
             if (
                 self.call_sum["haplotype_details"][hap_name]["is_truncated"] is True
                 and self.keep_truncated is False
+                and self.allvcf is False
             ):
                 continue
             hap_ids.append(hap_name)
@@ -915,7 +921,7 @@ class VcfGenerater:
             for pileupcolumn in bamh.pileup(
                 nchr,
                 truncate=True,
-                min_base_quality=30,
+                min_base_quality=self.min_base_quality_for_variant_calling,
             ):
                 pos = pileupcolumn.pos + 1
                 this_pos_bases = [
@@ -984,8 +990,8 @@ class TwoGeneVcfGenerater(VcfGenerater):
     Make vcf for two-gene scenario
     """
 
-    def __init__(self, sample_id, outdir, call_sum):
-        VcfGenerater.__init__(self, sample_id, outdir, call_sum)
+    def __init__(self, sample_id, outdir, call_sum, allvcf):
+        VcfGenerater.__init__(self, sample_id, outdir, call_sum, allvcf)
 
     def set_parameter(self, config, tmpdir=None, prog_cmd=None):
         super().set_parameter(config, tmpdir, prog_cmd)

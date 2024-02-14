@@ -78,9 +78,8 @@ class Paraphase:
         gdepth,
         bam,
         sample_sex,
-        novcf,
         prog_cmd,
-        gene1only=False,
+        args,
     ):
         """Workflow for each region"""
         phaser_calls = {}
@@ -160,15 +159,19 @@ class Paraphase:
                     bam_realigner.write_realign_bam(gene2=True)
                     bam_tagger.write_bam(random_assign=True, gene2=True)
 
-                if novcf is False and gene not in self.no_vcf_genes:
+                if args.novcf is False and gene not in self.no_vcf_genes:
                     logging.info(
                         f"Generating VCFs for {gene} for sample {sample_id} at {datetime.datetime.now()}..."
                     )
-                    if gene in self.two_reference_regions_genes and gene1only is False:
+                    if (
+                        gene in self.two_reference_regions_genes
+                        and args.gene1only is False
+                    ):
                         vcf_generater = TwoGeneVcfGenerater(
                             sample_id,
                             outdir,
                             phaser_call,
+                            args.allvcf,
                         )
                         vcf_generater.set_parameter(
                             config, tmpdir=tmpdir, prog_cmd=prog_cmd
@@ -179,6 +182,7 @@ class Paraphase:
                             sample_id,
                             outdir,
                             phaser_call,
+                            args.allvcf,
                         )
                         vcf_generater.set_parameter(
                             config, tmpdir=tmpdir, prog_cmd=prog_cmd
@@ -199,11 +203,10 @@ class Paraphase:
         configs,
         tmpdir,
         prog_cmd,
+        args,
         num_threads=1,
         dcov={},
-        novcf=False,
         genome_build="38",
-        gene1only=False,
     ):
         """Main workflow"""
         for bam in bamlist:
@@ -263,9 +266,8 @@ class Paraphase:
                         gdepth,
                         bam,
                         sample_sex,
-                        novcf,
                         prog_cmd,
-                        gene1only,
+                        args,
                     )
                 else:
                     process_gene_partial = partial(
@@ -276,9 +278,8 @@ class Paraphase:
                         gdepth=gdepth,
                         bam=bam,
                         sample_sex=sample_sex,
-                        novcf=novcf,
                         prog_cmd=prog_cmd,
-                        gene1only=gene1only,
+                        args=args,
                     )
                     gene_groups = [
                         query_genes[i::num_threads] for i in range(num_threads)
@@ -562,7 +563,8 @@ class Paraphase:
         parser.add_argument(
             "-d",
             "--depth",
-            help="Optional path to a file listing average depth for each sample",
+            help=argparse.SUPPRESS,
+            # help="Optional path to a file listing average depth for each sample",
             required=False,
         )
         parser.add_argument(
@@ -592,6 +594,13 @@ class Paraphase:
             help="Optional. If specified, variant calls will be made against the main gene only.\n"
             + "By default, for SMN1, PMS2, STRC, NCF1 and IKBKG, haplotypes are assigned to gene or\n"
             + "paralog/pseudogene, and variants are called against gene or paralog/pseudogene, respectively.\n",
+            required=False,
+            action="store_true",
+        )
+        parser.add_argument(
+            "--allvcf",
+            help=argparse.SUPPRESS,
+            # help="Optional. If specified, paraphase will write vcfs for all haplotypes, including truncated pseudogenes",
             required=False,
             action="store_true",
         )
@@ -658,11 +667,10 @@ class Paraphase:
                         configs,
                         tmpdir,
                         prog_cmd,
+                        args,
                         num_threads,
                         dcov,
-                        args.novcf,
                         genome_build_dir,
-                        args.gene1only,
                     )
                 else:
                     logging.warning(f"{args.bam} bam or bai file doesn't exist")
@@ -682,10 +690,9 @@ class Paraphase:
                     configs=configs,
                     tmpdir=tmpdir,
                     prog_cmd=prog_cmd,
+                    args=args,
                     dcov=dcov,
-                    novcf=args.novcf,
                     genome_build=genome_build_dir,
-                    gene1only=args.gene1only,
                 )
                 bam_groups = [bamlist[i::num_threads] for i in range(num_threads)]
                 pool = mp.Pool(num_threads)
