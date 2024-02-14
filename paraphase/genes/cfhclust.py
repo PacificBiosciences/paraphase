@@ -1,0 +1,57 @@
+# paraphase
+# Author: Xiao Chen <xchen@pacificbiosciences.com>
+
+
+from ..phaser import Phaser
+
+
+class CfhClust(Phaser):
+    def __init__(
+        self,
+        sample_id,
+        outdir,
+        cfh,
+        cfhr3,
+    ):
+        Phaser.__init__(self, sample_id, outdir)
+        self.cfh = cfh
+        self.cfhr3 = cfhr3
+
+    def call(self):
+        haps = {}
+        haps.update(self.cfh["final_haplotypes"])
+        haps.update(self.cfhr3["final_haplotypes"])
+        fusions = {}
+        fusions.update(self.cfh["fusions_called"])
+        fusions.update(self.cfhr3["fusions_called"])
+        total_cn = None
+        if self.cfh["total_cn"] is not None and self.cfhr3["total_cn"] is not None:
+            total_cn = min(self.cfh["total_cn"], self.cfhr3["total_cn"])
+            if fusions != {}:
+                total_cn = min(
+                    total_cn,
+                    len(self.cfh["final_haplotypes"]),
+                    len(self.cfhr3["final_haplotypes"]),
+                )
+
+        return self.GeneCall(
+            total_cn,
+            None,
+            haps,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
+            fusions,
+        )

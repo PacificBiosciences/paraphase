@@ -290,6 +290,19 @@ class Paraphase:
                     pool.join()
                     for phaser_call_set in phaser_calls:
                         sample_out.update(phaser_call_set)
+
+                # merge cfh cluster result
+                if "CFH" in sample_out and "CFHR3" in sample_out:
+                    cfh_cluster_caller = genes.CfhClust(
+                        sample_id,
+                        tmpdir,
+                        sample_out["CFH"],
+                        sample_out["CFHR3"],
+                    )
+                    sample_out.setdefault(
+                        "CFHclust", cfh_cluster_caller.call()._asdict()
+                    )
+
                 sample_out = dict(sorted(sample_out.items()))
 
                 logging.info(
