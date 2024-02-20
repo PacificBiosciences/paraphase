@@ -172,12 +172,14 @@ SSX2:
   genes: SSX2,SSX2B
   is_tandem: True
   is_reverse: True
+  is_palindrome: True
   realign_region: chrX:52696000-52729000
   extract_regions: chrX:52696000-52762432
 SSX4: 
   genes: SSX4,SSX4B
   is_tandem: True
   is_reverse: True
+  is_palindrome: True
   realign_region: chrX:48380000-48396314
   extract_regions: chrX:48380000-48417000
   left_boundary: 48380500
@@ -188,6 +190,7 @@ CENPVL2:
   extract_regions: chrX:51675000-51692963 chrX:51700364-51718343  
   is_tandem: True
   is_reverse: True
+  is_palindrome: True
   noisy_region: [[51691779, 51691984]]
 DMRTC1:
   genes: DMRTC1,DMRTC1B,FAM236A,FAM236B,FAM236C,FAM236D
@@ -198,6 +201,7 @@ DMRTC1:
   noisy_region: [[72943757, 72943880]]
   is_tandem: True
   is_reverse: True
+  is_palindrome: True
 XAGE1A:
   genes: XAGE1A,XAGE1B
   realign_region: chrX:52490000-52502000
@@ -220,6 +224,7 @@ CXorf51A:
   extract_regions: chrX:146812425-146822425 chrX:146802090-146812090
   is_tandem: True
   is_reverse: True
+  is_palindrome: True
   noisy_region: [[146816220, 146816278]]
 DDT:
   genes: DDT,DDTL
@@ -268,6 +273,7 @@ CSAG2:
   realign_region: chrX:152690000-152720620
   extract_regions: chrX:152690000-152720620 chrX:152747848-152778471
   is_reverse: True
+  is_palindrome: True
 OR4M2:
   genes: OR4M2,OR4N4,OR4M2B,OR4N4C
   realign_region: chr15:22071068-22105192
@@ -378,6 +384,7 @@ CXorf49:
   left_boundary: 71706330
   right_boundary: 71726327
   is_reverse: True
+  is_palindrome: True
 
 DEFB109B:
   genes: DEFB109B,USP17L1,USP17L3,USP17L4,USP17L8
@@ -503,6 +510,7 @@ FAM156A:
   left_boundary: 52942888
   right_boundary: 52962885
   is_reverse: True
+  is_palindrome: True
 FAM246A:
   genes: FAM246A,FAM246B
   realign_region: chr22:21350950-21370950
@@ -646,6 +654,7 @@ MAGEH1:
   right_boundary: 55462845
   clip_5p_positions: [55453508]
   is_reverse: True
+  is_palindrome: True
 MALL:
   genes: MALL
   realign_region: chr2:110083370-110118500
@@ -695,6 +704,7 @@ NXF2:
   left_boundary: 102300000
   right_boundary: 102327221
   is_reverse: True
+  is_palindrome: True
 OCLN:
   genes: OCLN
   realign_region: chr5:69492290-69558604
@@ -739,6 +749,7 @@ PABPC1L2A:
   right_boundary: 73086957
   clip_5p_positions: [73077480]
   is_reverse: True
+  is_palindrome: True
   gene_start: 73077480
 PDPK1:
   genes: PDPK1
@@ -984,6 +995,7 @@ TMLHE:
   left_boundary: 155488513
   right_boundary: 155510000
   is_reverse: True
+  is_palindrome: True
 TRIM49:
   genes: TRIM49,TRIM49C
   realign_region: chr11:89793115-89813115
@@ -1077,6 +1089,7 @@ MAGED4:
   realign_region: chrX:52182000-52198578
   extract_regions: chrX:52178579-52198578 chrX:52055517-52075516
   is_reverse: True
+  is_palindrome: True
 CBS:
   genes: CBS
   realign_region: chr21:43052691-43076335
@@ -1236,6 +1249,7 @@ CTAG1A:
   right_boundary: 154591300
   clip_3p_positions: [154591326]
   is_reverse: True
+  is_palindrome: True
   add_sites: ["154591380_A_G"]
 BOLA2:
   genes: BOLA2,BOLA2B,SLX1A,SLX1B,SULT1A3,SULT1A4

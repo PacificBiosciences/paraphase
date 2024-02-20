@@ -125,7 +125,7 @@ class Paraphase:
                 elif gene == "hba":
                     phaser = genes.HbaPhaser(sample_id, tmpdir, gdepth, bam, sample_sex)
                 else:
-                    phaser = Phaser(sample_id, tmpdir, gdepth)
+                    phaser = Phaser(sample_id, tmpdir, gdepth, sample_sex=sample_sex)
 
                 config = configs[gene]
                 logging.info(
@@ -244,7 +244,9 @@ class Paraphase:
                             f"For sample {sample_id}, due to low or highly variable genome coverage, genome coverage is not used for depth correction."
                         )
                         gdepth = None
-                if set(query_genes).intersection(set(self.check_sex_genes)) != set():
+
+                # call sample sex
+                if True in ["X" in configs[a]["nchr"] for a in configs]:
                     logging.info(f"Checking sample sex at {datetime.datetime.now()}...")
                     depth = GenomeDepth(
                         bam,

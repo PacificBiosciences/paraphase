@@ -192,6 +192,12 @@ class F8Phaser(Phaser):
             elif links == "region1-region3" and "int22h3" in hap:
                 sv_hap.setdefault(hap, "inversion")
 
+        if sv_hap == {} and self.sample_sex is not None:
+            if self.sample_sex == "female" and total_cn < 6:
+                total_cn = None
+            if self.sample_sex == "male" and total_cn < 3:
+                total_cn = None
+
         self.close_handle()
 
         return self.GeneCall(

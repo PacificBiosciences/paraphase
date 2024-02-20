@@ -27,7 +27,11 @@ class CfhClust(Phaser):
         total_cn = None
         if self.cfh["total_cn"] is not None and self.cfhr3["total_cn"] is not None:
             total_cn = min(self.cfh["total_cn"], self.cfhr3["total_cn"])
-            if fusions != {}:
+            if (
+                fusions != {}
+                and len(self.cfh["final_haplotypes"]) >= 2
+                and len(self.cfhr3["final_haplotypes"]) >= 2
+            ):
                 total_cn = min(
                     total_cn,
                     len(self.cfh["final_haplotypes"]),
