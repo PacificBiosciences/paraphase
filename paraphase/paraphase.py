@@ -79,13 +79,13 @@ class Paraphase:
         bam,
         sample_sex,
         prog_cmd,
+        sample_id,
         args,
     ):
         """Workflow for each region"""
         phaser_calls = {}
         for gene in gene_list:
             try:
-                sample_id = bam.split("/")[-1].split(".")[0]
                 if gene == "smn1":
                     phaser = genes.Smn1Phaser(
                         sample_id, tmpdir, gdepth, bam, sample_sex
@@ -134,7 +134,7 @@ class Paraphase:
                 logging.info(
                     f"Realigning reads for {gene} for sample {sample_id} at {datetime.datetime.now()}..."
                 )
-                bam_realigner = BamRealigner(bam, tmpdir, config, prog_cmd)
+                bam_realigner = BamRealigner(bam, tmpdir, config, prog_cmd, sample_id)
                 bam_realigner.write_realign_bam()
 
                 logging.info(
@@ -211,7 +211,15 @@ class Paraphase:
         """Main workflow"""
         for bam in bamlist:
             try:
-                sample_id = bam.split("/")[-1].split(".")[0]
+                if args.prefix is not None and args.bam is not None:
+                    sample_id = args.prefix
+                else:
+                    sample_id_from_header = self.get_sample_id_from_header(bam)
+                    if sample_id_from_header is not None:
+                        sample_id = sample_id_from_header
+                    else:
+                        sample_id = bam.split("/")[-1].split(".")[0]
+
                 logging.info(
                     f"Processing sample {sample_id} at {datetime.datetime.now()}..."
                 )
@@ -269,6 +277,7 @@ class Paraphase:
                         bam,
                         sample_sex,
                         prog_cmd,
+                        sample_id,
                         args,
                     )
                 else:
@@ -281,6 +290,7 @@ class Paraphase:
                         bam=bam,
                         sample_sex=sample_sex,
                         prog_cmd=prog_cmd,
+                        sample_id=sample_id,
                         args=args,
                     )
                     gene_groups = [
@@ -323,6 +333,23 @@ class Paraphase:
                     f"Error running sample {sample_id}...See error message below"
                 )
                 traceback.print_exc()
+
+    @staticmethod
+    def get_sample_id_from_header(bam):
+        """Get sample ID from RG SM from the bam header"""
+        bam_handle = pysam.AlignmentFile(bam, "rb")
+        header = bam_handle.header
+        header = header.to_dict()
+        sample_ids = []
+        rg_lines = header.get("RG")
+        if rg_lines is not None:
+            sample_ids = [a.get("SM") for a in rg_lines if "SM" in a]
+        bam_handle.close()
+        sample_ids = [a for a in sample_ids if a is not None]
+        if len(set(sample_ids)) == 1:
+            return sample_ids[0]
+        else:
+            return None
 
     def merge_bams(self, query_genes, outdir, tmpdir, sample_id):
         """Merge realigned tagged bams for each gene into one bam"""
@@ -559,6 +586,12 @@ class Paraphase:
             "--out",
             help="Output directory",
             required=True,
+        )
+        outputp.add_argument(
+            "-p",
+            "--prefix",
+            help="Prefix of output files for a single sample. Used with -b",
+            required=False,
         )
         parser.add_argument(
             "-g",

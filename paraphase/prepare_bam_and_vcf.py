@@ -25,10 +25,11 @@ class BamRealigner:
     deletion = r"\d+D"
     insertion = r"\d+I"
 
-    def __init__(self, bam, outdir, config, prog_cmd):
+    def __init__(self, bam, outdir, config, prog_cmd, sample_id):
         self.bam = bam
         self.outdir = outdir
         self.prog_cmd = prog_cmd
+        self.sample_id = sample_id
         self.gene = config["gene"]
         self.ref = config["data"]["reference"]
         self.nchr_old = config["nchr_old"]
@@ -44,7 +45,6 @@ class BamRealigner:
         if "use_r2k" in config:
             self.use_r2k = "-r2k"
         self._bamh = pysam.AlignmentFile(bam, "rb")
-        self.sample_id = bam.split("/")[-1].split(".")[0]
         self.realign_bam = os.path.join(
             self.outdir, self.sample_id + f"_{self.gene}_realigned_old.bam"
         )
