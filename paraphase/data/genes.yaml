@@ -1,5 +1,4 @@
 genes_to_call: []
 no_genome_depth_genes: ["pms2", "neb", "cfc1", "ikbkg", "opn1lw", "rccx"]
 no_vcf_genes: ["CFH", "CFHR3"]
-#check_sex_genes: ["opn1lw", "f8", "ikbkg"]
 two_reference_regions_genes: ["smn1", "pms2", "strc", "ikbkg", "ncf1"]

@@ -565,7 +565,8 @@ class Paraphase:
             "--gene",
             help="Optionally specify which gene(s) to run (separated by comma).\n"
             + "Will run all genes if not specified.\n"
-            + "The full set of accepted genes are defined in the config file.\n",
+            + "The full set of accepted regions are defined in the config file.\n"
+            + "Alternatively, you can define genes to call by modifying paraphase/data/genes.yaml\n",
             required=False,
         )
         parser.add_argument(
