@@ -14,6 +14,7 @@ import pysam
 import subprocess
 import traceback
 import random
+import tarfile
 import multiprocessing as mp
 from argparse import RawTextHelpFormatter
 from functools import partial
@@ -188,6 +189,13 @@ class Paraphase:
                             config, tmpdir=tmpdir, prog_cmd=prog_cmd
                         )
                         vcf_generater.run_without_realign()
+                    with tarfile.open(
+                        os.path.join(outdir, f"{sample_id}.paraphase.vcfs.tar.gz"),
+                        "w:gz",
+                    ) as tar:
+                        source_dir = os.path.join(tmpdir, f"{sample_id}_vcfs")
+                        if os.path.exists(source_dir):
+                            tar.add(source_dir, arcname=os.path.basename(source_dir))
             except Exception:
                 logging.error(
                     f"Error running {gene} for sample {sample_id}...See error message below"
@@ -325,7 +333,7 @@ class Paraphase:
                 logging.info(
                     f"Writing to json for sample {sample_id} at {datetime.datetime.now()}..."
                 )
-                out_json = os.path.join(outdir, sample_id + ".json")
+                out_json = os.path.join(outdir, sample_id + ".paraphase.json")
                 with open(out_json, "w") as json_output:
                     json.dump(sample_out, json_output, indent=4)
             except Exception:
@@ -374,7 +382,7 @@ class Paraphase:
         with open(bam_list_file, "w") as fout:
             for bam in bams:
                 fout.write(bam + "\n")
-        merged_bam = os.path.join(outdir, f"{sample_id}_realigned_tagged.bam")
+        merged_bam = os.path.join(outdir, f"{sample_id}.paraphase.bam")
         tmp_bam = os.path.join(tmpdir, f"{sample_id}_merged.bam")
         pysam.merge("-f", "-o", tmp_bam, "-b", bam_list_file)
         pysam.sort("-o", merged_bam, tmp_bam)

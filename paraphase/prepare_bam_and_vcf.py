@@ -383,7 +383,7 @@ class VcfGenerater:
         self.bam = os.path.join(
             tmpdir, self.sample_id + f"_{self.gene}_realigned_tagged.bam"
         )
-        self.vcf_dir = os.path.join(self.outdir, f"{self.sample_id}_vcfs")
+        self.vcf_dir = os.path.join(self.tmpdir, f"{self.sample_id}_vcfs")
         os.makedirs(self.vcf_dir, exist_ok=True)
 
     def get_range_in_other_gene(self, pos):
