@@ -407,7 +407,13 @@ class VcfGenerater:
             '##FILTER=<ID=LowQual,Description="Low confidence in this variant.">\n'
         )
         fout.write(
-            '##INFO=<ID=HapIDs,Number=R,Type=String,Description="Haplotype IDs">\n'
+            '##INFO=<ID=HapID,Number=R,Type=String,Description="Haplotype IDs">\n'
+        )
+        fout.write(
+            '##INFO=<ID=HapBoundary,Number=R,Type=String,Description="Haplotype boundary coordinates">\n'
+        )
+        fout.write(
+            '##INFO=<ID=DP,Number=1,Type=Integer,Description="Number of reads per haplotype">\n'
         )
         if self.gene in ["ikbkg", "f8"]:
             fout.write(
@@ -452,7 +458,7 @@ class VcfGenerater:
         )
         with open(merged_vcf, "w") as fout:
             self.write_header(fout)
-            for variants_info, haps_ids in vars_list:
+            for variants_info, haps_ids, haps_bounds in vars_list:
                 variants_info = dict(sorted(variants_info.items()))
                 for pos in variants_info:
                     call_info = variants_info[pos]
@@ -489,7 +495,26 @@ class VcfGenerater:
                         if (var_num == 1 and ("1" in merge_gt or "." in merge_gt)) or (
                             var_num > 1 and alt != "."
                         ):
+                            if "1" in merge_gt:
+                                variant_filter = "PASS"
+                            else:
+                                variant_filter = "LowQual"
                             if alt.isdigit() is False:
+                                info_field = (
+                                    "HapID="
+                                    + ",".join(haps_ids)
+                                    + ";"
+                                    + "HapBoundary="
+                                    + ",".join(
+                                        [
+                                            "-".join([str(k) for k in a])
+                                            for a in haps_bounds
+                                        ]
+                                    )
+                                    + ";"
+                                    + "DP="
+                                    + ",".join(merge_dp)
+                                )
                                 merged_entry = [
                                     self.nchr,
                                     str(pos),
@@ -497,20 +522,32 @@ class VcfGenerater:
                                     ref,
                                     alt,
                                     final_qual,
-                                    "PASS",
-                                    "HapIDs=" + ",".join(haps_ids),
-                                    "GT:DP:AD",
-                                    "/".join(merge_gt)
-                                    + ":"
-                                    + ",".join(merge_dp)
-                                    + ":"
-                                    + ",".join(merge_ad),
+                                    variant_filter,
+                                    info_field,
+                                    "GT:AD",
+                                    "/".join(merge_gt) + ":" + ",".join(merge_ad),
                                 ]
                             else:
                                 nstart, var_type, nend = variant.split("_")
                                 nstart = int(nstart)
                                 nend = int(nend)
                                 var_size = nend - nstart
+                                info_field = (
+                                    f"SVTYPE={var_type};END={nend};SVLEN={var_size};"
+                                    + "HapID="
+                                    + ",".join(haps_ids)
+                                    + ";"
+                                    + "HapBoundary="
+                                    + ",".join(
+                                        [
+                                            "-".join([str(k) for k in a])
+                                            for a in haps_bounds
+                                        ]
+                                    )
+                                    + ";"
+                                    + "DP="
+                                    + ",".join(merge_dp)
+                                )
                                 merged_entry = [
                                     self.nchr,
                                     str(pos),
@@ -518,16 +555,10 @@ class VcfGenerater:
                                     "N",
                                     f"<{var_type}>",
                                     final_qual,
-                                    "PASS",
-                                    f"SVTYPE={var_type};END={nend};SVLEN={var_size};"
-                                    + "HapIDs="
-                                    + ",".join(haps_ids),
-                                    "GT:DP:AD",
-                                    "/".join(merge_gt)
-                                    + ":"
-                                    + ",".join(merge_dp)
-                                    + ":"
-                                    + ",".join(merge_ad),
+                                    variant_filter,
+                                    info_field,
+                                    "GT:AD",
+                                    "/".join(merge_gt) + ":" + ",".join(merge_ad),
                                 ]
                             fout.write("\t".join(merged_entry) + "\n")
 
@@ -819,6 +850,7 @@ class VcfGenerater:
             [a for a in two_cp_haplotypes if a in haps_not_truncated]
         )
         hap_ids = []
+        hap_bounds = []
 
         # gene1only, or two-gene mode but gene1 side
         if gene2 is False or match_range is False:
@@ -864,6 +896,8 @@ class VcfGenerater:
             vcf_out.close()
             hap_ids.append(hap_name)
             hap_ids.append(hap_name)
+            hap_bounds.append([self.left_boundary, self.right_boundary])
+            hap_bounds.append([self.left_boundary, self.right_boundary])
             for pos, var_name, dp, ad, var_filter, gt in variants_called:
                 variants_info.setdefault(
                     pos,
@@ -881,7 +915,6 @@ class VcfGenerater:
                 and self.allvcf is False
             ):
                 continue
-            hap_ids.append(hap_name)
 
             variants_to_add = {}
             if hap_name in special_variants:
@@ -909,6 +942,10 @@ class VcfGenerater:
                             min(n3, n4),
                             max(n3, n4),
                         ]
+
+            hap_ids.append(hap_name)
+            hap_bounds.append([hap_bound[0], hap_bound[1]])
+
             hap_vcf_out = os.path.join(
                 self.vcf_dir, self.sample_id + f"_{self.gene}_{hap_name}.vcf"
             )
@@ -975,14 +1012,15 @@ class VcfGenerater:
             if hap_name in two_cp_haplotypes:
                 i += 1
                 hap_ids.append(hap_name)
+                hap_bounds.append([hap_bound[0], hap_bound[1]])
             i += 1
 
         bamh.close()
         refh.close()
         if gene2 is False:
-            self.merge_vcf([(variants_info, hap_ids)])
+            self.merge_vcf([(variants_info, hap_ids, hap_bounds)])
         else:
-            return variants_info, hap_ids
+            return variants_info, hap_ids, hap_bounds
 
 
 class TwoGeneVcfGenerater(VcfGenerater):
@@ -1055,11 +1093,11 @@ class TwoGeneVcfGenerater(VcfGenerater):
         if call_sum.get("final_haplotypes") is None:
             return
         gene1_haps, gene2_haps = self.separate_two_genes()
-        vars_gene1, gene1_hap_ids = self.run_without_realign(
+        vars_gene1, gene1_hap_ids, gene1_hap_bounds = self.run_without_realign(
             gene2=True,
             final_haps=gene1_haps,
         )
-        vars_gene2, gene2_hap_ids = self.run_without_realign(
+        vars_gene2, gene2_hap_ids, gene2_hap_bounds = self.run_without_realign(
             gene2=True,
             final_haps=gene2_haps,
             match_range=True,
@@ -1069,6 +1107,16 @@ class TwoGeneVcfGenerater(VcfGenerater):
             and vars_gene2 != {}
             and list(vars_gene1.keys())[0] < list(vars_gene2.keys())[0]
         ):
-            self.merge_vcf([(vars_gene1, gene1_hap_ids), (vars_gene2, gene2_hap_ids)])
+            self.merge_vcf(
+                [
+                    (vars_gene1, gene1_hap_ids, gene1_hap_bounds),
+                    (vars_gene2, gene2_hap_ids, gene2_hap_bounds),
+                ]
+            )
         else:
-            self.merge_vcf([(vars_gene2, gene2_hap_ids), (vars_gene1, gene1_hap_ids)])
+            self.merge_vcf(
+                [
+                    (vars_gene2, gene2_hap_ids, gene2_hap_bounds),
+                    (vars_gene1, gene1_hap_ids, gene1_hap_bounds),
+                ]
+            )
