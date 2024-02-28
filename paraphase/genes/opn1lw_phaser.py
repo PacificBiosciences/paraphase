@@ -43,7 +43,7 @@ class Opn1lwPhaser(Phaser):
         fields,
         defaults=(None,) * len(fields),
     )
-    pathogenic_haps = ["LIAVA", "LVAVA", "LIAVS", "MIAVA", "MVVVA", "MVAVA", "LIAIA"]
+    # pathogenic_haps = ["LIAVA", "LVAVA", "LIAVS", "MIAVA", "MVVVA", "MVAVA", "LIAIA"]
 
     def __init__(
         self, sample_id, outdir, genome_depth=None, genome_bam=None, sample_sex=None
@@ -243,8 +243,7 @@ class Opn1lwPhaser(Phaser):
                 # annotate exon3
                 hap_annotated = self.call_exon3(var)
                 gene_annotated = renamed_hap.split("_")[0]
-                if hap_annotated in self.pathogenic_haps:
-                    gene_annotated += "_" + hap_annotated
+                gene_annotated += "_" + hap_annotated
                 annotated_haps.setdefault(renamed_hap, gene_annotated)
 
             tmp = {}
@@ -376,8 +375,7 @@ class Opn1lwPhaser(Phaser):
                             hap_vars = haplotypes[each_hap]["variants"]
                             hap_annotated = self.call_exon3(hap_vars)
                             gene_annotated = each_hap.split("_")[0]
-                            if hap_annotated in self.pathogenic_haps:
-                                gene_annotated += "_" + hap_annotated
+                            gene_annotated += "_" + hap_annotated
                         else:
                             gene_annotated = None
                         each_allele_annotated.append(gene_annotated)
@@ -400,8 +398,7 @@ class Opn1lwPhaser(Phaser):
                 total_cn = baseline_cn
                 counter_lw = baseline_cn
                 gene_annotated = "opn1lw"
-            if hap_annotated in self.pathogenic_haps:
-                gene_annotated += "_" + hap_annotated
+            gene_annotated += "_" + hap_annotated
             annotated_alleles.append([gene_annotated])
             if self.sample_sex == "female":
                 annotated_alleles.append([gene_annotated])
