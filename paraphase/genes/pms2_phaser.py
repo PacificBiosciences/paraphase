@@ -35,7 +35,9 @@ class Pms2Phaser(Phaser):
         self.het_sites = sorted(list(self.candidate_pos))
         self.remove_noisy_sites()
         # for distinguishing pms2 from pms2cl
-        raw_read_haps = self.get_haplotypes_from_reads(add_sites=self.add_sites)
+        raw_read_haps = self.get_haplotypes_from_reads(
+            check_clip=True, add_sites=self.add_sites
+        )
 
         het_sites = self.het_sites
         known_del = {}
@@ -66,20 +68,16 @@ class Pms2Phaser(Phaser):
         counter_gene = 0
         counter_pseudo = 0
         counter_unknown = 0
-        pivot_index, index_found = self.get_pivot_site_index()
-        if index_found is False:
-            return self.GeneCall()
         for hap in ass_haps:
-            start_seq = hap[pivot_index:]
-            if start_seq.count("2") >= 15:
-                counter_pseudo += 1
-                hap_name = f"pms2clhap{counter_pseudo}"
-            elif start_seq.count("2") <= 5:
-                counter_gene += 1
-                hap_name = f"pms2hap{counter_gene}"
-            else:
+            if hap.endswith("x"):
                 counter_unknown += 1
                 hap_name = f"pms2_unknown_hap{counter_gene}"
+            elif hap.endswith("0"):
+                counter_pseudo += 1
+                hap_name = f"pms2clhap{counter_pseudo}"
+            else:
+                counter_gene += 1
+                hap_name = f"pms2hap{counter_gene}"
             tmp.setdefault(hap, hap_name)
         ass_haps = tmp
 

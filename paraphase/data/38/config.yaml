@@ -32,11 +32,12 @@ pms2:
   realign_region: chr7:5965000-6010000
   extract_regions: chr7:5965000-5989062 chr7:6735629-6759796
   gene2_region: chr7:6735629-6759796
-  right_boundary: 5987500
+  right_boundary: 5993450
   pivot_site: 5986569
-  noisy_region: [[5980880, 5980980], [5979663, 5979669], [5975950, 5976080]]
+  noisy_region: [[5980880, 5980980], [5979663, 5979669], [5975950, 5976080], [5988500, 5992350], [5992780, 5993400]]
   is_reverse: True
   add_sites: ["5986569_G_A"]
+  clip_3p_positions: [5993410]
 rccx: 
   genes: CYP21A2,C4A,C4B,TNXB
   is_tandem: True
