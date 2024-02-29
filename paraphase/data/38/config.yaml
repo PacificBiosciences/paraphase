@@ -30,14 +30,15 @@ pms2:
   genes: PMS2
   check_nm: 0.1
   realign_region: chr7:5965000-6010000
-  extract_regions: chr7:5965000-5989062 chr7:6735629-6759796
-  gene2_region: chr7:6735629-6759796
+  extract_regions: chr7:5965000-5993410 chr7:6733543-6759796
+  gene2_region: chr7:6733543-6759796
   right_boundary: 5993450
   pivot_site: 5986569
   noisy_region: [[5980880, 5980980], [5979663, 5979669], [5975950, 5976080], [5988500, 5992350], [5992780, 5993400]]
   is_reverse: True
   add_sites: ["5986569_G_A"]
   clip_3p_positions: [5993410]
+  keep_truncated: True
 rccx: 
   genes: CYP21A2,C4A,C4B,TNXB
   is_tandem: True
@@ -343,14 +344,12 @@ PRY:
   realign_region: chrY:22489897-22515137
   extract_regions: chrY:22489898-22515137 chrY:22071256-22096507 chrY:23680940-23702786 chrY:25967288-25989136
   left_boundary: 22493307
-  expect_cn2: True
 BPY2:
   genes: BPY2,BPY2B,BPY2C
   realign_region: chrY:22983763-23005965
   extract_regions: chrY:22983764-23005965 chrY:24617505-24639707 chrY:25030401-25052603
   left_boundary: 22983765
   right_boundary: 23005964
-  expect_cn2: True
 CHRNA7:
   genes: CHRNA7
   realign_region: chr15:32100015-32173518

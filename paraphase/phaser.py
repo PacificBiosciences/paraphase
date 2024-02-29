@@ -1928,7 +1928,9 @@ class Phaser:
             )
 
         two_cp_haps = []
-        if len(ass_haps) == 3:
+        if (
+            len(ass_haps) == 3 and self.expect_cn2 is False and self.gene != "BPY2"
+        ) or (self.gene == "BPY2" and len(ass_haps) < 3):
             two_cp_haps = self.compare_depth(haplotypes, stringent=True)
             if two_cp_haps == [] and read_counts is not None:
                 # check if one haplotype has more reads than others
@@ -1954,7 +1956,12 @@ class Phaser:
             total_cn = 2
 
         # two pairs of identical copies
-        if two_cp_haps == [] and total_cn == 2 and self.expect_cn2 is False:
+        if (
+            two_cp_haps == []
+            and total_cn == 2
+            and self.expect_cn2 is False
+            and self.gene != "BPY2"
+        ):
             if self.mdepth is not None:
                 prob = self.depth_prob(int(self.region_avg_depth.median), self.mdepth)
                 if prob[0] < 0.75:
