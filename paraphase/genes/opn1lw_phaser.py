@@ -43,7 +43,16 @@ class Opn1lwPhaser(Phaser):
         fields,
         defaults=(None,) * len(fields),
     )
-    # pathogenic_haps = ["LIAVA", "LVAVA", "LIAVS", "MIAVA", "MVVVA", "MVAVA", "LIAIA"]
+    pathogenic_haps = [
+        "LIAVA",
+        "LVAVA",
+        "LIAVS",
+        "MIAVA",
+        "MVVVA",
+        "MVAVA",
+        "LIAIA",
+        "LIVVA",
+    ]
 
     def __init__(
         self, sample_id, outdir, genome_depth=None, genome_bam=None, sample_sex=None
