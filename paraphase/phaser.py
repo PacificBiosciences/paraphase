@@ -1004,7 +1004,7 @@ class Phaser:
         for hap, hap_name in haps.items():
             # find boundary for confident variant calling
             hap_bound_start, hap_bound_end = self.get_hap_variant_ranges(hap)
-            is_truncated = False
+            is_truncated = None
             # het sites
             for i in range(len(hap)):
                 if hap[i] == "2":
@@ -1058,7 +1058,7 @@ class Phaser:
                 hap_bound_start = max(hap_bound_start, clip_position)
                 haplotype_variants[hap_name].append(f"{clip_position}_clip_5p")
                 if clip_position > self.gene_start:
-                    is_truncated = True
+                    is_truncated = "5p"
             if hap.endswith("0") and self.clip_3p_positions != []:
                 for first_pos_before_clip in reversed(range(len(hap))):
                     if hap[first_pos_before_clip] != "0":
@@ -1077,7 +1077,7 @@ class Phaser:
                 hap_bound_end = min(hap_bound_end, clip_position)
                 haplotype_variants[hap_name].append(f"{clip_position}_clip_3p")
                 if clip_position < self.gene_end:
-                    is_truncated = True
+                    is_truncated = "3p"
 
             haplotype_variants[hap_name] += filtered_homo_sites
 
@@ -1913,9 +1913,8 @@ class Phaser:
         ) = self.phase_haps(raw_read_haps)
 
         tmp = {}
-        mod_gene_name = ",".join(self.gene.split("-"))
         for i, hap in enumerate(ass_haps):
-            tmp.setdefault(hap, f"{mod_gene_name}_hap{i+1}")
+            tmp.setdefault(hap, f"{self.gene}_hap{i+1}")
         ass_haps = tmp
 
         haplotypes = None

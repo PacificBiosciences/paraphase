@@ -520,7 +520,7 @@ FAM246A:
   is_reverse: True
 
 FCGR2C:
-  genes: FCGR2C
+  genes: FCGR2C,FCGR2B
   realign_region: chr1:161580571-161602000
   extract_regions: chr1:161580572-161594218 chr1:161662376-161676049
   left_boundary: 161580573

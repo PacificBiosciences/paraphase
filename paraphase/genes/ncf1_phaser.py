@@ -83,13 +83,13 @@ class Ncf1Phaser(Phaser):
                 hap_var = [var_reads.get(a) for a in hap_reads]
                 if hap_var.count("alt") > (len(hap_var) - hap_var.count(None)) * 0.7:
                     counter_pseudo += 1
-                    hap_rename.setdefault(hap, f"pseudo_hap{counter_pseudo}")
+                    hap_rename.setdefault(hap, f"ncf1_pseudo_hap{counter_pseudo}")
                 else:
                     counter_gene += 1
                     hap_rename.setdefault(hap, f"ncf1_hap{counter_gene}")
             else:
                 counter_pseudo += 1
-                hap_rename.setdefault(hap, f"pseudo_hap{counter_pseudo}")
+                hap_rename.setdefault(hap, f"ncf1_pseudo_hap{counter_pseudo}")
 
         tmp = {}
         for hap, hap_name in ass_haps.items():

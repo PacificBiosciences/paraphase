@@ -402,35 +402,36 @@ class VcfGenerater:
         """Write VCF header"""
         fout.write("##fileformat=VCFv4.2\n")
         fout.write('##FILTER=<ID=PASS,Description="All filters passed">\n')
-        fout.write('##FILTER=<ID=LowDP,Description="Low depth at this site.">\n')
+        fout.write('##FILTER=<ID=LowQual,Description="Nonpassing variant">\n')
         fout.write(
-            '##FILTER=<ID=LowQual,Description="Low confidence in this variant.">\n'
+            '##INFO=<ID=HPID,Number=R,Type=String,Description="Haplotype IDs">\n'
         )
         fout.write(
-            '##INFO=<ID=HapID,Number=R,Type=String,Description="Haplotype IDs">\n'
+            '##INFO=<ID=HPBOUND,Number=R,Type=String,Description="Haplotype boundary coordinates">\n'
         )
         fout.write(
-            '##INFO=<ID=HapBoundary,Number=R,Type=String,Description="Haplotype boundary coordinates">\n'
+            '##INFO=<ID=GT,Number=R,Type=String,Description="Genotype per haplotype">\n'
         )
         fout.write(
             '##INFO=<ID=DP,Number=1,Type=Integer,Description="Number of reads per haplotype">\n'
+        )
+        fout.write(
+            '##INFO=<ID=AD,Number=1,Type=Integer,Description="Variant supporting read depth">\n'
         )
         if self.gene in ["ikbkg", "f8"]:
             fout.write(
                 '##INFO=<ID=SVLEN,Number=1,Type=Integer,Description="Length of the SV">\n'
             )
             fout.write(
-                '##INFO=<ID=SVTYPE,Number=1,Type=String,Description="Type of the SV.">\n'
+                '##INFO=<ID=SVTYPE,Number=1,Type=String,Description="Type of the SV">\n'
             )
             fout.write(
                 '##INFO=<ID=END,Number=1,Type=Integer,Description="End position of the structural variant">\n'
             )
             fout.write('##ALT=<ID=DEL,Description="Deletion">\n')
             fout.write('##ALT=<ID=INV,Description="Inversion">\n')
-        fout.write('##FORMAT=<ID=GT,Number=R,Type=String,Description="Genotype">\n')
-        fout.write('##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read depth">\n')
         fout.write(
-            '##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Read depth for each allele">\n'
+            '##FORMAT=<ID=GT,Number=R,Type=String,Description="Genotype placeholder. For genotype per haplotype please refer to the GT INFO field">\n'
         )
         fout.write(f"##contig=<ID={self.nchr},length={self.nchr_length}>\n")
         fout.write(f"##paraphase_version={paraphase.__version__}\n")
@@ -453,9 +454,7 @@ class VcfGenerater:
         """
         Merge vcfs from multiple haplotypes.
         """
-        merged_vcf = os.path.join(
-            self.vcf_dir, self.sample_id + f"_{self.gene}_variants.vcf"
-        )
+        merged_vcf = os.path.join(self.vcf_dir, self.sample_id + f"_{self.gene}.vcf")
         with open(merged_vcf, "w") as fout:
             self.write_header(fout)
             for variants_info, haps_ids, haps_bounds in vars_list:
@@ -464,7 +463,6 @@ class VcfGenerater:
                     call_info = variants_info[pos]
                     # unique variants at this site
                     variant_observed = set([a[0] for a in call_info if a is not None])
-                    var_num = len(variant_observed)
                     for variant in variant_observed:
                         _, ref, alt = variant.split("_")
                         merge_gt = []
@@ -490,31 +488,34 @@ class VcfGenerater:
                                     merge_gt.append(".")
                                     merge_ad.append(".")
                         final_qual = "."
-                        if ref == alt:
-                            alt = "."
-                        if (var_num == 1 and ("1" in merge_gt or "." in merge_gt)) or (
-                            var_num > 1 and alt != "."
+                        if (
+                            alt != ref
+                            and alt not in [".", "*"]
+                            and ("1" in merge_gt or "." in merge_gt)
                         ):
                             if "1" in merge_gt:
                                 variant_filter = "PASS"
                             else:
                                 variant_filter = "LowQual"
-                            if alt.isdigit() is False:
-                                info_field = (
-                                    "HapID="
-                                    + ",".join(haps_ids)
-                                    + ";"
-                                    + "HapBoundary="
-                                    + ",".join(
-                                        [
-                                            "-".join([str(k) for k in a])
-                                            for a in haps_bounds
-                                        ]
-                                    )
-                                    + ";"
-                                    + "DP="
-                                    + ",".join(merge_dp)
+                            info_field = (
+                                "HPID="
+                                + ",".join(haps_ids)
+                                + ";"
+                                + "HPBOUND="
+                                + ",".join(
+                                    ["-".join([str(k) for k in a]) for a in haps_bounds]
                                 )
+                                + ";"
+                                + "GT="
+                                + ",".join(merge_gt)
+                                + ";"
+                                + "DP="
+                                + ",".join(merge_dp)
+                                + ";"
+                                + "AD="
+                                + ",".join(merge_ad)
+                            )
+                            if alt.isdigit() is False:
                                 merged_entry = [
                                     self.nchr,
                                     str(pos),
@@ -524,8 +525,8 @@ class VcfGenerater:
                                     final_qual,
                                     variant_filter,
                                     info_field,
-                                    "GT:AD",
-                                    "/".join(merge_gt) + ":" + ",".join(merge_ad),
+                                    "GT",
+                                    "1",
                                 ]
                             else:
                                 nstart, var_type, nend = variant.split("_")
@@ -534,19 +535,7 @@ class VcfGenerater:
                                 var_size = nend - nstart
                                 info_field = (
                                     f"SVTYPE={var_type};END={nend};SVLEN={var_size};"
-                                    + "HapID="
-                                    + ",".join(haps_ids)
-                                    + ";"
-                                    + "HapBoundary="
-                                    + ",".join(
-                                        [
-                                            "-".join([str(k) for k in a])
-                                            for a in haps_bounds
-                                        ]
-                                    )
-                                    + ";"
-                                    + "DP="
-                                    + ",".join(merge_dp)
+                                    + info_field
                                 )
                                 merged_entry = [
                                     self.nchr,
@@ -557,8 +546,8 @@ class VcfGenerater:
                                     final_qual,
                                     variant_filter,
                                     info_field,
-                                    "GT:AD",
-                                    "/".join(merge_gt) + ":" + ",".join(merge_ad),
+                                    "GT",
+                                    "1",
                                 ]
                             fout.write("\t".join(merged_entry) + "\n")
 
@@ -655,7 +644,7 @@ class VcfGenerater:
         refh,
         offset,
         hap_bound,
-        vcf_out,
+        # vcf_out,
         min_depth=4,
         min_qual=25,
         variants_to_add={},
@@ -685,7 +674,7 @@ class VcfGenerater:
                     "GT:DP:AD",
                     f"1:.:.",
                 ]
-                vcf_out.write("\t".join(vcf_out_line) + "\n")
+                # vcf_out.write("\t".join(vcf_out_line) + "\n")
 
         ref_name = refh.references[0]
         del_pos = []
@@ -709,7 +698,7 @@ class VcfGenerater:
                     "GT:DP:AD",
                     f"1:.:.",
                 ]
-                vcf_out.write("\t".join(vcf_out_line) + "\n")
+                # vcf_out.write("\t".join(vcf_out_line) + "\n")
                 del_pos = [nstart, nend]
 
             all_bases = pileups_raw[pos]
@@ -777,7 +766,7 @@ class VcfGenerater:
                         "GT:DP:AD",
                         f"{gt}:{dp}:{ad}",
                     ]
-                    vcf_out.write("\t".join(vcf_out_line) + "\n")
+                    # vcf_out.write("\t".join(vcf_out_line) + "\n")
         return variants
 
     def run_without_realign(
@@ -843,7 +832,7 @@ class VcfGenerater:
             haps_not_truncated = [
                 a
                 for a in final_haps.values()
-                if self.call_sum["haplotype_details"][a]["is_truncated"] is False
+                if self.call_sum["haplotype_details"][a]["is_truncated"] is None
                 or self.keep_truncated is True
             ]
         nhap = len(haps_not_truncated) + len(
@@ -866,11 +855,11 @@ class VcfGenerater:
 
         if (gene2 is False or match_range is False) and final_haps == {}:
             hap_name = "homozygous_hap1"
-            hap_vcf_out = os.path.join(
-                self.vcf_dir, self.sample_id + f"_{self.gene}_{hap_name}.vcf"
-            )
-            vcf_out = open(hap_vcf_out, "w")
-            self.write_header(vcf_out)
+            # hap_vcf_out = os.path.join(
+            #    self.vcf_dir, self.sample_id + f"_{self.gene}_{hap_name}.vcf"
+            # )
+            # vcf_out = open(hap_vcf_out, "w")
+            # self.write_header(vcf_out)
             pileups_raw = {}
             read_names = {}
             for pileupcolumn in bamh.pileup(
@@ -891,9 +880,9 @@ class VcfGenerater:
                 refh,
                 0 - offset,
                 [],
-                vcf_out,
+                # vcf_out,
             )
-            vcf_out.close()
+            # vcf_out.close()
             hap_ids.append(hap_name)
             hap_ids.append(hap_name)
             hap_bounds.append([self.left_boundary, self.right_boundary])
@@ -910,7 +899,7 @@ class VcfGenerater:
         i = 0
         for hap_name in final_haps.values():
             if (
-                self.call_sum["haplotype_details"][hap_name]["is_truncated"] is True
+                self.call_sum["haplotype_details"][hap_name]["is_truncated"] is not None
                 and self.keep_truncated is False
                 and self.allvcf is False
             ):
@@ -946,11 +935,11 @@ class VcfGenerater:
             hap_ids.append(hap_name)
             hap_bounds.append([hap_bound[0], hap_bound[1]])
 
-            hap_vcf_out = os.path.join(
-                self.vcf_dir, self.sample_id + f"_{self.gene}_{hap_name}.vcf"
-            )
-            vcf_out = open(hap_vcf_out, "w")
-            self.write_header(vcf_out)
+            # hap_vcf_out = os.path.join(
+            #    self.vcf_dir, self.sample_id + f"_{self.gene}_{hap_name}.vcf"
+            # )
+            # vcf_out = open(hap_vcf_out, "w")
+            # self.write_header(vcf_out)
 
             # by HP tag
             pileups_raw = {}
@@ -999,10 +988,10 @@ class VcfGenerater:
                 refh,
                 0 - offset,
                 hap_bound,
-                vcf_out,
+                # vcf_out,
                 variants_to_add=variants_to_add,
             )
-            vcf_out.close()
+            # vcf_out.close()
 
             for pos, var_name, dp, ad, var_filter, gt in variants_called:
                 variants_info.setdefault(pos, [None] * nhap)

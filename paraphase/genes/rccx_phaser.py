@@ -439,7 +439,7 @@ class RccxPhaser(Phaser):
 
         tmp = {}
         for i, hap in enumerate(ass_haps):
-            hap_name = f"hap{i+1}"
+            hap_name = f"{self.gene}_hap{i+1}"
             tmp.setdefault(hap, hap_name)
         final_haps = tmp
         # get haps that extend into tnxb
