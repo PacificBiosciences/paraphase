@@ -172,7 +172,6 @@ class Paraphase:
                             sample_id,
                             outdir,
                             phaser_call,
-                            args.allvcf,
                         )
                         vcf_generater.set_parameter(
                             config, tmpdir=tmpdir, prog_cmd=prog_cmd
@@ -183,17 +182,16 @@ class Paraphase:
                             sample_id,
                             outdir,
                             phaser_call,
-                            args.allvcf,
                         )
                         vcf_generater.set_parameter(
                             config, tmpdir=tmpdir, prog_cmd=prog_cmd
                         )
-                        vcf_generater.run_without_realign()
+                        vcf_generater.run()
                     with tarfile.open(
                         os.path.join(outdir, f"{sample_id}.paraphase.vcfs.tar.gz"),
                         "w:gz",
                     ) as tar:
-                        source_dir = os.path.join(tmpdir, f"{sample_id}_vcfs")
+                        source_dir = os.path.join(tmpdir, f"{sample_id}_paraphase_vcfs")
                         if os.path.exists(source_dir):
                             tar.add(source_dir, arcname=os.path.basename(source_dir))
             except Exception:
@@ -651,13 +649,6 @@ class Paraphase:
             help="Optional. If specified, variant calls will be made against the main gene only.\n"
             + "By default, for SMN1, PMS2, STRC, NCF1 and IKBKG, haplotypes are assigned to gene or\n"
             + "paralog/pseudogene, and variants are called against gene or paralog/pseudogene, respectively.\n",
-            required=False,
-            action="store_true",
-        )
-        parser.add_argument(
-            "--allvcf",
-            help=argparse.SUPPRESS,
-            # help="Optional. If specified, paraphase will write vcfs for all haplotypes, including truncated pseudogenes",
             required=False,
             action="store_true",
         )

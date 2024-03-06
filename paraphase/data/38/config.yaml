@@ -38,7 +38,6 @@ pms2:
   is_reverse: True
   add_sites: ["5986569_G_A"]
   clip_3p_positions: [5993410]
-  keep_truncated: True
 rccx: 
   genes: CYP21A2,C4A,C4B,TNXB
   is_tandem: True
@@ -164,8 +163,6 @@ hba:
   extract_regions: chr16:168656-177541
   clip_5p_positions: [171989]
   clip_3p_positions: [173729]
-  gene_start: 171989
-  gene_end: 173729
   is_tandem: True
   depth_region: [[160000, 190000]]
   noisy_region: [[172417, 172418]]
@@ -217,7 +214,6 @@ TRIM49D1:
   left_boundary: 89909500
   right_boundary: 89922500
   clip_3p_positions: [89920623]
-  gene_end: 89920623
   is_tandem: True
   is_reverse: True
 CXorf51A:
@@ -243,7 +239,6 @@ H3C14:
   noisy_region: [[149837998, 149838086]]
   is_tandem: True
   is_reverse: True
-  gene_end: 149842750
 MBD3L2:
   genes: MBD3L2,MBD3L2B,MBD3L3,MBD3L4,MBD3L5
   realign_region: chr19:7037528-7051735
@@ -254,7 +249,6 @@ MBD3L2:
   is_tandem: True
   clip_3p_positions: [7043226]
   noisy_region: [[7042002, 7042106]]
-  keep_truncated: True
 DEFA1:
   genes: DEFA1,DEFA1B,DEFA3
   realign_region: chr8:6974238-6991000
@@ -264,7 +258,6 @@ DEFA1:
   check_nm: 0.1
   noisy_region: [[6975823, 6975828], [6984000, 6985910]]
   clip_3p_positions: [6985908]
-  keep_truncated: True
 CCZ1:
   genes: CCZ1
   realign_region: chr7:5898000-5930000
@@ -472,7 +465,6 @@ ZNF705D:
   check_nm: 0.1
   noisy_region: [[12091626, 12101750]]
   clip_5p_positions: [12091626]
-  keep_truncated: True
 FAM86B1:
   genes: FAM86B1,FAM86B2
   realign_region: chr8:12180000-12200000
@@ -502,7 +494,6 @@ ETDA:
   right_boundary: 135262822
   is_reverse: True
   clip_3p_positions: [135256413]
-  gene_end: 135256413
 FAM156A:
   genes: FAM156A,FAM156B
   realign_region: chrX:52942886-52962886
@@ -750,7 +741,6 @@ PABPC1L2A:
   clip_5p_positions: [73077480]
   is_reverse: True
   is_palindrome: True
-  gene_start: 73077480
 PDPK1:
   genes: PDPK1
   realign_region: chr16:2537521-2603688
@@ -1199,8 +1189,6 @@ NUTM2A:
   extract_regions: chr10:87220214-87240213 chr10:79697989-79718012 chr10:87354483-87369657 chr10:79838172-79853341
   clip_5p_positions: [87222271]
   clip_3p_positions: [87236514, 87237440]
-  gene_start: 87225448
-  gene_end: 87234978
 ANKRD20A1:
   genes: ANKRD20A1
   realign_region: chr9:67858431-67902894
@@ -1272,7 +1260,6 @@ CYP2D6:
   clip_5p_positions: [42123192]
   clip_3p_positions: [42132193]
   call_fusion: 5p
-  keep_truncated: True
 GBA:
   genes: GBA1
   realign_region: chr1:155230000-155242500
@@ -1285,7 +1272,6 @@ GBA:
   clip_5p_positions: [155230976]
   clip_3p_positions: [155242229]
   call_fusion: 3p
-  keep_truncated: True
 CYP11B1:
   genes: CYP11B1,CYP11B2
   realign_region: chr8:142872000-142880500
@@ -1296,9 +1282,7 @@ CYP11B1:
   noisy_region: [[142874825, 142874950]]
   clip_5p_positions: [142873164]
   clip_3p_positions: [142879950]
-  gene_end: 142879825
   call_fusion: 5p
-  keep_truncated: True
 CFH:
   genes: CFH,CFHR1
   realign_region: chr1:196740000-196772000

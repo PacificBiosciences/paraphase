@@ -344,12 +344,11 @@ class VcfGenerater:
     search_range = 200
     min_base_quality_for_variant_calling = 25
 
-    def __init__(self, sample_id, outdir, call_sum, allvcf):
+    def __init__(self, sample_id, outdir, call_sum):
         self.sample_id = sample_id
         self.outdir = outdir
         self.call_sum = call_sum
         self.match = {}
-        self.allvcf = allvcf
 
     def set_parameter(self, config, tmpdir=None, prog_cmd=None):
         self.gene = config["gene"]
@@ -367,14 +366,9 @@ class VcfGenerater:
             self.left_boundary = int(self.nchr_old.split("_")[1])
         if self.right_boundary is None:
             self.right_boundary = int(self.nchr_old.split("_")[2])
-        self.samtools = config["tools"]["samtools"]
-        self.minimap2 = config["tools"]["minimap2"]
         self.use_supplementary = False
         if "use_supplementary" in config or "is_tandem" in config:
             self.use_supplementary = True
-        self.keep_truncated = False
-        if "keep_truncated" in config:
-            self.keep_truncated = True
 
         self.prog_cmd = prog_cmd
         self.tmpdir = tmpdir
@@ -383,7 +377,7 @@ class VcfGenerater:
         self.bam = os.path.join(
             tmpdir, self.sample_id + f"_{self.gene}_realigned_tagged.bam"
         )
-        self.vcf_dir = os.path.join(self.tmpdir, f"{self.sample_id}_vcfs")
+        self.vcf_dir = os.path.join(self.tmpdir, f"{self.sample_id}_paraphase_vcfs")
         os.makedirs(self.vcf_dir, exist_ok=True)
 
     def get_range_in_other_gene(self, pos):
@@ -457,7 +451,20 @@ class VcfGenerater:
         merged_vcf = os.path.join(self.vcf_dir, self.sample_id + f"_{self.gene}.vcf")
         with open(merged_vcf, "w") as fout:
             self.write_header(fout)
-            for variants_info, haps_ids, haps_bounds in vars_list:
+            for variants_info, haps_info in vars_list:
+                haps_ids = []
+                haps_bounds = []
+                for hap_name, bound1, bound2, truncated in haps_info:
+                    haps_ids.append(hap_name)
+                    hap_bound = f"{bound1}-{bound2}"
+                    if truncated is not None:
+                        if truncated == ["5p"]:
+                            hap_bound = f"{bound1}truncated-{bound2}"
+                        elif truncated == ["3p"]:
+                            hap_bound = f"{bound1}-{bound2}truncated"
+                        elif truncated == ["5p", "3p"]:
+                            hap_bound = f"{bound1}truncated-{bound2}truncated"
+                    haps_bounds.append(hap_bound)
                 variants_info = dict(sorted(variants_info.items()))
                 for pos in variants_info:
                     call_info = variants_info[pos]
@@ -502,9 +509,7 @@ class VcfGenerater:
                                 + ",".join(haps_ids)
                                 + ";"
                                 + "HPBOUND="
-                                + ",".join(
-                                    ["-".join([str(k) for k in a]) for a in haps_bounds]
-                                )
+                                + ",".join(haps_bounds)
                                 + ";"
                                 + "GT="
                                 + ",".join(merge_gt)
@@ -653,7 +658,6 @@ class VcfGenerater:
         Filter pileups and make variant calls.
         """
         variants = []
-        # for now, report F8 SVs in the haplotype vcfs. Ideally they should be in a diploid vcf.
         if self.gene == "f8":
             for pos in variants_to_add:
                 var_name = variants_to_add[pos]
@@ -825,21 +829,10 @@ class VcfGenerater:
                     uniq_reads.append(read_name)
         variants_info = {}
         two_cp_haplotypes = self.call_sum.get("two_copy_haplotypes")
-        # exclude truncated copies
-        if self.allvcf:
-            haps_not_truncated = [a for a in final_haps.values()]
-        else:
-            haps_not_truncated = [
-                a
-                for a in final_haps.values()
-                if self.call_sum["haplotype_details"][a]["is_truncated"] is None
-                or self.keep_truncated is True
-            ]
-        nhap = len(haps_not_truncated) + len(
-            [a for a in two_cp_haplotypes if a in haps_not_truncated]
-        )
-        hap_ids = []
-        hap_bounds = []
+        nhap = len(final_haps)
+        if two_cp_haplotypes is not None:
+            nhap += len(two_cp_haplotypes)
+        hap_info = []
 
         # gene1only, or two-gene mode but gene1 side
         if gene2 is False or match_range is False:
@@ -883,10 +876,9 @@ class VcfGenerater:
                 # vcf_out,
             )
             # vcf_out.close()
-            hap_ids.append(hap_name)
-            hap_ids.append(hap_name)
-            hap_bounds.append([self.left_boundary, self.right_boundary])
-            hap_bounds.append([self.left_boundary, self.right_boundary])
+            hap_info.append([hap_name, self.left_boundary, self.right_boundary, None])
+            hap_info.append([hap_name, self.left_boundary, self.right_boundary, None])
+
             for pos, var_name, dp, ad, var_filter, gt in variants_called:
                 variants_info.setdefault(
                     pos,
@@ -898,13 +890,6 @@ class VcfGenerater:
 
         i = 0
         for hap_name in final_haps.values():
-            if (
-                self.call_sum["haplotype_details"][hap_name]["is_truncated"] is not None
-                and self.keep_truncated is False
-                and self.allvcf is False
-            ):
-                continue
-
             variants_to_add = {}
             if hap_name in special_variants:
                 variant_to_add = special_variants[hap_name]
@@ -931,9 +916,22 @@ class VcfGenerater:
                             min(n3, n4),
                             max(n3, n4),
                         ]
-
-            hap_ids.append(hap_name)
-            hap_bounds.append([hap_bound[0], hap_bound[1]])
+            if gene2 is False or match_range is False:
+                this_hap_info = [
+                    hap_name,
+                    hap_bound[0],
+                    hap_bound[1],
+                    self.call_sum["haplotype_details"][hap_name]["is_truncated"],
+                ]
+                hap_info.append(this_hap_info)
+            else:
+                this_hap_info = [
+                    hap_name,
+                    hap_bound[0],
+                    hap_bound[1],
+                    None,
+                ]
+                hap_info.append(this_hap_info)
 
             # hap_vcf_out = os.path.join(
             #    self.vcf_dir, self.sample_id + f"_{self.gene}_{hap_name}.vcf"
@@ -1000,16 +998,18 @@ class VcfGenerater:
                     variants_info[pos][i + 1] = [var_name, dp, ad, var_filter, gt]
             if hap_name in two_cp_haplotypes:
                 i += 1
-                hap_ids.append(hap_name)
-                hap_bounds.append([hap_bound[0], hap_bound[1]])
+                hap_info.append(this_hap_info)
             i += 1
 
         bamh.close()
         refh.close()
-        if gene2 is False:
-            self.merge_vcf([(variants_info, hap_ids, hap_bounds)])
-        else:
-            return variants_info, hap_ids, hap_bounds
+        return variants_info, hap_info
+
+    def run(self):
+        if self.call_sum.get("final_haplotypes") is None:
+            return
+        variants_info, hap_info = self.run_without_realign()
+        self.merge_vcf([(variants_info, hap_info)])
 
 
 class TwoGeneVcfGenerater(VcfGenerater):
@@ -1017,8 +1017,8 @@ class TwoGeneVcfGenerater(VcfGenerater):
     Make vcf for two-gene scenario
     """
 
-    def __init__(self, sample_id, outdir, call_sum, allvcf):
-        VcfGenerater.__init__(self, sample_id, outdir, call_sum, allvcf)
+    def __init__(self, sample_id, outdir, call_sum):
+        VcfGenerater.__init__(self, sample_id, outdir, call_sum)
 
     def set_parameter(self, config, tmpdir=None, prog_cmd=None):
         super().set_parameter(config, tmpdir, prog_cmd)
@@ -1066,11 +1066,10 @@ class TwoGeneVcfGenerater(VcfGenerater):
                     gene2_haps.setdefault(hap, hap_name)
         elif self.gene == "ikbkg":
             for hap, hap_name in all_haps.items():
-                if "dup" not in hap_name:
-                    if "pseudo" not in hap_name:
-                        gene1_haps.setdefault(hap, hap_name)
-                    else:
-                        gene2_haps.setdefault(hap, hap_name)
+                if "pseudo" not in hap_name:
+                    gene1_haps.setdefault(hap, hap_name)
+                else:
+                    gene2_haps.setdefault(hap, hap_name)
         return gene1_haps, gene2_haps
 
     def run(self):
@@ -1082,11 +1081,11 @@ class TwoGeneVcfGenerater(VcfGenerater):
         if call_sum.get("final_haplotypes") is None:
             return
         gene1_haps, gene2_haps = self.separate_two_genes()
-        vars_gene1, gene1_hap_ids, gene1_hap_bounds = self.run_without_realign(
+        vars_gene1, gene1_hap_info = self.run_without_realign(
             gene2=True,
             final_haps=gene1_haps,
         )
-        vars_gene2, gene2_hap_ids, gene2_hap_bounds = self.run_without_realign(
+        vars_gene2, gene2_hap_info = self.run_without_realign(
             gene2=True,
             final_haps=gene2_haps,
             match_range=True,
@@ -1098,14 +1097,14 @@ class TwoGeneVcfGenerater(VcfGenerater):
         ):
             self.merge_vcf(
                 [
-                    (vars_gene1, gene1_hap_ids, gene1_hap_bounds),
-                    (vars_gene2, gene2_hap_ids, gene2_hap_bounds),
+                    (vars_gene1, gene1_hap_info),
+                    (vars_gene2, gene2_hap_info),
                 ]
             )
         else:
             self.merge_vcf(
                 [
-                    (vars_gene2, gene2_hap_ids, gene2_hap_bounds),
-                    (vars_gene1, gene1_hap_ids, gene1_hap_bounds),
+                    (vars_gene2, gene2_hap_info),
+                    (vars_gene1, gene1_hap_info),
                 ]
             )

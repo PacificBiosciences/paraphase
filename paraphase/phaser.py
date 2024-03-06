@@ -1058,7 +1058,7 @@ class Phaser:
                 hap_bound_start = max(hap_bound_start, clip_position)
                 haplotype_variants[hap_name].append(f"{clip_position}_clip_5p")
                 if clip_position > self.gene_start:
-                    is_truncated = "5p"
+                    is_truncated = ["5p"]
             if hap.endswith("0") and self.clip_3p_positions != []:
                 for first_pos_before_clip in reversed(range(len(hap))):
                     if hap[first_pos_before_clip] != "0":
@@ -1077,7 +1077,10 @@ class Phaser:
                 hap_bound_end = min(hap_bound_end, clip_position)
                 haplotype_variants[hap_name].append(f"{clip_position}_clip_3p")
                 if clip_position < self.gene_end:
-                    is_truncated = "3p"
+                    if is_truncated is None:
+                        is_truncated = ["3p"]
+                    else:
+                        is_truncated.append("3p")
 
             haplotype_variants[hap_name] += filtered_homo_sites
 
