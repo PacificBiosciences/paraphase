@@ -378,7 +378,6 @@ class VcfGenerater:
             tmpdir, self.sample_id + f"_{self.gene}_realigned_tagged.bam"
         )
         self.vcf_dir = os.path.join(self.tmpdir, f"{self.sample_id}_paraphase_vcfs")
-        os.makedirs(self.vcf_dir, exist_ok=True)
 
     def get_range_in_other_gene(self, pos):
         """
@@ -444,10 +443,24 @@ class VcfGenerater:
         ]
         fout.write("\t".join(header) + "\n")
 
+    @staticmethod
+    def modify_hapbound(bound1, bound2, truncated):
+        """Get haplotype boundaries to appear in vcf"""
+        hap_bound = f"{bound1}-{bound2}"
+        if truncated is not None:
+            if truncated == ["5p"]:
+                hap_bound = f"{bound1}truncated-{bound2}"
+            elif truncated == ["3p"]:
+                hap_bound = f"{bound1}-{bound2}truncated"
+            elif truncated == ["5p", "3p"]:
+                hap_bound = f"{bound1}truncated-{bound2}truncated"
+        return hap_bound
+
     def merge_vcf(self, vars_list):
         """
         Merge vcfs from multiple haplotypes.
         """
+        os.makedirs(self.vcf_dir, exist_ok=True)
         merged_vcf = os.path.join(self.vcf_dir, self.sample_id + f"_{self.gene}.vcf")
         with open(merged_vcf, "w") as fout:
             self.write_header(fout)
@@ -456,14 +469,7 @@ class VcfGenerater:
                 haps_bounds = []
                 for hap_name, bound1, bound2, truncated in haps_info:
                     haps_ids.append(hap_name)
-                    hap_bound = f"{bound1}-{bound2}"
-                    if truncated is not None:
-                        if truncated == ["5p"]:
-                            hap_bound = f"{bound1}truncated-{bound2}"
-                        elif truncated == ["3p"]:
-                            hap_bound = f"{bound1}-{bound2}truncated"
-                        elif truncated == ["5p", "3p"]:
-                            hap_bound = f"{bound1}truncated-{bound2}truncated"
+                    hap_bound = self.modify_hapbound(bound1, bound2, truncated)
                     haps_bounds.append(hap_bound)
                 variants_info = dict(sorted(variants_info.items()))
                 for pos in variants_info:
@@ -847,7 +853,7 @@ class VcfGenerater:
             nchr = self.nchr_gene2
 
         if (gene2 is False or match_range is False) and final_haps == {}:
-            hap_name = "homozygous_hap1"
+            hap_name = f"{self.gene}_homozygous_hap1"
             # hap_vcf_out = os.path.join(
             #    self.vcf_dir, self.sample_id + f"_{self.gene}_{hap_name}.vcf"
             # )

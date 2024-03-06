@@ -18,6 +18,7 @@ def update_config(gene):
     nchr_old = realign_region.replace(":", "_").replace("-", "_")
     config.setdefault("nchr", nchr)
     config.setdefault("nchr_old", nchr_old)
+    config.setdefault("nchr_length", 1000000000)
     if "data" in config:
         data_paths = config.get("data")
     else:

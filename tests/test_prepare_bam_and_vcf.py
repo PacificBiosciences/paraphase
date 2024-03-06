@@ -1,17 +1,13 @@
 import pytest
 import os
+import json
 from paraphase.prepare_bam_and_vcf import VcfGenerater
+from .test_phaser import update_config
 
 
 class TestVcfGenerater(object):
     cur_dir = os.path.dirname(__file__)
-    sample_dir = os.path.join(cur_dir, "test_data")
-    sample_id = "HG00733"
-    vcf_generater = VcfGenerater(
-        sample_id,
-        sample_dir,
-        None,
-    )
+    sample_dir = os.path.join(cur_dir, "test_data", "vcf")
 
     def test_get_var(self):
         all_bases = ["A"] * 10
@@ -62,3 +58,60 @@ class TestVcfGenerater(object):
         assert var_seq == "A+2T"
         assert dp == 5
         assert ad == 4
+
+    def test_modify_hapbound(self):
+        assert VcfGenerater.modify_hapbound(1, 2, None) == "1-2"
+        assert VcfGenerater.modify_hapbound(1, 2, ["5p"]) == "1truncated-2"
+        assert VcfGenerater.modify_hapbound(1, 2, ["3p"]) == "1-2truncated"
+        assert (
+            VcfGenerater.modify_hapbound(1, 2, ["5p", "3p"]) == "1truncated-2truncated"
+        )
+
+    def test_run_without_realign(self):
+        sample_id = "HG004"
+        with open(os.path.join(self.sample_dir, "HG004.paraphase.json")) as f:
+            phase_calls = json.load(f)
+
+        # homozygous case
+        config = update_config("ARL17A")
+        vcf_generater = VcfGenerater(
+            sample_id,
+            self.sample_dir,
+            phase_calls["ARL17A"],
+        )
+        vcf_generater.set_parameter(config, tmpdir=self.sample_dir, prog_cmd="test")
+        variants_info, hap_info = vcf_generater.run_without_realign()
+        assert len(hap_info) == 2
+        assert hap_info[0][0] == "ARL17A_homozygous_hap1"
+        assert hap_info[1][0] == "ARL17A_homozygous_hap1"
+
+        # two-copy haplotypes
+        # truncated haplotypes
+        config = update_config("AMY2A")
+        vcf_generater = VcfGenerater(
+            sample_id,
+            self.sample_dir,
+            phase_calls["AMY2A"],
+        )
+        vcf_generater.set_parameter(config, tmpdir=self.sample_dir, prog_cmd="test")
+        variants_info, hap_info = vcf_generater.run_without_realign()
+        assert hap_info == [
+            ["AMY2A_hap1", 103616000, 103631602, None],
+            ["AMY2A_hap1", 103616000, 103631602, None],
+            ["AMY2A_hap2", 103619306, 103631602, ["5p"]],
+            ["AMY2A_hap3", 103619306, 103631602, ["5p"]],
+        ]
+
+        # ikbkg deletion, big SV
+        config = update_config("ikbkg")
+        vcf_generater = VcfGenerater(
+            sample_id,
+            self.sample_dir,
+            phase_calls["ikbkg"],
+        )
+        vcf_generater.set_parameter(config, tmpdir=self.sample_dir, prog_cmd="test")
+        variants_info, hap_info = vcf_generater.run_without_realign()
+        assert 154558014 in variants_info
+        assert ["154558014_DEL_154569698", ".", ".", [], "1"] in variants_info[
+            154558014
+        ]

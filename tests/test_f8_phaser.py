@@ -7,7 +7,7 @@ from .test_phaser import update_config
 
 class TestF8Phaser(object):
     cur_dir = os.path.dirname(__file__)
-    sample_dir = os.path.join(cur_dir, "test_data")
+    sample_dir = os.path.join(cur_dir, "test_data", "f8")
 
     def test_inversion(self):
         sample_id = "inv"
