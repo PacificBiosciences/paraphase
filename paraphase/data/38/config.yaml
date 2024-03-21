@@ -55,7 +55,7 @@ rccx:
   deletion1_name: "32017431_del_6367"
   deletion2_name: "32043718_del_120"
   left_boundary: 32013300
-  right_boundary: 32046000
+  right_boundary: 32046200
   # 120bp sv
   del2_3p_pos1: 32043700
   del2_3p_pos2: 32043723
@@ -1178,7 +1178,7 @@ GOLGA8N:
   right_boundary: 32606000
   check_nm: 0.02
 POTEB:
-  genes: POTEB,POTEB2,POTE3
+  genes: POTEB,POTEB2,POTEB3
   realign_region: chr15:21845829-21878235
   extract_regions: chr15:21845830-21878235 chr15:20834873-20867269 chr15:21408465-21439843 chr15_KI270727v1_random:135661-167032
   left_boundary: 21845831

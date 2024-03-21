@@ -187,13 +187,7 @@ class Paraphase:
                             config, tmpdir=tmpdir, prog_cmd=prog_cmd
                         )
                         vcf_generater.run()
-                    with tarfile.open(
-                        os.path.join(outdir, f"{sample_id}.paraphase.vcfs.tar.gz"),
-                        "w:gz",
-                    ) as tar:
-                        source_dir = os.path.join(tmpdir, f"{sample_id}_paraphase_vcfs")
-                        if os.path.exists(source_dir):
-                            tar.add(source_dir, arcname=os.path.basename(source_dir))
+
             except Exception:
                 logging.error(
                     f"Error running {gene} for sample {sample_id}...See error message below"

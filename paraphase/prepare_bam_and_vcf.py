@@ -377,7 +377,7 @@ class VcfGenerater:
         self.bam = os.path.join(
             tmpdir, self.sample_id + f"_{self.gene}_realigned_tagged.bam"
         )
-        self.vcf_dir = os.path.join(self.tmpdir, f"{self.sample_id}_paraphase_vcfs")
+        self.vcf_dir = os.path.join(self.outdir, f"{self.sample_id}_paraphase_vcfs")
 
     def get_range_in_other_gene(self, pos):
         """
@@ -397,20 +397,25 @@ class VcfGenerater:
         fout.write('##FILTER=<ID=PASS,Description="All filters passed">\n')
         fout.write('##FILTER=<ID=LowQual,Description="Nonpassing variant">\n')
         fout.write(
-            '##INFO=<ID=HPID,Number=R,Type=String,Description="Haplotype IDs">\n'
+            '##INFO=<ID=HPID,Number=.,Type=String,Description="Haplotype IDs">\n'
         )
         fout.write(
-            '##INFO=<ID=HPBOUND,Number=R,Type=String,Description="Haplotype boundary coordinates">\n'
+            '##INFO=<ID=HPBOUND,Number=.,Type=String,Description="Haplotype boundary coordinates">\n'
         )
         fout.write(
-            '##INFO=<ID=GT,Number=R,Type=String,Description="Genotype per haplotype">\n'
+            '##INFO=<ID=GT,Number=.,Type=String,Description="Genotype per haplotype">\n'
         )
         fout.write(
-            '##INFO=<ID=DP,Number=1,Type=Integer,Description="Number of reads per haplotype">\n'
+            '##INFO=<ID=DP,Number=.,Type=Integer,Description="Number of reads per haplotype">\n'
         )
         fout.write(
-            '##INFO=<ID=AD,Number=1,Type=Integer,Description="Variant supporting read depth">\n'
+            '##INFO=<ID=AD,Number=.,Type=Integer,Description="Variant supporting read depth">\n'
         )
+        alleles = self.call_sum.get("alleles_final")
+        if alleles is not None and alleles != []:
+            fout.write(
+                '##INFO=<ID=ALLELES,Number=.,Type=String,Description="Haplotypes phased into alleles">\n'
+            )
         if self.gene in ["ikbkg", "f8"]:
             fout.write(
                 '##INFO=<ID=SVLEN,Number=1,Type=Integer,Description="Length of the SV">\n'
@@ -423,9 +428,6 @@ class VcfGenerater:
             )
             fout.write('##ALT=<ID=DEL,Description="Deletion">\n')
             fout.write('##ALT=<ID=INV,Description="Inversion">\n')
-        fout.write(
-            '##FORMAT=<ID=GT,Number=R,Type=String,Description="Genotype placeholder. For genotype per haplotype please refer to the GT INFO field">\n'
-        )
         fout.write(f"##contig=<ID={self.nchr},length={self.nchr_length}>\n")
         fout.write(f"##paraphase_version={paraphase.__version__}\n")
         fout.write(f"##paraphase_command=paraphase {self.prog_cmd}\n")
@@ -438,8 +440,8 @@ class VcfGenerater:
             "QUAL",
             "FILTER",
             "INFO",
-            "FORMAT",
-            "default",
+            # "FORMAT",
+            # "default",
         ]
         fout.write("\t".join(header) + "\n")
 
@@ -516,7 +518,16 @@ class VcfGenerater:
                                 + ";"
                                 + "HPBOUND="
                                 + ",".join(haps_bounds)
-                                + ";"
+                            )
+                            alleles = self.call_sum.get("alleles_final")
+                            if alleles is not None and alleles != []:
+                                info_field += (
+                                    ";"
+                                    + "ALLELES="
+                                    + ",".join(["+".join(a) for a in alleles])
+                                )
+                            info_field += (
+                                ";"
                                 + "GT="
                                 + ",".join(merge_gt)
                                 + ";"
@@ -526,6 +537,7 @@ class VcfGenerater:
                                 + "AD="
                                 + ",".join(merge_ad)
                             )
+
                             if alt.isdigit() is False:
                                 merged_entry = [
                                     self.nchr,
@@ -536,8 +548,8 @@ class VcfGenerater:
                                     final_qual,
                                     variant_filter,
                                     info_field,
-                                    "GT",
-                                    "1",
+                                    # "GT",
+                                    # "1",
                                 ]
                             else:
                                 nstart, var_type, nend = variant.split("_")
@@ -557,8 +569,8 @@ class VcfGenerater:
                                     final_qual,
                                     variant_filter,
                                     info_field,
-                                    "GT",
-                                    "1",
+                                    # "GT",
+                                    # "1",
                                 ]
                             fout.write("\t".join(merged_entry) + "\n")
 
