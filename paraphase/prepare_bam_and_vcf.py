@@ -397,19 +397,7 @@ class VcfGenerater:
         fout.write('##FILTER=<ID=PASS,Description="All filters passed">\n')
         fout.write('##FILTER=<ID=LowQual,Description="Nonpassing variant">\n')
         fout.write(
-            '##INFO=<ID=HPID,Number=.,Type=String,Description="Haplotype IDs">\n'
-        )
-        fout.write(
             '##INFO=<ID=HPBOUND,Number=.,Type=String,Description="Haplotype boundary coordinates">\n'
-        )
-        fout.write(
-            '##INFO=<ID=GT,Number=.,Type=String,Description="Genotype per haplotype">\n'
-        )
-        fout.write(
-            '##INFO=<ID=DP,Number=.,Type=Integer,Description="Number of reads per haplotype">\n'
-        )
-        fout.write(
-            '##INFO=<ID=AD,Number=.,Type=Integer,Description="Variant supporting read depth">\n'
         )
         alleles = self.call_sum.get("alleles_final")
         if alleles is not None and alleles != []:
@@ -428,22 +416,18 @@ class VcfGenerater:
             )
             fout.write('##ALT=<ID=DEL,Description="Deletion">\n')
             fout.write('##ALT=<ID=INV,Description="Inversion">\n')
+        fout.write(
+            '##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype per haplotype">\n'
+        )
+        fout.write(
+            '##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Number of reads per haplotype">\n'
+        )
+        fout.write(
+            '##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Variant supporting read depth">\n'
+        )
         fout.write(f"##contig=<ID={self.nchr},length={self.nchr_length}>\n")
         fout.write(f"##paraphase_version={paraphase.__version__}\n")
         fout.write(f"##paraphase_command=paraphase {self.prog_cmd}\n")
-        header = [
-            "#CHROM",
-            "POS",
-            "ID",
-            "REF",
-            "ALT",
-            "QUAL",
-            "FILTER",
-            "INFO",
-            # "FORMAT",
-            # "default",
-        ]
-        fout.write("\t".join(header) + "\n")
 
     @staticmethod
     def modify_hapbound(bound1, bound2, truncated):
@@ -473,6 +457,20 @@ class VcfGenerater:
                     haps_ids.append(hap_name)
                     hap_bound = self.modify_hapbound(bound1, bound2, truncated)
                     haps_bounds.append(hap_bound)
+
+                header = [
+                    "#CHROM",
+                    "POS",
+                    "ID",
+                    "REF",
+                    "ALT",
+                    "QUAL",
+                    "FILTER",
+                    "INFO",
+                    "FORMAT",
+                ] + haps_ids
+                fout.write("\t".join(header) + "\n")
+
                 variants_info = dict(sorted(variants_info.items()))
                 for pos in variants_info:
                     call_info = variants_info[pos]
@@ -486,22 +484,37 @@ class VcfGenerater:
                         for each_call in call_info:
                             if each_call is None:
                                 merge_gt.append(".")
-                                merge_ad.append(".")
+                                merge_ad.append(".,.")
                                 merge_dp.append(".")
                             else:
-                                var_name, dp, ad, var_filter, gt = each_call
+                                var_name, dp, ad, var_filter, gt, counter = each_call
+                                if counter is None:
+                                    if ref != alt:
+                                        this_ad = ",".join([str(a) for a in ad])
+                                    else:
+                                        this_ad = ",".join([str(a) for a in [ad[0], 0]])
+                                else:
+                                    if ref != alt:
+                                        this_ad = ",".join(
+                                            [str(a) for a in [ad[0], counter[alt]]]
+                                        )
+                                    else:
+                                        this_ad = ",".join([str(a) for a in [ad[0], 0]])
                                 if var_filter != []:
                                     gt = "."
                                 merge_dp.append(str(dp))
                                 if gt == "0":
                                     merge_gt.append(gt)
-                                    merge_ad.append(str(dp - ad))
+                                    # merge_ad.append(str(dp - ad))
+                                    merge_ad.append(this_ad)
                                 elif var_name == variant:
                                     merge_gt.append(gt)
-                                    merge_ad.append(str(ad))
+                                    # merge_ad.append(str(ad))
+                                    merge_ad.append(this_ad)
                                 else:
                                     merge_gt.append(".")
-                                    merge_ad.append(".")
+                                    # merge_ad.append(".")
+                                    merge_ad.append(this_ad)
                         final_qual = "."
                         if (
                             alt != ref
@@ -512,13 +525,7 @@ class VcfGenerater:
                                 variant_filter = "PASS"
                             else:
                                 variant_filter = "LowQual"
-                            info_field = (
-                                "HPID="
-                                + ",".join(haps_ids)
-                                + ";"
-                                + "HPBOUND="
-                                + ",".join(haps_bounds)
-                            )
+                            info_field = "HPBOUND=" + ",".join(haps_bounds)
                             alleles = self.call_sum.get("alleles_final")
                             if alleles is not None and alleles != []:
                                 info_field += (
@@ -526,18 +533,6 @@ class VcfGenerater:
                                     + "ALLELES="
                                     + ",".join(["+".join(a) for a in alleles])
                                 )
-                            info_field += (
-                                ";"
-                                + "GT="
-                                + ",".join(merge_gt)
-                                + ";"
-                                + "DP="
-                                + ",".join(merge_dp)
-                                + ";"
-                                + "AD="
-                                + ",".join(merge_ad)
-                            )
-
                             if alt.isdigit() is False:
                                 merged_entry = [
                                     self.nchr,
@@ -548,9 +543,12 @@ class VcfGenerater:
                                     final_qual,
                                     variant_filter,
                                     info_field,
-                                    # "GT",
-                                    # "1",
+                                    "GT:DP:AD",
+                                ] + [
+                                    ":".join([merge_gt[j], merge_dp[j], merge_ad[j]])
+                                    for j in range(len(haps_ids))
                                 ]
+
                             else:
                                 nstart, var_type, nend = variant.split("_")
                                 nstart = int(nstart)
@@ -569,8 +567,10 @@ class VcfGenerater:
                                     final_qual,
                                     variant_filter,
                                     info_field,
-                                    # "GT",
-                                    # "1",
+                                    "GT:DP:AD",
+                                ] + [
+                                    ":".join([merge_gt[j], merge_dp[j], merge_ad[j]])
+                                    for j in range(len(haps_ids))
                                 ]
                             fout.write("\t".join(merged_entry) + "\n")
 
@@ -619,7 +619,9 @@ class VcfGenerater:
         gt = "."
         qual = "."
         ad = len([a for a in all_bases if a != ref_seq])
+        ad_ref = len([a for a in all_bases if a == ref_seq])
         var_seq = ref_seq
+        counter = None
         if all_bases != []:
             counter = Counter(all_bases)
             most_common_base = counter.most_common(2)
@@ -633,7 +635,7 @@ class VcfGenerater:
             else:
                 gt = "1"
             # qual = VcfGenerater.get_var_call_qual(dp, ad, gt, is_snp)
-        return [var_seq, dp, ad, gt, qual]
+        return [var_seq, dp, (ad_ref, ad), gt, qual, counter]
 
     def get_hap_bound(self, hap_name):
         """Get haplotype boundaries"""
@@ -748,12 +750,12 @@ class VcfGenerater:
                             bases_uniq_reads.append(read_base)
                     alt_uniq_reads = self.get_var(bases_uniq_reads, ref_seq)
                     # if alt_uniq_reads[1] >= min_depth:
-                    var_seq, dp, ad, gt, qual = alt_uniq_reads
+                    var_seq, dp, ad, gt, qual, counter = alt_uniq_reads
                     # else:
                     #    var_seq, dp, ad, gt, qual = alt_all_reads
                     #    gt = "."
                 else:
-                    var_seq, dp, ad, gt, qual = alt_all_reads
+                    var_seq, dp, ad, gt, qual, counter = alt_all_reads
 
                 ref_seq, var_seq = self.refine_indels(
                     ref_seq, var_seq, refh_pos, refh, ref_name
@@ -764,14 +766,14 @@ class VcfGenerater:
                 if dp < min_depth:
                     var_filter.append("LowDP")
                 # if qual != "." and qual < min_qual:
-                if ad < dp * 0.7:
+                if ad[1] < dp * 0.7:
                     var_filter.append("LowQual")
                 if var_filter == []:
                     call_filter = "PASS"
                 else:
                     call_filter = ";".join(var_filter)
                     gt = "."
-                variants.append([true_pos, var, dp, ad, var_filter, gt])
+                variants.append([true_pos, var, dp, ad, var_filter, gt, counter])
                 if var_seq == ref_seq:
                     var_seq = "."
                 # write all positions where gt is not confidently 0
@@ -897,12 +899,12 @@ class VcfGenerater:
             hap_info.append([hap_name, self.left_boundary, self.right_boundary, None])
             hap_info.append([hap_name, self.left_boundary, self.right_boundary, None])
 
-            for pos, var_name, dp, ad, var_filter, gt in variants_called:
+            for pos, var_name, dp, ad, var_filter, gt, counter in variants_called:
                 variants_info.setdefault(
                     pos,
                     [
-                        [var_name, dp, ad, var_filter, gt],
-                        [var_name, dp, ad, var_filter, gt],
+                        [var_name, dp, ad, var_filter, gt, counter],
+                        [var_name, dp, ad, var_filter, gt, counter],
                     ],
                 )
 
@@ -1009,11 +1011,18 @@ class VcfGenerater:
             )
             # vcf_out.close()
 
-            for pos, var_name, dp, ad, var_filter, gt in variants_called:
+            for pos, var_name, dp, ad, var_filter, gt, counter in variants_called:
                 variants_info.setdefault(pos, [None] * nhap)
-                variants_info[pos][i] = [var_name, dp, ad, var_filter, gt]
+                variants_info[pos][i] = [var_name, dp, ad, var_filter, gt, counter]
                 if hap_name in two_cp_haplotypes:
-                    variants_info[pos][i + 1] = [var_name, dp, ad, var_filter, gt]
+                    variants_info[pos][i + 1] = [
+                        var_name,
+                        dp,
+                        ad,
+                        var_filter,
+                        gt,
+                        counter,
+                    ]
             if hap_name in two_cp_haplotypes:
                 i += 1
                 hap_info.append(this_hap_info)
