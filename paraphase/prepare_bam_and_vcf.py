@@ -395,14 +395,14 @@ class VcfGenerater:
         """Write VCF header"""
         fout.write("##fileformat=VCFv4.2\n")
         fout.write('##FILTER=<ID=PASS,Description="All filters passed">\n')
-        fout.write('##FILTER=<ID=LowQual,Description="Nonpassing variant">\n')
+        # fout.write('##FILTER=<ID=LowQual,Description="Nonpassing variant">\n')
         fout.write(
-            '##INFO=<ID=HPBOUND,Number=.,Type=String,Description="Haplotype boundary coordinates">\n'
+            '##INFO=<ID=HPBOUND,Number=.,Type=String,Description="Boundary coordinates of the phased haplotype">\n'
         )
         alleles = self.call_sum.get("alleles_final")
         if alleles is not None and alleles != []:
             fout.write(
-                '##INFO=<ID=ALLELES,Number=.,Type=String,Description="Haplotypes phased into alleles">\n'
+                '##INFO=<ID=ALLELE,Number=.,Type=String,Description="Haplotypes phased into alleles">\n'
             )
         if self.gene in ["ikbkg", "f8"]:
             fout.write(
@@ -420,10 +420,10 @@ class VcfGenerater:
             '##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype per haplotype">\n'
         )
         fout.write(
-            '##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Number of reads per haplotype">\n'
+            '##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Depth per haplotype">\n'
         )
         fout.write(
-            '##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Variant supporting read depth">\n'
+            '##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Read depth for REF and ALT per haplotype">\n'
         )
         fout.write(f"##contig=<ID={self.nchr},length={self.nchr_length}>\n")
         fout.write(f"##paraphase_version={paraphase.__version__}\n")
@@ -495,9 +495,37 @@ class VcfGenerater:
                                         this_ad = ",".join([str(a) for a in [ad[0], 0]])
                                 else:
                                     if ref != alt:
-                                        this_ad = ",".join(
-                                            [str(a) for a in [ad[0], counter[alt]]]
-                                        )
+                                        if len(alt) > 1:
+                                            ins_len = len(alt) - 1
+                                            alt_in_counter = f"{ref}+{ins_len}{alt[1:]}"
+                                            this_ad = ",".join(
+                                                [
+                                                    str(a)
+                                                    for a in [
+                                                        ad[0],
+                                                        counter[alt_in_counter],
+                                                    ]
+                                                ]
+                                            )
+                                        elif len(ref) > 1:
+                                            del_len = len(ref) - 1
+                                            del_seq_n = "N" * del_len
+                                            alt_in_counter = (
+                                                f"{ref[0]}-{del_len}{del_seq_n}"
+                                            )
+                                            this_ad = ",".join(
+                                                [
+                                                    str(a)
+                                                    for a in [
+                                                        ad[0],
+                                                        counter[alt_in_counter],
+                                                    ]
+                                                ]
+                                            )
+                                        else:
+                                            this_ad = ",".join(
+                                                [str(a) for a in [ad[0], counter[alt]]]
+                                            )
                                     else:
                                         this_ad = ",".join([str(a) for a in [ad[0], 0]])
                                 if var_filter != []:
@@ -505,33 +533,39 @@ class VcfGenerater:
                                 merge_dp.append(str(dp))
                                 if gt == "0":
                                     merge_gt.append(gt)
-                                    # merge_ad.append(str(dp - ad))
                                     merge_ad.append(this_ad)
                                 elif var_name == variant:
                                     merge_gt.append(gt)
-                                    # merge_ad.append(str(ad))
                                     merge_ad.append(this_ad)
                                 else:
                                     merge_gt.append(".")
-                                    # merge_ad.append(".")
                                     merge_ad.append(this_ad)
                         final_qual = "."
                         if (
                             alt != ref
                             and alt not in [".", "*"]
-                            and ("1" in merge_gt or "." in merge_gt)
+                            and "1" in merge_gt  # or "." in merge_gt
                         ):
                             if "1" in merge_gt:
                                 variant_filter = "PASS"
-                            else:
-                                variant_filter = "LowQual"
+                            # else:
+                            #    variant_filter = "LowQual"
                             info_field = "HPBOUND=" + ",".join(haps_bounds)
                             alleles = self.call_sum.get("alleles_final")
                             if alleles is not None and alleles != []:
+                                alleles_rename = []
+                                for allele in alleles:
+                                    allele_rename = []
+                                    for a in allele:
+                                        if a is not None:
+                                            allele_rename.append(a)
+                                        else:
+                                            allele_rename.append("unknown")
+                                    alleles_rename.append(allele_rename)
                                 info_field += (
                                     ";"
-                                    + "ALLELES="
-                                    + ",".join(["+".join(a) for a in alleles])
+                                    + "ALLELE="
+                                    + ",".join(["+".join(a) for a in alleles_rename])
                                 )
                             if alt.isdigit() is False:
                                 merged_entry = [
@@ -669,7 +703,6 @@ class VcfGenerater:
         refh,
         offset,
         hap_bound,
-        # vcf_out,
         min_depth=4,
         min_qual=25,
         variants_to_add={},
@@ -684,21 +717,7 @@ class VcfGenerater:
                 nstart, var_type, nend = var_name.split("_")
                 nstart = int(nstart)
                 nend = int(nend)
-                var_size = nend - nstart
-                variants.append([nstart, var_name, ".", ".", [], "1"])
-                vcf_out_line = [
-                    self.nchr,
-                    str(nstart),
-                    ".",
-                    "N",
-                    f"<{var_type}>",
-                    ".",
-                    "PASS",
-                    f"SVTYPE={var_type};END={nend};SVLEN={var_size}",
-                    "GT:DP:AD",
-                    f"1:.:.",
-                ]
-                # vcf_out.write("\t".join(vcf_out_line) + "\n")
+                variants.append([nstart, var_name, ".", ".", [], "1", None])
 
         ref_name = refh.references[0]
         del_pos = []
@@ -708,21 +727,7 @@ class VcfGenerater:
                 nstart, var_type, nend = var_name.split("_")
                 nstart = int(nstart)
                 nend = int(nend)
-                var_size = nend - nstart
-                variants.append([nstart, var_name, ".", ".", [], "1"])
-                vcf_out_line = [
-                    self.nchr,
-                    str(nstart),
-                    ".",
-                    "N",
-                    f"<{var_type}>",
-                    ".",
-                    "PASS",
-                    f"SVTYPE={var_type};END={nend};SVLEN={var_size}",
-                    "GT:DP:AD",
-                    f"1:.:.",
-                ]
-                # vcf_out.write("\t".join(vcf_out_line) + "\n")
+                variants.append([nstart, var_name, ".", ".", [], "1", None])
                 del_pos = [nstart, nend]
 
             all_bases = pileups_raw[pos]
@@ -734,63 +739,40 @@ class VcfGenerater:
                 refh_pos = pos
             ref_seq = refh.fetch(ref_name, refh_pos - 1, refh_pos)
             alt_all_reads = self.get_var(all_bases, ref_seq)
+            var_seq, dp, ad, gt, qual, counter = alt_all_reads
             if (
                 hap_bound == []
                 or (None not in hap_bound and hap_bound[0] < true_pos < hap_bound[1])
             ) and (del_pos == [] or true_pos < del_pos[0] or true_pos > del_pos[1]):
                 # use only unique reads for positions at the edge
+                # or no-call when using all reads
                 if (
                     hap_bound == []
                     or true_pos < hap_bound[2]
                     or true_pos > hap_bound[3]
+                    or ad[1] < dp * 0.7
                 ):
                     bases_uniq_reads = []
                     for i, read_base in enumerate(all_bases):
                         if uniq_reads is None or read_names[pos][i] in uniq_reads:
                             bases_uniq_reads.append(read_base)
                     alt_uniq_reads = self.get_var(bases_uniq_reads, ref_seq)
-                    # if alt_uniq_reads[1] >= min_depth:
                     var_seq, dp, ad, gt, qual, counter = alt_uniq_reads
-                    # else:
-                    #    var_seq, dp, ad, gt, qual = alt_all_reads
-                    #    gt = "."
-                else:
-                    var_seq, dp, ad, gt, qual, counter = alt_all_reads
+                    if dp < min_depth or ad[1] < dp * 0.7:
+                        var_seq, dp, ad, gt, qual, counter = alt_all_reads
 
                 ref_seq, var_seq = self.refine_indels(
                     ref_seq, var_seq, refh_pos, refh, ref_name
                 )
                 var = f"{true_pos}_{ref_seq}_{var_seq}"
-                qual = "."
                 var_filter = []
                 if dp < min_depth:
                     var_filter.append("LowDP")
-                # if qual != "." and qual < min_qual:
                 if ad[1] < dp * 0.7:
                     var_filter.append("LowQual")
-                if var_filter == []:
-                    call_filter = "PASS"
-                else:
-                    call_filter = ";".join(var_filter)
+                if var_filter != []:
                     gt = "."
                 variants.append([true_pos, var, dp, ad, var_filter, gt, counter])
-                if var_seq == ref_seq:
-                    var_seq = "."
-                # write all positions where gt is not confidently 0
-                if gt == "1" or gt == ".":
-                    vcf_out_line = [
-                        self.nchr,
-                        str(true_pos),
-                        ".",
-                        ref_seq,
-                        var_seq,
-                        str(qual),
-                        call_filter,
-                        ".",
-                        "GT:DP:AD",
-                        f"{gt}:{dp}:{ad}",
-                    ]
-                    # vcf_out.write("\t".join(vcf_out_line) + "\n")
         return variants
 
     def run_without_realign(
@@ -868,11 +850,6 @@ class VcfGenerater:
 
         if (gene2 is False or match_range is False) and final_haps == {}:
             hap_name = f"{self.gene}_homozygous_hap1"
-            # hap_vcf_out = os.path.join(
-            #    self.vcf_dir, self.sample_id + f"_{self.gene}_{hap_name}.vcf"
-            # )
-            # vcf_out = open(hap_vcf_out, "w")
-            # self.write_header(vcf_out)
             pileups_raw = {}
             read_names = {}
             for pileupcolumn in bamh.pileup(
@@ -893,9 +870,7 @@ class VcfGenerater:
                 refh,
                 0 - offset,
                 [],
-                # vcf_out,
             )
-            # vcf_out.close()
             hap_info.append([hap_name, self.left_boundary, self.right_boundary, None])
             hap_info.append([hap_name, self.left_boundary, self.right_boundary, None])
 
@@ -953,12 +928,6 @@ class VcfGenerater:
                 ]
                 hap_info.append(this_hap_info)
 
-            # hap_vcf_out = os.path.join(
-            #    self.vcf_dir, self.sample_id + f"_{self.gene}_{hap_name}.vcf"
-            # )
-            # vcf_out = open(hap_vcf_out, "w")
-            # self.write_header(vcf_out)
-
             # by HP tag
             pileups_raw = {}
             read_names = {}
@@ -1006,10 +975,8 @@ class VcfGenerater:
                 refh,
                 0 - offset,
                 hap_bound,
-                # vcf_out,
                 variants_to_add=variants_to_add,
             )
-            # vcf_out.close()
 
             for pos, var_name, dp, ad, var_filter, gt, counter in variants_called:
                 variants_info.setdefault(pos, [None] * nhap)

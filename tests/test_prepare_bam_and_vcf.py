@@ -11,53 +11,53 @@ class TestVcfGenerater(object):
 
     def test_get_var(self):
         all_bases = ["A"] * 10
-        var_seq, dp, ad, gt, qual = VcfGenerater.get_var(all_bases, "A")
+        var_seq, dp, ad, gt, qual, counter = VcfGenerater.get_var(all_bases, "A")
         assert gt == "0"
         assert var_seq == "A"
         assert dp == 10
-        assert ad == 10
+        assert ad == (10, 10)
 
         all_bases = []
-        var_seq, dp, ad, gt, qual = VcfGenerater.get_var(all_bases, "A")
+        var_seq, dp, ad, gt, qual, counter = VcfGenerater.get_var(all_bases, "A")
         assert gt == "."
         assert var_seq == "A"
         assert dp == 0
-        assert ad == 0
+        assert ad == (0, 0)
 
         all_bases = ["T"] * 2
-        var_seq, dp, ad, gt, qual = VcfGenerater.get_var(all_bases, "A")
+        var_seq, dp, ad, gt, qual, counter = VcfGenerater.get_var(all_bases, "A")
         assert gt == "1"
         assert var_seq == "T"
         assert dp == 2
-        assert ad == 2
+        assert ad == (0, 2)
 
         all_bases = ["*"] * 3
-        var_seq, dp, ad, gt, qual = VcfGenerater.get_var(all_bases, "A")
+        var_seq, dp, ad, gt, qual, counter = VcfGenerater.get_var(all_bases, "A")
         assert gt == "1"
         assert var_seq == "*"
         assert dp == 3
-        assert ad == 3
+        assert ad == (0, 3)
 
         all_bases = ["T", "T", "A"]
-        var_seq, dp, ad, gt, qual = VcfGenerater.get_var(all_bases, "A")
+        var_seq, dp, ad, gt, qual, counter = VcfGenerater.get_var(all_bases, "A")
         assert gt == "1"
         assert var_seq == "T"
         assert dp == 3
-        assert ad == 2
+        assert ad == (1, 2)
 
         all_bases = ["A+2T", "A+2T", "A"]
-        var_seq, dp, ad, gt, qual = VcfGenerater.get_var(all_bases, "A")
+        var_seq, dp, ad, gt, qual, counter = VcfGenerater.get_var(all_bases, "A")
         assert gt == "1"
         assert var_seq == "A+2T"
         assert dp == 3
-        assert ad == 2
+        assert ad == (1, 2)
 
         all_bases = ["A+2T", "A+2T", "A+2T", "A+2T", "A"]
-        var_seq, dp, ad, gt, qual = VcfGenerater.get_var(all_bases, "A")
+        var_seq, dp, ad, gt, qual, counter = VcfGenerater.get_var(all_bases, "A")
         assert gt == "1"
         assert var_seq == "A+2T"
         assert dp == 5
-        assert ad == 4
+        assert ad == (1, 4)
 
     def test_modify_hapbound(self):
         assert VcfGenerater.modify_hapbound(1, 2, None) == "1-2"
@@ -112,6 +112,6 @@ class TestVcfGenerater(object):
         vcf_generater.set_parameter(config, tmpdir=self.sample_dir, prog_cmd="test")
         variants_info, hap_info = vcf_generater.run_without_realign()
         assert 154558014 in variants_info
-        assert ["154558014_DEL_154569698", ".", ".", [], "1"] in variants_info[
+        assert ["154558014_DEL_154569698", ".", ".", [], "1", None] in variants_info[
             154558014
         ]
