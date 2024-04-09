@@ -59,6 +59,11 @@ class TestVcfGenerater(object):
         assert dp == 5
         assert ad == (1, 4)
 
+    def test_convert_alt_record(self):
+        assert VcfGenerater.convert_alt_record("T", "A") == "A"
+        assert VcfGenerater.convert_alt_record("T", "TACG") == "T+3ACG"
+        assert VcfGenerater.convert_alt_record("TGC", "T") == "T-2NN"
+
     def test_modify_hapbound(self):
         assert VcfGenerater.modify_hapbound(1, 2, None) == "1-2"
         assert VcfGenerater.modify_hapbound(1, 2, ["5p"]) == "1truncated-2"

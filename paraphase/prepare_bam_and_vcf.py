@@ -442,6 +442,18 @@ class VcfGenerater:
                 hap_bound = f"{bound1}truncated-{bound2}truncated"
         return hap_bound
 
+    @staticmethod
+    def convert_alt_record(ref, alt):
+        """Convert variant ALT allele to the pileup format"""
+        if len(alt) > 1:
+            ins_len = len(alt) - 1
+            return f"{ref}+{ins_len}{alt[1:]}"
+        if len(ref) > 1:
+            del_len = len(ref) - 1
+            del_seq_n = "N" * del_len
+            return f"{ref[0]}-{del_len}{del_seq_n}"
+        return alt
+
     def merge_vcf(self, vars_list):
         """
         Merge vcfs from multiple haplotypes.
@@ -450,27 +462,34 @@ class VcfGenerater:
         merged_vcf = os.path.join(self.vcf_dir, self.sample_id + f"_{self.gene}.vcf")
         with open(merged_vcf, "w") as fout:
             self.write_header(fout)
-            for variants_info, haps_info in vars_list:
-                haps_ids = []
-                haps_bounds = []
+            assert len(vars_list) <= 2
+            haps_ids = []
+            haps_ids1 = []
+            haps_ids2 = []
+            haps_bounds = []
+            for list_counter, (variants_info, haps_info) in enumerate(vars_list):
                 for hap_name, bound1, bound2, truncated in haps_info:
                     haps_ids.append(hap_name)
                     hap_bound = self.modify_hapbound(bound1, bound2, truncated)
                     haps_bounds.append(hap_bound)
+                    if list_counter == 0:
+                        haps_ids1.append(hap_name)
+                    else:
+                        haps_ids2.append(hap_name)
+            header = [
+                "#CHROM",
+                "POS",
+                "ID",
+                "REF",
+                "ALT",
+                "QUAL",
+                "FILTER",
+                "INFO",
+                "FORMAT",
+            ] + haps_ids
+            fout.write("\t".join(header) + "\n")
 
-                header = [
-                    "#CHROM",
-                    "POS",
-                    "ID",
-                    "REF",
-                    "ALT",
-                    "QUAL",
-                    "FILTER",
-                    "INFO",
-                    "FORMAT",
-                ] + haps_ids
-                fout.write("\t".join(header) + "\n")
-
+            for list_counter, (variants_info, haps_info) in enumerate(vars_list):
                 variants_info = dict(sorted(variants_info.items()))
                 for pos in variants_info:
                     call_info = variants_info[pos]
@@ -484,7 +503,7 @@ class VcfGenerater:
                         for each_call in call_info:
                             if each_call is None:
                                 merge_gt.append(".")
-                                merge_ad.append(".,.")
+                                merge_ad.append(".")
                                 merge_dp.append(".")
                             else:
                                 var_name, dp, ad, var_filter, gt, counter = each_call
@@ -495,37 +514,18 @@ class VcfGenerater:
                                         this_ad = ",".join([str(a) for a in [ad[0], 0]])
                                 else:
                                     if ref != alt:
-                                        if len(alt) > 1:
-                                            ins_len = len(alt) - 1
-                                            alt_in_counter = f"{ref}+{ins_len}{alt[1:]}"
-                                            this_ad = ",".join(
-                                                [
-                                                    str(a)
-                                                    for a in [
-                                                        ad[0],
-                                                        counter[alt_in_counter],
-                                                    ]
+                                        alt_converted = self.convert_alt_record(
+                                            ref, alt
+                                        )
+                                        this_ad = ",".join(
+                                            [
+                                                str(a)
+                                                for a in [
+                                                    ad[0],
+                                                    counter[alt_converted],
                                                 ]
-                                            )
-                                        elif len(ref) > 1:
-                                            del_len = len(ref) - 1
-                                            del_seq_n = "N" * del_len
-                                            alt_in_counter = (
-                                                f"{ref[0]}-{del_len}{del_seq_n}"
-                                            )
-                                            this_ad = ",".join(
-                                                [
-                                                    str(a)
-                                                    for a in [
-                                                        ad[0],
-                                                        counter[alt_in_counter],
-                                                    ]
-                                                ]
-                                            )
-                                        else:
-                                            this_ad = ",".join(
-                                                [str(a) for a in [ad[0], counter[alt]]]
-                                            )
+                                            ]
+                                        )
                                     else:
                                         this_ad = ",".join([str(a) for a in [ad[0], 0]])
                                 if var_filter != []:
@@ -540,6 +540,16 @@ class VcfGenerater:
                                 else:
                                     merge_gt.append(".")
                                     merge_ad.append(this_ad)
+                        if list_counter == 0 and haps_ids != haps_ids1:
+                            for _ in range(len(haps_ids2)):
+                                merge_gt.append(".")
+                                merge_ad.append(".")
+                                merge_dp.append(".")
+                        elif list_counter > 0:
+                            for _ in range(len(haps_ids1)):
+                                merge_gt.insert(0, ".")
+                                merge_ad.insert(0, ".")
+                                merge_dp.insert(0, ".")
                         final_qual = "."
                         if (
                             alt != ref
