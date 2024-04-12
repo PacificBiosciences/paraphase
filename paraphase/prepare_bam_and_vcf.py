@@ -882,7 +882,9 @@ class VcfGenerater:
                 [],
             )
             hap_info.append([hap_name, self.left_boundary, self.right_boundary, None])
-            hap_info.append([hap_name, self.left_boundary, self.right_boundary, None])
+            hap_info.append(
+                [hap_name + "_cp2", self.left_boundary, self.right_boundary, None]
+            )
 
             for pos, var_name, dp, ad, var_filter, gt, counter in variants_called:
                 variants_info.setdefault(
@@ -1002,7 +1004,8 @@ class VcfGenerater:
                     ]
             if hap_name in two_cp_haplotypes:
                 i += 1
-                hap_info.append(this_hap_info)
+                this_hap_info_cp2 = [this_hap_info[0] + "_cp2"] + this_hap_info[1:]
+                hap_info.append(this_hap_info_cp2)
             i += 1
 
         bamh.close()
