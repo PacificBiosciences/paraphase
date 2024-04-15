@@ -1970,12 +1970,12 @@ class Phaser:
                     total_cn = 4
 
         # correct CN for palindrome genes
-        if self.sample_sex is not None:
-            if self.is_palindrome:
-                if self.sample_sex == "female" and total_cn < 4:
-                    total_cn = None
-                elif self.sample_sex == "male" and total_cn < 2:
-                    total_cn = None
+        #if self.sample_sex is not None:
+        #    if self.is_palindrome:
+        #        if self.sample_sex == "female" and total_cn < 4:
+        #            total_cn = None
+        #        elif self.sample_sex == "male" and total_cn < 2:
+        #            total_cn = None
         if total_cn is not None and total_cn == 1:
             total_cn = None
 
