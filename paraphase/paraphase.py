@@ -587,10 +587,11 @@ class Paraphase:
             help="Output directory",
             required=True,
         )
-        outputp.add_argument(
+        parser.add_argument(
             "-p",
             "--prefix",
-            help="Prefix of output files for a single sample. Used with -b",
+            help="Prefix of output files for a single sample. Used with -b.\n"
+            + "If not provided, prefix will be extracted from the name of the input BAM.\n",
             required=False,
         )
         parser.add_argument(

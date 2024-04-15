@@ -9,7 +9,7 @@ Many medically relevant genes fall into 'dark' regions where variant calling is 
 ![Paraphase diagram](docs/figures/paraphase_diagram.png)
 Paraphase takes all reads from a gene family, realigns to just the gene of interest and then phases them into haplotypes. This solves the problem of alignment difficulty due to sequence homology and allows us to examine all copies of genes in a gene family and call copy number changes and other variants.
 
-Paraphase supports 161 segmental duplication [regions](docs/regions.md) in GRCh38. Among these, there are 11 medically relevant regions that are also supported in GRCh37/hg19:
+Paraphase supports 160 segmental duplication [regions](docs/regions.md) in GRCh38. Among these, there are 11 medically relevant regions that are also supported in GRCh37/hg19:
 - SMN1/SMN2 (spinal muscular atrophy)
 - RCCX module
   - CYP21A2 (21-Hydroxylase-Deficient Congenital Adrenal Hyperplasia)
@@ -78,6 +78,7 @@ Please note that the input BAM should be one that's aligned to the ENTIRE refere
 Optional parameters:
 - `-g`: Region(s) to analyze, separated by comma. All supported [regions](docs/regions.md) will be analyzed if not specified. Please use region name, i.e. first column in the doc.
 - `-t`: Number of threads.
+- `-p`: Prefix of output files when the input is a single sample, i.e. use with `-b`. If not provided, prefix will be extracted from the name of the input BAM. 
 - `--genome`: Genome reference build. Default is `38`. If `37` or `19` is specified, Paraphase will run the analysis for GRCh37 or hg19, respectively (note that only 11 medically relevant [regions](docs/regions.md) are supported now for GRCh37/hg19).
 - `gene1only`: If specified, variants calls will be made against the main gene only for SMN1, PMS2, STRC, NCF1 and IKBKG, see [below](#interpreting-the-output).
 - `--novcf`: If specified, no VCF files will be produced.
@@ -88,15 +89,15 @@ Optional parameters:
 
 Paraphase produces a few output files in the directory specified by `-o`, with the sample ID as the prefix.
 
-1. `.vcf` in `sampleID_vcfs` folder. A VCF file is written for each haplotype per gene family. There is also a `_variants.vcf` file containing merged variants from all haplotypes for each gene family. Note that this is not a diploid vcf as there are usually more than two copies of genes in a gene family in a sample.
+1. `.vcf` in `${prefix}_paraphase_vcfs` folder. A VCF file is written for each region (gene family). Each sample column represents a haplotype (gene copy).
 
 As genes of the same family can be highly similar to each other in sequence and not easy to differentiate (at the sequence level or even at the functional level), variant calls are made against one selected "main" gene from the gene family (e.g. the functional gene is selected when the family has a gene and a pseudogene). In this way, all copies of the gene family can be evaluated for pathogenic variants and one can calculate the copy number of the functional genes in the family and hence infer the disease/carrier status.
 
-Exceptions are SMN1 (paralog SMN2), PMS2 (pseudogene PMS2CL), STRC (pseudogene STRCP1), NCF1 (pseudogenes NCF1B and NCF1C) and IKBKG (pseudogene IKBKGP1), where gene differentiation is possible. In these families, haplotypes are assigned to each gene in the family, i.e. gene or paralog/pseudogene, and variants are called against the gene (or paralog/pseudogene) for the gene (or paralog/pseudogene) haplotypes, respectively. Variants calls can be made against the main gene only for these five families if `--gene1only` is specified. 
+Exceptions are SMN1 (paralog SMN2), PMS2 (pseudogene PMS2CL), STRC (pseudogene STRCP1), NCF1 (pseudogenes NCF1B and NCF1C) and IKBKG (pseudogene IKBKGP1), where gene differentiation is possible and already encoded in Paraphase. In these families, haplotypes are assigned to each gene in the family, i.e. gene or paralog/pseudogene, and variants are called against the gene (or paralog/pseudogene) for the gene (or paralog/pseudogene) haplotypes, respectively. Variants calls can be made against the main gene only for these five families if `--gene1only` is specified. 
 
-2. `_realigned_tagged.bam`: This BAM file can be loaded into IGV for visualization of haplotypes (group reads by `HP` tag and color alignments by `YC` tag). All haplotypes are aligned against the main gene of interest. Tutorials/Examples are provided for medically relevant genes (See below).  
+2. `.paraphase.bam`: This BAM file can be loaded into IGV for visualization of haplotypes (group reads by `HP` tag and color alignments by `YC` tag). All haplotypes are aligned against the main gene of interest. Tutorials/Examples are provided for medically relevant genes (See below).  
 
-3. `.json`: Output file summarizing haplotypes and variant calls for each gene family in each sample. In brief, a few generally used fields are explained below.
+3. `.paraphase.json`: Output file summarizing haplotypes and variant calls for each gene family in each sample. In brief, a few generally used fields are explained below.
 - `final_haplotypes`: phased haplotypes for all gene copies in a gene family
 - `total_cn`: total copy number of the family (sum of gene and paralog/pseudogene)
 - `two_copy_haplotypes`: haplotypes that are present in two copies based on depth. This happens when (in a small number of cases) two haplotypes are identical and we infer that there exist two of them instead of one by checking the read depth.
