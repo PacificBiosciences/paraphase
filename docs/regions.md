@@ -159,4 +159,4 @@
 | CYP2D6      | CYP2D6                                         |                          |
 | GBA         | GBA1                                           |                          |
 | CYP11B1     | CYP11B1,CYP11B2                                |                          |
-| CFH         | CFH,CFHR1,CFHR2,CFHR3,CFHR4                    |                          |
+| CFHclust    | CFH,CFHR1,CFHR2,CFHR3,CFHR4                    |                          |
