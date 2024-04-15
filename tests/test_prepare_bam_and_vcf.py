@@ -88,7 +88,7 @@ class TestVcfGenerater(object):
         variants_info, hap_info = vcf_generater.run_without_realign()
         assert len(hap_info) == 2
         assert hap_info[0][0] == "ARL17A_homozygous_hap1"
-        assert hap_info[1][0] == "ARL17A_homozygous_hap1"
+        assert hap_info[1][0] == "ARL17A_homozygous_hap1_cp2"
 
         # two-copy haplotypes
         # truncated haplotypes
@@ -102,7 +102,7 @@ class TestVcfGenerater(object):
         variants_info, hap_info = vcf_generater.run_without_realign()
         assert hap_info == [
             ["AMY2A_hap1", 103616000, 103631602, None],
-            ["AMY2A_hap1", 103616000, 103631602, None],
+            ["AMY2A_hap1_cp2", 103616000, 103631602, None],
             ["AMY2A_hap2", 103619306, 103631602, ["5p"]],
             ["AMY2A_hap3", 103619306, 103631602, ["5p"]],
         ]
