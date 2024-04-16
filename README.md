@@ -2,7 +2,7 @@
 
 <h1 align="center">Paraphase</h1>
 
-<h1 align="center">HiFi-based caller for highly similar paralogous genes</h1>
+<h3 align="center">HiFi-based caller for highly similar paralogous genes</h3>
 
 Many medically relevant genes fall into 'dark' regions where variant calling is limited due to high sequence homology with paralogs or pseudogenes. Paraphase is a Python tool that takes HiFi aligned BAMs as input (whole-genome or enrichment), phases haplotypes for genes of the same family, determines copy numbers and makes phased variant calls. 
 
