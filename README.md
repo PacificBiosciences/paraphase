@@ -83,7 +83,7 @@ Optional parameters:
 - `-t`: Number of threads.
 - `-p`: Prefix of output files when the input is a single sample, i.e. use with `-b`. If not provided, prefix will be extracted from the name of the input BAM. 
 - `--genome`: Genome reference build. Default is `38`. If `37` or `19` is specified, Paraphase will run the analysis for GRCh37 or hg19, respectively (note that only 11 medically relevant [regions](docs/regions.md) are supported now for GRCh37/hg19).
-- `gene1only`: If specified, variants calls will be made against the main gene only for SMN1, PMS2, STRC, NCF1 and IKBKG, see [below](#interpreting-the-output).
+- `--gene1only`: If specified, variants calls will be made against the main gene only for SMN1, PMS2, STRC, NCF1 and IKBKG, see more information [here](docs/vcf.md).
 - `--novcf`: If specified, no VCF files will be produced.
 - `--samtools`: path to samtools. If the paths to samtools or minimap2 are not already in the PATH environment variable, they can be provided through the `--samtools` and `--minimap2` parameters.
 - `--minimap2`: path to minimap2
@@ -103,7 +103,6 @@ Paraphase produces a few output files in the directory specified by `-o`, with t
 - `haplotype_details`: lists information about each haplotype 
   - `boundary`: the boundary of the region that is resolved on the haplotype. This is useful when a haplotype is only partially phased.
 - `alleles_final`: haplotypes phased into alleles. This is possible when the segmental duplication is in tandem.
-- `region_depth`: median depth of the gene family (include all copies of gene and paralog/pseudogene) 
 
 Tutorials/Examples are provided for interpreting the `json` output and visualizing haplotypes for medically relevant genes listed below: 
 - [SMN1/SMN2](docs/SMN1_SMN2.md)

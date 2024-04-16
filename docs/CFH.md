@@ -9,7 +9,7 @@ The `CFH` region contains the end of the CFH gene and the intergenic region betw
 
 ## Fields in the `json` file
 
-- `fusions_called`: fusions created by deletion or duplication of the region betweeen two breakpoints. Reports the SV type (deletion or duplication) and the breakpoints.
+- `fusions_called`: fusions created by deletion or duplication of the region betweeen two breakpoints. Reports the SV type (deletion or duplication) and the breakpoint coordinates.
 
 ## Visualizing haplotypes
 
@@ -20,5 +20,6 @@ Reads in gray are either unassigned or consistent with more than one possible ha
 ![CFH example](figures/CFH.png)
 
 - The top panel shows a sample with no CNV. Left is the `CFH` region/module analyzed by Paraphase and the right is the `CFHR3` region. Paraphase resolves four copies for each region. In either region, two of the four copies are shorter with more mismatches, representing the paralogs that can no longer align beyond the end of the homology region.
-- The middle panel shows a sample with a deletion (`CFH_hap1`) in the `CFH` region (left), where the 5' end is longer and the 3' end is shorter. The red arrow marks the deletion breakpoint. The other side of the breakpoint is reported in the `fusions_called` field under `CFHclust` in the `json`. The `CFHR3` region is covered by the deletion so there are also only three copies found in this region. This SV is a deletion of CFHR3+CFHR1.
-- The bottom panel shows a sample with a different deletion (`CFHR3_hap2`) in the `CFHR3` region (right), where the 5' end is longer and the 3' end is shorter. The red arrow marks the deletion breakpoint. The other side of the breakpoint is reported in the `fusions_called` field under `CFHclust` in the `json`. The `CFH` region (the paralogous side) is covered by the deletion so there are also only three copies found in this region. This SV is a deletion of CFHR1+CFHR4 (CFHR4 is the gene downstream of CFHR1).
+- The middle panel shows a sample with a deletion (`CFH_hap1`) in the `CFH` region (left), where the 5' end is longer and the 3' end is shorter. The red arrow marks the deletion breakpoint. The other side of the breakpoint can be found in the `fusions_called` field under `CFHclust` in the `json`. The `CFHR3` region is covered by the deletion so there are also only three copies found in this region. This SV is a deletion of CFHR3+CFHR1.
+- The bottom panel shows a sample with a different deletion (`CFHR3_hap2`) in the `CFHR3` region (right), where the 5' end is longer and the 3' end is shorter. The red arrow marks the deletion breakpoint. The other side of the breakpoint can be found in the `fusions_called` field under `CFHclust` in the `json`. The `CFH` region (the paralogous side) is covered by the deletion so there are also only three copies found in this region. This SV is a deletion of CFHR1+CFHR4 (CFHR4 is the gene downstream of CFHR1).
+
