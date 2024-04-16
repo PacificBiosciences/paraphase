@@ -2,7 +2,7 @@
 
 <h1 align="center">Paraphase</h1>
 
-# Paraphase: HiFi-based caller for highly homologous genes
+<h1 align="center">HiFi-based caller for highly similar paralogous genes</h1>
 
 Many medically relevant genes fall into 'dark' regions where variant calling is limited due to high sequence homology with paralogs or pseudogenes. Paraphase is a Python tool that takes HiFi aligned BAMs as input (whole-genome or enrichment), phases haplotypes for genes of the same family, determines copy numbers and makes phased variant calls. 
 
@@ -24,6 +24,9 @@ Paraphase supports 160 segmental duplication [regions](docs/regions.md) in GRCh3
 - CFC1 (heterotaxy syndrome)
 - OPN1LW/OPN1MW (color vision deficiencies)
 - HBA1/HBA2 (Alpha-Thalassemia)
+- GBA (Gaucher disease and Parkison's disease)
+- CYP11B1/CYP11B2 (Glucocorticoid-remediable aldosteronism)
+- CFH/CFHR1/CFHR2/CFHR3/CFHR4 (large deletions/duplications, atypical hemolytic uremic syndrome and age-related macular degeneration)
 
 Please check out our [paper](https://www.cell.com/ajhg/fulltext/S0002-9297(23)00001-0) on its application to the gene SMN1 for more details about Paraphase.   
 Chen X, Harting J, Farrow E, et al. Comprehensive SMN1 and SMN2 profiling for spinal muscular atrophy analysis using long-read PacBio HiFi sequencing. The American Journal of Human Genetics. 2023;0(0). doi:10.1016/j.ajhg.2023.01.001
@@ -89,11 +92,7 @@ Optional parameters:
 
 Paraphase produces a few output files in the directory specified by `-o`, with the specified or default prefix.
 
-1. `.vcf` in `${prefix}_paraphase_vcfs` folder. A VCF file is written for each region (gene family). Each sample column represents a haplotype (gene copy).
-
-As genes of the same family can be highly similar to each other in sequence and not easy to differentiate (at the sequence level or even at the functional level), variant calls are made against one selected "main" gene from the gene family (e.g. the functional gene is selected when the family has a gene and a pseudogene). In this way, all copies of the gene family can be evaluated for pathogenic variants and one can calculate the copy number of the functional genes in the family and hence infer the disease/carrier status.
-
-Exceptions are SMN1 (paralog SMN2), PMS2 (pseudogene PMS2CL), STRC (pseudogene STRCP1), NCF1 (pseudogenes NCF1B and NCF1C) and IKBKG (pseudogene IKBKGP1), where gene differentiation is possible and already encoded in Paraphase. In these families, haplotypes are assigned to each gene in the family, i.e. gene or paralog/pseudogene, and variants are called against the gene (or paralog/pseudogene) for the gene (or paralog/pseudogene) haplotypes, respectively. Variants calls can be made against the main gene only for these five families if `--gene1only` is specified. 
+1. `.vcf` in `${prefix}_paraphase_vcfs` folder. A VCF file is written for each region (gene family). More descriptions on the VCF can be found [here](docs/vcf.md).
 
 2. `.paraphase.bam`: This BAM file can be loaded into IGV for visualization of haplotypes (group reads by `HP` tag and color alignments by `YC` tag). All haplotypes are aligned against the main gene of interest. Tutorials/Examples are provided for medically relevant genes (See below).  
 
@@ -117,3 +116,6 @@ Tutorials/Examples are provided for interpreting the `json` output and visualizi
 - [F8](docs/F8.md)
 - [NEB](docs/NEB.md)
 - [NCF1](docs/NCF1.md)
+- [GBA](docs/GBA.md)
+- [CFH gene cluster](docs/CFH.md)
+
