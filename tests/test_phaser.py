@@ -267,3 +267,99 @@ class TestPhaser(object):
         ) = self.phaser.get_directed_links(new_reads, raw_read_haps, ass_haps, False)
         assert directed_links == {"hap1-hap2": [1, 1]}
         assert nondirected_links == {"hap1-hap2": [1, 1, 1]}
+
+    def test_update_twp_cp_in_fusion_cases(self):
+        haplotypes = [
+            "12121212",
+            "01212120",
+            "21212121",
+            "02121210"
+        ]
+        two_cp_haps = Phaser.update_twp_cp_in_fusion_cases(haplotypes)
+        assert two_cp_haps == []
+
+        haplotypes = [
+            "12121212",
+            "01212120",
+            "21212121",
+        ]
+        two_cp_haps = Phaser.update_twp_cp_in_fusion_cases(haplotypes)
+        assert two_cp_haps == ["01212120"]
+
+        haplotypes = [
+            "01212120",
+            "21212121",
+            "02121210"
+        ]
+        two_cp_haps = Phaser.update_twp_cp_in_fusion_cases(haplotypes)
+        assert two_cp_haps == ["21212121"]
+
+        haplotypes = [
+            "0121212x",
+            "21212121",
+            "02121210"
+        ]
+        two_cp_haps = Phaser.update_twp_cp_in_fusion_cases(haplotypes)
+        assert two_cp_haps == []
+
+    def test_get_fusion_type(self):
+        self.phaser.call_fusion = "5p"
+        assert self.phaser.get_fusion_type("012121") == "duplication"
+        assert self.phaser.get_fusion_type("121210") == "deletion"
+        assert self.phaser.get_fusion_type("121211") is None
+
+        self.phaser.call_fusion = "3p"
+        assert self.phaser.get_fusion_type("012121") == "deletion"
+        assert self.phaser.get_fusion_type("121210") == "duplication"
+        assert self.phaser.get_fusion_type("121211") is None
+
+    def test_get_fusion_breakpoint_index(self):
+        breakpoint_index = self.phaser.get_fusion_breakpoint_index("121210", "111111122222")
+        assert breakpoint_index == 7
+
+        # PSV sequence does not agree with clips on the original haplotype
+        breakpoint_index = self.phaser.get_fusion_breakpoint_index("121210", "2222211111111")
+        assert breakpoint_index is None
+
+        breakpoint_index = self.phaser.get_fusion_breakpoint_index("012121", "2222211111111")
+        assert breakpoint_index == 5
+
+        # PSV sequence does not agree with clips on the original haplotype
+        breakpoint_index = self.phaser.get_fusion_breakpoint_index("012121", "111111122222")
+        assert breakpoint_index is None
+
+        breakpoint_index = self.phaser.get_fusion_breakpoint_index("112121", "111111122222")
+        assert breakpoint_index is None
+
+
+    def test_new_hap_for_breakpoint(self):
+        self.phaser.fusion_gene_def_variants = [
+            "1_A_T",
+            "3_C_T",
+            "5_A_T",
+            "7_C_T",
+            "9_A_T",
+            "11_C_T",
+        ]
+        self.phaser.homo_sites = ["7_C_T"]
+        self.phaser.het_sites = ["1_A_T", "3_C_T", "11_C_T"]
+        hap = "212"
+        new_hap, all_sites = self.phaser.new_hap_for_breakpoint(hap)
+        assert new_hap == "211212"
+        assert all_sites == self.phaser.fusion_gene_def_variants
+
+
+        self.phaser.fusion_gene_def_variants = []
+        new_hap, all_sites = self.phaser.new_hap_for_breakpoint(hap)
+        assert new_hap == "2122"
+        assert all_sites == ["1_A_T", "3_C_T", "7_C_T", "11_C_T"]
+
+        self.phaser.clip_3p_positions = [10]
+        new_hap, all_sites = self.phaser.new_hap_for_breakpoint(hap)
+        assert new_hap == "212"
+        assert all_sites == ["1_A_T", "3_C_T", "7_C_T"]
+
+        self.phaser.clip_5p_positions = [1]
+        new_hap, all_sites = self.phaser.new_hap_for_breakpoint(hap)
+        assert new_hap == "12"
+        assert all_sites == ["3_C_T", "7_C_T"]

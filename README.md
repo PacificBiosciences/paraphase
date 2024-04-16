@@ -87,7 +87,7 @@ Optional parameters:
 
 ## Interpreting the output
 
-Paraphase produces a few output files in the directory specified by `-o`, with the sample ID as the prefix.
+Paraphase produces a few output files in the directory specified by `-o`, with the specified or default prefix.
 
 1. `.vcf` in `${prefix}_paraphase_vcfs` folder. A VCF file is written for each region (gene family). Each sample column represents a haplotype (gene copy).
 

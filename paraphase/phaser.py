@@ -1696,6 +1696,56 @@ class Phaser:
 
     def find_fusion(self, ass_haps):
         """Call fusion based on haplotypes"""
+        # update two-copy haplotypes
+        two_cp_haps = self.update_twp_cp_in_fusion_cases(ass_haps)
+
+        fusions_called = {}
+        for hap, hap_name in ass_haps.items():
+            if hap.endswith("x") is False and hap.startswith("x") is False:
+                if (hap.endswith("0") is False and hap.startswith("0") is True) or (
+                    hap.endswith("0") is True and hap.startswith("0") is False
+                ):
+                    fusion_breakpoint, new_hap = self.call_breakpoint(hap)
+                    if "1" in new_hap and "2" in new_hap:
+                        fusions_called.setdefault(hap_name, {})
+                        fusion_type = self.get_fusion_type(hap)
+                        fusions_called[hap_name].setdefault("type", fusion_type)
+                        fusions_called[hap_name].setdefault("sequence", new_hap)
+                        fusions_called[hap_name].setdefault(
+                            "breakpoint", fusion_breakpoint
+                        )
+        return two_cp_haps, fusions_called
+    
+    def get_fusion_type(self, hap):
+        """Fusion type: deletion or duplication"""
+        fusion_type = None
+        if self.call_fusion == "5p":
+            if (
+                hap.endswith("0") is False
+                and hap.startswith("0") is True
+            ):
+                fusion_type = "duplication"
+            elif (
+                hap.endswith("0") is True
+                and hap.startswith("0") is False
+            ):
+                fusion_type = "deletion"
+        elif self.call_fusion == "3p":
+            if (
+                hap.endswith("0") is False
+                and hap.startswith("0") is True
+            ):
+                fusion_type = "deletion"
+            elif (
+                hap.endswith("0") is True
+                and hap.startswith("0") is False
+            ):
+                fusion_type = "duplication"
+        return fusion_type
+
+    @staticmethod
+    def update_twp_cp_in_fusion_cases(ass_haps):
+        """Update two-copy haplotypes based on the presence of gene/paralogs"""
         two_cp_haps = []
         if True not in [a.startswith("x") or a.endswith("x") for a in ass_haps]:
             gene1s = [
@@ -1715,54 +1765,37 @@ class Phaser:
                 or (a.endswith("0") is True and a.startswith("0") is False)
             ]
             if fusions == [] and len(ass_haps) < 4:
-                if len(gene1s) == 1 and ass_haps[gene1s[0]] not in two_cp_haps:
-                    two_cp_haps.append(ass_haps[gene1s[0]])
-                if len(gene2s) == 1 and ass_haps[gene2s[0]] not in two_cp_haps:
-                    two_cp_haps.append(ass_haps[gene2s[0]])
-
-        fusions_called = {}
-        for hap, hap_name in ass_haps.items():
-            if hap.endswith("x") is False and hap.startswith("x") is False:
-                if (hap.endswith("0") is False and hap.startswith("0") is True) or (
-                    hap.endswith("0") is True and hap.startswith("0") is False
-                ):
-                    fusion_breakpoint, new_hap = self.call_breakpoint(hap)
-                    if "1" in new_hap and "2" in new_hap:
-                        fusions_called.setdefault(hap_name, {})
-                        if self.call_fusion == "5p":
-                            if (
-                                hap.endswith("0") is False
-                                and hap.startswith("0") is True
-                            ):
-                                fusions_called[hap_name].setdefault(
-                                    "type", "duplication"
-                                )
-                            elif (
-                                hap.endswith("0") is True
-                                and hap.startswith("0") is False
-                            ):
-                                fusions_called[hap_name].setdefault("type", "deletion")
-                        elif self.call_fusion == "3p":
-                            if (
-                                hap.endswith("0") is False
-                                and hap.startswith("0") is True
-                            ):
-                                fusions_called[hap_name].setdefault("type", "deletion")
-                            elif (
-                                hap.endswith("0") is True
-                                and hap.startswith("0") is False
-                            ):
-                                fusions_called[hap_name].setdefault(
-                                    "type", "duplication"
-                                )
-                        fusions_called[hap_name].setdefault("sequence", new_hap)
-                        fusions_called[hap_name].setdefault(
-                            "breakpoint", fusion_breakpoint
-                        )
-        return two_cp_haps, fusions_called
+                if len(gene1s) == 1 and gene1s[0] not in two_cp_haps:
+                    two_cp_haps.append(gene1s[0])
+                if len(gene2s) == 1 and gene2s[0] not in two_cp_haps:
+                    two_cp_haps.append(gene2s[0])
+        return two_cp_haps
 
     def call_breakpoint(self, hap):
-        """Given a haplotype sequence, get the switch point from 1s to 2s or 2s to 1s"""
+        """Given a haplotype sequence, call the fusion breakpoint"""
+        new_hap, all_sites = self.new_hap_for_breakpoint(hap)
+        fusion_breakpoint_index = self.get_fusion_breakpoint_index(hap, new_hap)
+        if fusion_breakpoint_index is not None:
+            bp1 = int(all_sites[fusion_breakpoint_index].split("_")[0])
+            bp2 = self.get_range_in_other_gene(bp1, search_range=1000)
+            bp3 = int(all_sites[fusion_breakpoint_index - 1].split("_")[0])
+            bp4 = self.get_range_in_other_gene(bp3, search_range=1000)
+            if bp1 < bp2:
+                return (
+                    (bp3, bp1),
+                    (bp4, bp2),
+                ), new_hap
+            else:
+                return (
+                    (bp4, bp2),
+                    (bp3, bp1),
+                ), new_hap
+            
+    def new_hap_for_breakpoint(self, hap):
+        """
+        Get the haplotype sequence for breakpoint identification
+        This is ideally based on PSVs defined in self.fusion_gene_def_variants
+        """
         new_hap = ""
         if self.fusion_gene_def_variants != []:
             all_sites = self.fusion_gene_def_variants
@@ -1777,60 +1810,51 @@ class Phaser:
             all_sites = sorted(
                 self.homo_sites + self.het_sites, key=lambda x: int(x.split("_")[0])
             )
-            all_sites = [
-                a
-                for a in all_sites
-                if max(self.clip_5p_positions)
-                < int(a.split("_")[0])
-                < min(self.clip_3p_positions)
-            ]
+            if self.clip_5p_positions != []:
+                all_sites = [
+                    a
+                    for a in all_sites
+                    if int(a.split("_")[0]) > max(self.clip_5p_positions)
+                ]
+            if self.clip_3p_positions != []:
+                all_sites = [
+                    a
+                    for a in all_sites
+                    if int(a.split("_")[0]) < min(self.clip_3p_positions)
+                ]
             for var_site in all_sites:
                 if var_site in self.homo_sites:
                     new_hap += "2"
                 elif var_site in self.het_sites:
                     new_hap += hap[self.het_sites.index(var_site)]
+        return new_hap, all_sites
+    
+    @staticmethod
+    def get_fusion_breakpoint_index(hap, new_hap):
+        """Infer the switch from gene1 sequence to gene2 sequence"""
+        # 2s to 1s
         if hap.startswith("0") is True and hap.endswith("0") is False:
             counts = []
-            for i, base in enumerate(new_hap):
+            for i, _ in enumerate(new_hap):
                 counts.append(
                     new_hap[:i].count("2") + new_hap[i:].count("1"),
                 )
-            fusion_breakpoint = counts.index(max(counts))
-            bp1 = int(all_sites[fusion_breakpoint].split("_")[0])
-            bp2 = self.get_range_in_other_gene(bp1, search_range=1000)
-            bp3 = int(all_sites[fusion_breakpoint - 1].split("_")[0])
-            bp4 = self.get_range_in_other_gene(bp3, search_range=1000)
-            if bp1 < bp2:
-                return (
-                    (bp3, bp1),
-                    (bp4, bp2),
-                ), new_hap
-            else:
-                return (
-                    (bp4, bp2),
-                    (bp3, bp1),
-                ), new_hap
-        elif hap.startswith("0") is False and hap.endswith("0") is True:
+            bp_index = counts.index(max(counts))
+            if bp_index == 0 or bp_index == len(counts) - 1:
+                return None
+            return bp_index
+        # 1s to 2s
+        if hap.startswith("0") is False and hap.endswith("0") is True:
             counts = []
-            for i, base in enumerate(new_hap):
+            for i, _ in enumerate(new_hap):
                 counts.append(
                     new_hap[:i].count("1") + new_hap[i:].count("2"),
                 )
-            fusion_breakpoint = counts.index(max(counts))
-            bp1 = int(all_sites[fusion_breakpoint].split("_")[0])
-            bp2 = self.get_range_in_other_gene(bp1, search_range=1000)
-            bp3 = int(all_sites[fusion_breakpoint - 1].split("_")[0])
-            bp4 = self.get_range_in_other_gene(bp3, search_range=1000)
-            if bp1 < bp2:
-                return (
-                    (bp3, bp1),
-                    (bp4, bp2),
-                ), new_hap
-            else:
-                return (
-                    (bp4, bp2),
-                    (bp3, bp1),
-                ), new_hap
+            bp_index = counts.index(max(counts))
+            if bp_index == 0 or bp_index == len(counts) - 1:
+                return None
+            return bp_index
+        return None
 
     def call(self):
         """Main function to phase haplotypes and call copy numbers"""

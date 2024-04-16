@@ -14,7 +14,6 @@ import pysam
 import subprocess
 import traceback
 import random
-import tarfile
 import multiprocessing as mp
 from argparse import RawTextHelpFormatter
 from functools import partial
