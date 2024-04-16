@@ -13,3 +13,15 @@ We have repurposed the sample column to report haplotypes (gene copies) found in
 In the INFO field, we report the boundaries of haplotypes with `HPBOUND`, which is a pair of numbers representing the start and end coordinates of the haplotype, i.e. phase block. In the case of complete phasing, these numbers represent the start and end of the region that Paraphase is designed to phase. Otherwise, sometimes Paraphase can only phase part of the region and the start and end of the phase blocks are reflected by these numbers. THe coordinates are sometimes prefixed or appended by the word `truncated`, which means that the haplotypes are clipped right before or after. This marks the end of the homology and these truncated haplotypes are often those from the paralog or the pseudogene. The `HPBOUND` field is useful when annotating variants in Paraphase VCFs as the boundaries and the truncated status can be compared against the gene transcript coordinates to determine if we have full information for the complete gene.
 
 When Paraphase is able to phase haplotypes into two chromosomes, this information is reported in the VCF under `ALLELE` in the INFO field. Haplotypes on the same chromosome are grouped together, separated by `+`, and the two chomosomes are separated by `,`.
+
+
+## Example RCCX
+
+| #CHROM | POS      | ID | REF | ALT | QUAL | FILTER | INFO                                                                                                                                                                                  | FORMAT   | rccx_hap1 | rccx_hap2 | rccx_hap3 | rccx_hap4 | rccx_hap5 |
+| :------| :------- | :- | :-- | :-- | :--- | :----- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :--------| :---------| :---------| :---------| :---------| :---------|
+| chr6   | 32013369 | .  | T   | C   | .    | PASS   | HPBOUND=32013300-32046127truncated,32013300-32046200,32013300-32046200,32013300-32046127truncated,32013300-32046127truncated;ALLELE=rccx_hap2+rccx_hap4,rccx_hap1+rccx_hap3+rccx_hap5 | GT:DP:AD | 1:19:0,19 | 1:24:0,24 | 1:23:0,23 | 0:21:21,0 | 0:23:23,0 |
+
+Here is one line from the VCF of the bottom sample in the figure below. There are five copies of the RCCX repeat, phased into two chomosomes `rccx_hap2+rccx_hap4` and `rccx_hap1+rccx_hap3+rccx_hap5`. `hap2` and `hap3` are phased all the way through the region end `32046200`, and the other three copies are clipped slightly earlier at `32046127`, which is the end of the homology region between RCCX and the paralogous copy. These three copies only carry a truncated version of TNXB.
+
+
+![RCCX examples](figures/RCCX.png)
