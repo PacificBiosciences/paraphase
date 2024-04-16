@@ -22,6 +22,7 @@ When Paraphase is able to phase haplotypes into two chromosomes, this informatio
 | chr6   | 32013369 | .  | T   | C   | .    | PASS   | HPBOUND=32013300-32046127truncated,32013300-32046200,32013300-32046200,32013300-32046127truncated,32013300-32046127truncated;ALLELE=rccx_hap2+rccx_hap4,rccx_hap1+rccx_hap3+rccx_hap5 | GT:DP:AD | 1:19:0,19 | 1:24:0,24 | 1:23:0,23 | 0:21:21,0 | 0:23:23,0 |
 
 Here is one line from the VCF of the bottom sample in the figure below. Based on the `HPBOUND` and `ALLELE` INFO fields, we can infer the following:
+
 There are five copies of the RCCX repeat, phased into two chomosomes `rccx_hap2+rccx_hap4` and `rccx_hap1+rccx_hap3+rccx_hap5`. `hap2` and `hap3` are phased all the way through the region end `32046200`, and the other three copies are clipped slightly earlier at `32046127`, which is the end of the homology region between RCCX and the paralogous copy. These three copies only carry a truncated version of TNXB.
 
 
