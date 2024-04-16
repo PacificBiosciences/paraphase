@@ -1698,15 +1698,31 @@ class Phaser:
         """Call fusion based on haplotypes"""
         # update two-copy haplotypes
         two_cp_haps = self.update_twp_cp_in_fusion_cases(ass_haps)
-
         fusions_called = {}
         for hap, hap_name in ass_haps.items():
             if hap.endswith("x") is False and hap.startswith("x") is False:
                 if (hap.endswith("0") is False and hap.startswith("0") is True) or (
                     hap.endswith("0") is True and hap.startswith("0") is False
                 ):
-                    fusion_breakpoint, new_hap = self.call_breakpoint(hap)
-                    if "1" in new_hap and "2" in new_hap:
+                    new_hap, all_sites = self.new_hap_for_breakpoint(hap)
+                    fusion_breakpoint_index = self.get_fusion_breakpoint_index(
+                        hap, new_hap
+                    )
+                    if fusion_breakpoint_index is not None:
+                        bp1 = int(all_sites[fusion_breakpoint_index].split("_")[0])
+                        bp2 = self.get_range_in_other_gene(bp1, search_range=1000)
+                        bp3 = int(all_sites[fusion_breakpoint_index - 1].split("_")[0])
+                        bp4 = self.get_range_in_other_gene(bp3, search_range=1000)
+                        if bp1 < bp2:
+                            fusion_breakpoint = (
+                                (bp3, bp1),
+                                (bp4, bp2),
+                            )
+                        else:
+                            fusion_breakpoint = (
+                                (bp4, bp2),
+                                (bp3, bp1),
+                            )
                         fusions_called.setdefault(hap_name, {})
                         fusion_type = self.get_fusion_type(hap)
                         fusions_called[hap_name].setdefault("type", fusion_type)
@@ -1715,31 +1731,19 @@ class Phaser:
                             "breakpoint", fusion_breakpoint
                         )
         return two_cp_haps, fusions_called
-    
+
     def get_fusion_type(self, hap):
         """Fusion type: deletion or duplication"""
         fusion_type = None
         if self.call_fusion == "5p":
-            if (
-                hap.endswith("0") is False
-                and hap.startswith("0") is True
-            ):
+            if hap.endswith("0") is False and hap.startswith("0") is True:
                 fusion_type = "duplication"
-            elif (
-                hap.endswith("0") is True
-                and hap.startswith("0") is False
-            ):
+            elif hap.endswith("0") is True and hap.startswith("0") is False:
                 fusion_type = "deletion"
         elif self.call_fusion == "3p":
-            if (
-                hap.endswith("0") is False
-                and hap.startswith("0") is True
-            ):
+            if hap.endswith("0") is False and hap.startswith("0") is True:
                 fusion_type = "deletion"
-            elif (
-                hap.endswith("0") is True
-                and hap.startswith("0") is False
-            ):
+            elif hap.endswith("0") is True and hap.startswith("0") is False:
                 fusion_type = "duplication"
         return fusion_type
 
@@ -1765,32 +1769,12 @@ class Phaser:
                 or (a.endswith("0") is True and a.startswith("0") is False)
             ]
             if fusions == [] and len(ass_haps) < 4:
-                if len(gene1s) == 1 and gene1s[0] not in two_cp_haps:
-                    two_cp_haps.append(gene1s[0])
-                if len(gene2s) == 1 and gene2s[0] not in two_cp_haps:
-                    two_cp_haps.append(gene2s[0])
+                if len(gene1s) == 1 and ass_haps[gene1s[0]] not in two_cp_haps:
+                    two_cp_haps.append(ass_haps[gene1s[0]])
+                if len(gene2s) == 1 and ass_haps[gene2s[0]] not in two_cp_haps:
+                    two_cp_haps.append(ass_haps[gene2s[0]])
         return two_cp_haps
 
-    def call_breakpoint(self, hap):
-        """Given a haplotype sequence, call the fusion breakpoint"""
-        new_hap, all_sites = self.new_hap_for_breakpoint(hap)
-        fusion_breakpoint_index = self.get_fusion_breakpoint_index(hap, new_hap)
-        if fusion_breakpoint_index is not None:
-            bp1 = int(all_sites[fusion_breakpoint_index].split("_")[0])
-            bp2 = self.get_range_in_other_gene(bp1, search_range=1000)
-            bp3 = int(all_sites[fusion_breakpoint_index - 1].split("_")[0])
-            bp4 = self.get_range_in_other_gene(bp3, search_range=1000)
-            if bp1 < bp2:
-                return (
-                    (bp3, bp1),
-                    (bp4, bp2),
-                ), new_hap
-            else:
-                return (
-                    (bp4, bp2),
-                    (bp3, bp1),
-                ), new_hap
-            
     def new_hap_for_breakpoint(self, hap):
         """
         Get the haplotype sequence for breakpoint identification
@@ -1828,7 +1812,7 @@ class Phaser:
                 elif var_site in self.het_sites:
                     new_hap += hap[self.het_sites.index(var_site)]
         return new_hap, all_sites
-    
+
     @staticmethod
     def get_fusion_breakpoint_index(hap, new_hap):
         """Infer the switch from gene1 sequence to gene2 sequence"""
@@ -1994,7 +1978,7 @@ class Phaser:
                     total_cn = 4
 
         # correct CN for palindrome genes
-        #if self.sample_sex is not None:
+        # if self.sample_sex is not None:
         #    if self.is_palindrome:
         #        if self.sample_sex == "female" and total_cn < 4:
         #            total_cn = None

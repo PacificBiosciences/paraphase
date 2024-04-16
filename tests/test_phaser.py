@@ -269,36 +269,36 @@ class TestPhaser(object):
         assert nondirected_links == {"hap1-hap2": [1, 1, 1]}
 
     def test_update_twp_cp_in_fusion_cases(self):
-        haplotypes = [
-            "12121212",
-            "01212120",
-            "21212121",
-            "02121210"
-        ]
+        haplotypes = {
+            "12121212": "hap1",
+            "01212120": "hap2",
+            "21212121": "hap3",
+            "02121210": "hap4",
+        }
         two_cp_haps = Phaser.update_twp_cp_in_fusion_cases(haplotypes)
         assert two_cp_haps == []
 
-        haplotypes = [
-            "12121212",
-            "01212120",
-            "21212121",
-        ]
+        haplotypes = {
+            "12121212": "hap1",
+            "01212120": "hap2",
+            "21212121": "hap3",
+        }
         two_cp_haps = Phaser.update_twp_cp_in_fusion_cases(haplotypes)
-        assert two_cp_haps == ["01212120"]
+        assert two_cp_haps == ["hap2"]
 
-        haplotypes = [
-            "01212120",
-            "21212121",
-            "02121210"
-        ]
+        haplotypes = {
+            "01212120": "hap1",
+            "02121210": "hap2",
+            "21212121": "hap3",
+        }
         two_cp_haps = Phaser.update_twp_cp_in_fusion_cases(haplotypes)
-        assert two_cp_haps == ["21212121"]
+        assert two_cp_haps == ["hap3"]
 
-        haplotypes = [
-            "0121212x",
-            "21212121",
-            "02121210"
-        ]
+        haplotypes = {
+            "0121212x": "hap1",
+            "21212121": "hap2",
+            "02121210": "hap3",
+        }
         two_cp_haps = Phaser.update_twp_cp_in_fusion_cases(haplotypes)
         assert two_cp_haps == []
 
