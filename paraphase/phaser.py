@@ -10,6 +10,7 @@ from collections import Counter
 from itertools import product
 import re
 import logging
+import json
 from scipy.stats import poisson
 from collections import namedtuple
 from .haplotype_assembler import VariantGraph
@@ -38,6 +39,7 @@ class Phaser:
         "genome_depth",
         "region_depth",
         "sample_sex",
+        "fusions_called",
     ]
     GeneCall = namedtuple(
         "GeneCall",
@@ -97,6 +99,13 @@ class Phaser:
         if self.gene_end is None:
             self.gene_end = self.right_boundary
 
+        self.call_fusion = None
+        if "call_fusion" in config:
+            self.call_fusion = config["call_fusion"]
+            fusion_json = config["data"].get("fusion_json")
+            self.fusion_gene_def_variants = []
+            with open(fusion_json) as f:
+                self.fusion_gene_def_variants = json.load(f).get(self.gene)
         self.use_supplementary = False
         if "use_supplementary" in config or "is_tandem" in config:
             self.use_supplementary = True
@@ -106,6 +115,9 @@ class Phaser:
         self.is_reverse = False
         if "is_reverse" in config:
             self.is_reverse = config["is_reverse"]
+        self.is_palindrome = False
+        if "is_palindrome" in config:
+            self.is_palindrome = config["is_palindrome"]
         self.expect_cn2 = False
         if "expect_cn2" in config:
             self.expect_cn2 = True
@@ -992,7 +1004,7 @@ class Phaser:
         for hap, hap_name in haps.items():
             # find boundary for confident variant calling
             hap_bound_start, hap_bound_end = self.get_hap_variant_ranges(hap)
-            is_truncated = False
+            is_truncated = None
             # het sites
             for i in range(len(hap)):
                 if hap[i] == "2":
@@ -1046,7 +1058,7 @@ class Phaser:
                 hap_bound_start = max(hap_bound_start, clip_position)
                 haplotype_variants[hap_name].append(f"{clip_position}_clip_5p")
                 if clip_position > self.gene_start:
-                    is_truncated = True
+                    is_truncated = ["5p"]
             if hap.endswith("0") and self.clip_3p_positions != []:
                 for first_pos_before_clip in reversed(range(len(hap))):
                     if hap[first_pos_before_clip] != "0":
@@ -1065,7 +1077,10 @@ class Phaser:
                 hap_bound_end = min(hap_bound_end, clip_position)
                 haplotype_variants[hap_name].append(f"{clip_position}_clip_3p")
                 if clip_position < self.gene_end:
-                    is_truncated = True
+                    if is_truncated is None:
+                        is_truncated = ["3p"]
+                    else:
+                        is_truncated.append("3p")
 
             haplotype_variants[hap_name] += filtered_homo_sites
 
@@ -1679,6 +1694,152 @@ class Phaser:
             self.remove_noisy_sites()
         return homo_sites_to_add
 
+    def find_fusion(self, ass_haps):
+        """Call fusion based on haplotypes"""
+        # update two-copy haplotypes
+        two_cp_haps = self.update_twp_cp_in_fusion_cases(ass_haps)
+        fusions_called = {}
+        for hap, hap_name in ass_haps.items():
+            if hap.endswith("x") is False and hap.startswith("x") is False:
+                if (hap.endswith("0") is False and hap.startswith("0") is True) or (
+                    hap.endswith("0") is True and hap.startswith("0") is False
+                ):
+                    new_hap, all_sites = self.new_hap_for_breakpoint(hap)
+                    fusion_breakpoint_index = self.get_fusion_breakpoint_index(
+                        hap, new_hap
+                    )
+                    if fusion_breakpoint_index is not None:
+                        bp1 = int(all_sites[fusion_breakpoint_index].split("_")[0])
+                        bp2 = self.get_range_in_other_gene(bp1, search_range=1000)
+                        bp3 = int(all_sites[fusion_breakpoint_index - 1].split("_")[0])
+                        bp4 = self.get_range_in_other_gene(bp3, search_range=1000)
+                        if bp1 < bp2:
+                            fusion_breakpoint = (
+                                (bp3, bp1),
+                                (bp4, bp2),
+                            )
+                        else:
+                            fusion_breakpoint = (
+                                (bp4, bp2),
+                                (bp3, bp1),
+                            )
+                        fusions_called.setdefault(hap_name, {})
+                        fusion_type = self.get_fusion_type(hap)
+                        fusions_called[hap_name].setdefault("type", fusion_type)
+                        fusions_called[hap_name].setdefault("sequence", new_hap)
+                        fusions_called[hap_name].setdefault(
+                            "breakpoint", fusion_breakpoint
+                        )
+        return two_cp_haps, fusions_called
+
+    def get_fusion_type(self, hap):
+        """Fusion type: deletion or duplication"""
+        fusion_type = None
+        if self.call_fusion == "5p":
+            if hap.endswith("0") is False and hap.startswith("0") is True:
+                fusion_type = "duplication"
+            elif hap.endswith("0") is True and hap.startswith("0") is False:
+                fusion_type = "deletion"
+        elif self.call_fusion == "3p":
+            if hap.endswith("0") is False and hap.startswith("0") is True:
+                fusion_type = "deletion"
+            elif hap.endswith("0") is True and hap.startswith("0") is False:
+                fusion_type = "duplication"
+        return fusion_type
+
+    @staticmethod
+    def update_twp_cp_in_fusion_cases(ass_haps):
+        """Update two-copy haplotypes based on the presence of gene/paralogs"""
+        two_cp_haps = []
+        if True not in [a.startswith("x") or a.endswith("x") for a in ass_haps]:
+            gene1s = [
+                a
+                for a in ass_haps
+                if a.endswith("0") is False and a.startswith("0") is False
+            ]
+            gene2s = [
+                a
+                for a in ass_haps
+                if a.endswith("0") is True and a.startswith("0") is True
+            ]
+            fusions = [
+                a
+                for a in ass_haps
+                if (a.endswith("0") is False and a.startswith("0") is True)
+                or (a.endswith("0") is True and a.startswith("0") is False)
+            ]
+            if fusions == [] and len(ass_haps) < 4:
+                if len(gene1s) == 1 and ass_haps[gene1s[0]] not in two_cp_haps:
+                    two_cp_haps.append(ass_haps[gene1s[0]])
+                if len(gene2s) == 1 and ass_haps[gene2s[0]] not in two_cp_haps:
+                    two_cp_haps.append(ass_haps[gene2s[0]])
+        return two_cp_haps
+
+    def new_hap_for_breakpoint(self, hap):
+        """
+        Get the haplotype sequence for breakpoint identification
+        This is ideally based on PSVs defined in self.fusion_gene_def_variants
+        """
+        new_hap = ""
+        if self.fusion_gene_def_variants != []:
+            all_sites = self.fusion_gene_def_variants
+            for var_site in all_sites:
+                base = "1"
+                if var_site in self.homo_sites:
+                    base = "2"
+                elif var_site in self.het_sites:
+                    base = hap[self.het_sites.index(var_site)]
+                new_hap += base
+        else:
+            all_sites = sorted(
+                self.homo_sites + self.het_sites, key=lambda x: int(x.split("_")[0])
+            )
+            if self.clip_5p_positions != []:
+                all_sites = [
+                    a
+                    for a in all_sites
+                    if int(a.split("_")[0]) > max(self.clip_5p_positions)
+                ]
+            if self.clip_3p_positions != []:
+                all_sites = [
+                    a
+                    for a in all_sites
+                    if int(a.split("_")[0]) < min(self.clip_3p_positions)
+                ]
+            for var_site in all_sites:
+                if var_site in self.homo_sites:
+                    new_hap += "2"
+                elif var_site in self.het_sites:
+                    new_hap += hap[self.het_sites.index(var_site)]
+        return new_hap, all_sites
+
+    @staticmethod
+    def get_fusion_breakpoint_index(hap, new_hap):
+        """Infer the switch from gene1 sequence to gene2 sequence"""
+        # 2s to 1s
+        if hap.startswith("0") is True and hap.endswith("0") is False:
+            counts = []
+            for i, _ in enumerate(new_hap):
+                counts.append(
+                    new_hap[:i].count("2") + new_hap[i:].count("1"),
+                )
+            bp_index = counts.index(max(counts))
+            if bp_index == 0 or bp_index == len(counts) - 1:
+                return None
+            return bp_index
+        # 1s to 2s
+        if hap.startswith("0") is False and hap.endswith("0") is True:
+            counts = []
+            for i, _ in enumerate(new_hap):
+                counts.append(
+                    new_hap[:i].count("1") + new_hap[i:].count("2"),
+                )
+            bp_index = counts.index(max(counts))
+            if bp_index == 0 or bp_index == len(counts) - 1:
+                return None
+            return bp_index
+        return None
+
     def call(self):
         """Main function to phase haplotypes and call copy numbers"""
         if self.check_coverage_before_analysis() is False:
@@ -1763,9 +1924,8 @@ class Phaser:
         ) = self.phase_haps(raw_read_haps)
 
         tmp = {}
-        mod_gene_name = ",".join(self.gene.split("-"))
         for i, hap in enumerate(ass_haps):
-            tmp.setdefault(hap, f"{mod_gene_name}_hap{i+1}")
+            tmp.setdefault(hap, f"{self.gene}_hap{i+1}")
         ass_haps = tmp
 
         haplotypes = None
@@ -1778,7 +1938,9 @@ class Phaser:
             )
 
         two_cp_haps = []
-        if len(ass_haps) == 3:
+        if (
+            len(ass_haps) == 3 and self.expect_cn2 is False and self.gene != "BPY2"
+        ) or (self.gene == "BPY2" and len(ass_haps) < 3):
             two_cp_haps = self.compare_depth(haplotypes, stringent=True)
             if two_cp_haps == [] and read_counts is not None:
                 # check if one haplotype has more reads than others
@@ -1792,18 +1954,38 @@ class Phaser:
                 if probs[0] < 0.05 and others_max >= 10:
                     two_cp_haps.append(ass_haps[cp2_hap])
 
+        # call fusion
+        fusions_called = None
+        if self.call_fusion is not None:
+            two_cp_haps, fusions_called = self.find_fusion(ass_haps)
+
         total_cn = len(ass_haps) + len(two_cp_haps)
 
         # fully homozygous
-        if self.het_sites == [] or total_cn == 1:
+        if self.het_sites == []:
             total_cn = 2
 
         # two pairs of identical copies
-        if two_cp_haps == [] and total_cn == 2 and self.expect_cn2 is False:
+        if (
+            two_cp_haps == []
+            and total_cn == 2
+            and self.expect_cn2 is False
+            and self.gene != "BPY2"
+        ):
             if self.mdepth is not None:
                 prob = self.depth_prob(int(self.region_avg_depth.median), self.mdepth)
                 if prob[0] < 0.75:
                     total_cn = 4
+
+        # correct CN for palindrome genes
+        # if self.sample_sex is not None:
+        #    if self.is_palindrome:
+        #        if self.sample_sex == "female" and total_cn < 4:
+        #            total_cn = None
+        #        elif self.sample_sex == "male" and total_cn < 2:
+        #            total_cn = None
+        if total_cn is not None and total_cn == 1:
+            total_cn = None
 
         # phase
         alleles = []
@@ -1842,6 +2024,7 @@ class Phaser:
             self.mdepth,
             self.region_avg_depth._asdict(),
             self.sample_sex,
+            fusions_called,
         )
 
     def close_handle(self):

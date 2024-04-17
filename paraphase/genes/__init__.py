@@ -9,3 +9,4 @@ from .ikbkg_phaser import IkbkgPhaser
 from .f8_phaser import F8Phaser
 from .opn1lw_phaser import Opn1lwPhaser
 from .hba_phaser import HbaPhaser
+from .cfhclust import CfhClust

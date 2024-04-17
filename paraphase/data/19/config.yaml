@@ -30,13 +30,14 @@ pms2:
   genes: PMS2
   check_nm: 0.1
   realign_region: chr7:6004631-6049631
-  extract_regions: chr7:6004631-6028693 chr7:6775260-6799427
-  gene2_region: chr7:6775260-6799427
-  right_boundary: 6027131
+  extract_regions: chr7:6004631-6033041 chr7:6773174-6799427
+  gene2_region: chr7:6773174-6799427
+  right_boundary: 6033081
   pivot_site: 6026200
-  noisy_region: [[6020511, 6020611], [6019294, 6019300], [6015581, 6015711]]
+  noisy_region: [[6020511, 6020611], [6019294, 6019300], [6015581, 6015711], [6028131, 6031981], [6032411, 6033031]]
   is_reverse: True
   add_sites: ["6026200_G_A"]
+  clip_3p_positions: [6033041]
 rccx: 
   genes: CYP21A2,C4A,C4B,TNXB
   is_tandem: True
@@ -54,7 +55,7 @@ rccx:
   deletion1_name: "31985208_del_6367"
   deletion2_name: "32011495_del_120"
   left_boundary: 31981077
-  right_boundary: 32013777
+  right_boundary: 32013977
   # 120bp sv
   del2_3p_pos1: 32011477
   del2_3p_pos2: 32011500
@@ -86,8 +87,8 @@ strc:
   del1_5p_pos2: 43895146
 cfc1:
   genes: CFC1,CFC1B
-  realign_region: chr2:131349573-131367573
-  extract_regions: chr2:131268326-131291314 chr2:131344573-131367573
+  realign_region: chr2:131349573-131362573
+  extract_regions: chr2:131268326-131291314 chr2:131344573-131362573
   pivot_site: 131350634
   is_reverse: True
   add_sites: ["131350634_A_G"]
@@ -162,8 +163,6 @@ hba:
   extract_regions: chr16:218655-227540
   clip_5p_positions: [221988]
   clip_3p_positions: [223728]
-  gene_start: 221988
-  gene_end: 223728
   is_tandem: True
   depth_region: [[209999, 239999]]
   noisy_region: [[222416, 222417]]

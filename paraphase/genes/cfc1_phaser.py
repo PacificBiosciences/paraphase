@@ -35,7 +35,7 @@ class Cfc1Phaser(Phaser):
 
         tmp = {}
         for i, hap in enumerate(ass_haps):
-            tmp.setdefault(hap, f"hap{i+1}")
+            tmp.setdefault(hap, f"{self.gene}_hap{i+1}")
         ass_haps = tmp
 
         haplotypes = None
@@ -63,6 +63,10 @@ class Cfc1Phaser(Phaser):
                     two_cp_haps.append(ass_haps[cp2_hap])
 
         total_cn = len(ass_haps) + len(two_cp_haps)
+
+        if self.het_sites == []:
+            total_cn = 4
+
         if total_cn < 4:
             total_cn = None
 
@@ -87,4 +91,5 @@ class Cfc1Phaser(Phaser):
             self.mdepth,
             self.region_avg_depth._asdict(),
             self.sample_sex,
+            None,
         )

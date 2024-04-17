@@ -47,7 +47,7 @@ class NebPhaser(Phaser):
 
         tmp = {}
         for i, hap in enumerate(ass_haps):
-            tmp.setdefault(hap, f"hap{i+1}")
+            tmp.setdefault(hap, f"{self.gene}_hap{i+1}")
         ass_haps = tmp
 
         haplotypes = None
