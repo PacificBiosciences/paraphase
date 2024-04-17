@@ -7,7 +7,8 @@
 Many medically relevant genes fall into 'dark' regions where variant calling is limited due to high sequence homology with paralogs or pseudogenes. Paraphase is a Python tool that takes HiFi aligned BAMs as input (whole-genome or enrichment), phases haplotypes for genes of the same family, determines copy numbers and makes phased variant calls. 
 
 ![Paraphase diagram](docs/figures/paraphase_diagram.png)
-Paraphase takes all reads from a gene family, realigns to just the gene of interest and then phases them into haplotypes. This solves the problem of alignment difficulty due to sequence homology and allows us to examine all copies of genes in a gene family and call copy number changes and other variants.
+Paraphase takes all reads from a gene family, realigns to one representative gene of the family and then phases them into haplotypes. This approach bypasses the error-prone process of aligning reads to multiple similar regions and allows us to examine all copies of genes in a gene family. This gene-family-centered approach allows Paraphase to perform well when there is a copy number difference between an individual and the reference, as is often the case in segmental duplications.
+Futhermore, this approach also streamlines sequence comparisons between genes within the same family, making it straightforward to conduct analyses such as identifying non-allelic gene conversions.  
 
 Paraphase supports 160 segmental duplication [regions](docs/regions.md) in GRCh38. Among these, there are 11 medically relevant regions that are also supported in GRCh37/hg19:
 - SMN1/SMN2 (spinal muscular atrophy)

@@ -2,7 +2,7 @@
 
 The CFH gene cluster is a ~250kb genomic region that contains several genes CFH/CFHR1/CFHR2/CFHR3/CFHR4. This region is divided into two pairs of homology regions, where unequal crossing overs can lead to large deletions or duplications. These SVs are related to diseases such as atypical hemolytic uremic syndrome and age-related macular degeneration. Some of these SVs are quite common in the population. 
 
-Paraphase resolves gene copies in two homology regions (named `CFH` and `CFHR3` in the config), and summarizes results under `CFHclust` in the `json` file. Note that only SVs/fusions are called in this region. No VCF is produced, as the sequence similarity is low enough so variant calling should be accurate using standard variant callers.
+Paraphase resolves gene copies in two homology regions (named `CFH` and `CFHR3` in the config), and summarizes results under `CFHclust` in the `json` file. To analyze this region specifically, use `-g CFH,CFHR3` in the command. Note that only SVs/fusions are called in this region. No VCF is produced, as the sequence similarity is low enough so variant calling should be accurate using standard variant callers.
 
 The `CFH` region contains the end of the CFH gene and the intergenic region between CFH and CFHR3. The `CFHR3` region contains part of CFHR3 all the way to part of CFHR1. In the genome, the order of these homology regions is as follows (also see examples below):
 
