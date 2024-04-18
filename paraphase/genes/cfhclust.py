@@ -19,12 +19,20 @@ class CfhClust(Phaser):
 
     def call(self):
         haps = {}
-        haps.update(self.cfh["final_haplotypes"])
-        haps.update(self.cfhr3["final_haplotypes"])
         fusions = {}
-        fusions.update(self.cfh["fusions_called"])
-        fusions.update(self.cfhr3["fusions_called"])
         total_cn = None
+        if (
+            self.cfh["final_haplotypes"] is not None
+            and self.cfhr3["final_haplotypes"] is not None
+        ):
+            haps.update(self.cfh["final_haplotypes"])
+            haps.update(self.cfhr3["final_haplotypes"])
+        if (
+            self.cfh["fusions_called"] is not None
+            and self.cfhr3["fusions_called"] is not None
+        ):
+            fusions.update(self.cfh["fusions_called"])
+            fusions.update(self.cfhr3["fusions_called"])
         if self.cfh["total_cn"] is not None and self.cfhr3["total_cn"] is not None:
             total_cn = min(self.cfh["total_cn"], self.cfhr3["total_cn"])
             if (

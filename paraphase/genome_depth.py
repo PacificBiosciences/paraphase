@@ -4,6 +4,9 @@
 
 import numpy as np
 import pysam
+import logging
+
+logging.basicConfig(level=logging.INFO)
 
 
 class GenomeDepth:
@@ -42,10 +45,15 @@ class GenomeDepth:
                         nchr = nchr.replace("chr", "")
                     pos1 = int(at[1])
                     for pos in [pos1, pos1 + 1600]:
-                        site_depth = self._bamh.count(
-                            nchr, pos - 1, pos, read_callback="all"
-                        )
-                        depth.append(site_depth)
+                        try:
+                            site_depth = self._bamh.count(
+                                nchr, pos - 1, pos, read_callback="all"
+                            )
+                            depth.append(site_depth)
+                        except Exception:
+                            logging.info(
+                                f"This BAM does not have data at {nchr}:{pos}, which is used for determining sample coverage."
+                            )
         self.mdepth = np.median(depth)
         self.mad = np.median([abs(a - self.mdepth) for a in depth]) / self.mdepth
 
@@ -64,15 +72,23 @@ class GenomeDepth:
                     if self.chr_in_name is False:
                         nchr = nchr.replace("chr", "")
                     pos1 = int(at[1])
-                    site_depth = self._bamh.count(
-                        nchr, pos1 - 1, pos1, read_callback="all"
-                    )
-                    if "X" in nchr:
-                        self.x.append(site_depth)
-                    elif "Y" in nchr:
-                        self.y.append(site_depth)
+                    try:
+                        site_depth = self._bamh.count(
+                            nchr, pos1 - 1, pos1, read_callback="all"
+                        )
+                        if "X" in nchr:
+                            self.x.append(site_depth)
+                        elif "Y" in nchr:
+                            self.y.append(site_depth)
+                    except Exception:
+                        logging.info(
+                            f"This BAM does not have data at {nchr}:{pos1}, which is used for determining sample sex."
+                        )
         cov_x, cov_y = np.median(self.x), np.median(self.y)
         self._bamh.close()
+
+        if np.isnan(cov_x) or np.isnan(cov_y) or cov_x == 0:
+            return None
         if cov_y / cov_x < 0.05:
             return "female"
         elif cov_y / cov_x > 0.1:
