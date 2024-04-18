@@ -28,7 +28,7 @@ import paraphase
 from paraphase import genes
 from .phaser import Phaser
 
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 
 class Paraphase:
@@ -590,7 +590,7 @@ class Paraphase:
             "-p",
             "--prefix",
             help="Prefix of output files for a single sample. Used with -b.\n"
-            + "If not provided, prefix will be extracted from the name of the input BAM.\n",
+            + "If not provided, prefix will be extracted from the header of the input BAM.\n",
             required=False,
         )
         parser.add_argument(
