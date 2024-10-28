@@ -6,13 +6,19 @@ Perform a quick Paraphase run with the following dataset and commands.
 # Download human GRCh38 if you don't have one
 wget https://downloads.pacbcloud.com/public/reference-genomes/human_GRCh38_no_alt_analysis_set.tar.2023-12-04.gz
 tar -xpvf human_GRCh38_no_alt_analysis_set.tar.2023-12-04.gz
+# Get demo input BAM by cloning the Paraphase repo
+git clone https://github.com/PacificBiosciences/paraphase
 # Run Paraphase for the SMN1/SMN2 region
-paraphase -b ./tests/test_data/HG01175_smn1_extracted.bam -r ./human_GRCh38_no_alt_analysis_set/human_GRCh38_no_alt_analysis_set.fasta -o ./output/ -p HG01175 -g smn1
+paraphase -b ./paraphase/tests/test_data/HG01175_smn1_extracted.bam -r ./human_GRCh38_no_alt_analysis_set/human_GRCh38_no_alt_analysis_set.fasta -o ./output/ -p HG01175 -g smn1
 ```
 
-Note that a warning message `For sample HG01175, due to low or highly variable genome coverage, genome coverage is not used for depth correction` is expected as this test dataset is not a WGS BAM, but a bamlet extracted from the original WGS BAM. If you would like to try full WGS BAMs, they can be downloaded from:
-- `https://s3-us-west-2.amazonaws.com/human-pangenomics/index.html?prefix=working/HPRC/`
-- `https://s3-us-west-2.amazonaws.com/human-pangenomics/index.html?prefix=working/HPRC_PLUS/`
+Note that a warning message `For sample HG01175, due to low or highly variable genome coverage, genome coverage is not used for depth correction` is expected as this test dataset is not a WGS BAM, but a bamlet extracted from the original WGS BAM. If you would like to run the full WGS BAM for this sample, it can be downloaded from:
+```bash
+# BAM
+wget https://s3-us-west-2.amazonaws.com/human-pangenomics/working/HPRC/HG01175/analysis/aligned_reads/hifi/GRCh38/HG01175_aligned_GRCh38_winnowmap.sorted.bam
+# index
+wget https://s3-us-west-2.amazonaws.com/human-pangenomics/working/HPRC/HG01175/analysis/aligned_reads/hifi/GRCh38/HG01175_aligned_GRCh38_winnowmap.sorted.bam.bai
+```
 
 ## Check Paraphase outputs
 Paraphase output files can be found in `./output/`:
