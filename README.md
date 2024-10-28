@@ -89,6 +89,8 @@ Optional parameters:
 - `--samtools`: path to samtools. If the paths to samtools or minimap2 are not already in the PATH environment variable, they can be provided through the `--samtools` and `--minimap2` parameters.
 - `--minimap2`: path to minimap2
 
+See [demo](docs/demo.md) for a test run.
+
 ## Interpreting the output
 
 Paraphase produces a few output files in the directory specified by `-o`, with the specified or default prefix.
