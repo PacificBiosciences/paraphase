@@ -59,12 +59,26 @@ class IkbkgPhaser(Phaser):
             self.candidate_pos.add(self.add_sites[1])
 
         self.het_sites = sorted(list(self.candidate_pos))
+
+        kept_sites = [self.add_sites[1]]
+        if (
+            self.del1_reads_partial != set()
+            and self.sample_sex is not None
+            and self.sample_sex == "male"
+        ):
+            for var in self.homo_sites:
+                pos = int(var.split("_")[0])
+                if pos > self.del1_3p_pos2 and pos < self.del1_5p_pos1:
+                    self.het_sites.append(var)
+                    if var not in kept_sites:
+                        kept_sites.append(var)
+        self.het_sites = sorted(self.het_sites)
         self.remove_noisy_sites()
 
         raw_read_haps = self.get_haplotypes_from_reads(
             check_clip=True,
             partial_deletion_reads=self.del1_reads_partial,
-            kept_sites=[self.add_sites[1]],
+            kept_sites=kept_sites,
             add_sites=[self.add_sites[0]],  # pivot site
         )
         het_sites = self.het_sites

@@ -572,11 +572,11 @@ class Smn1Phaser(Phaser):
         smn1_haps, smn2_haps, smn2_del_haps = self.assign_haps_to_gene(ass_haps)
         if ass_haps == [] and self.het_sites == []:
             if self.has_smn1 is True and self.has_smn2 is False:
-                smn1_cn = 1
+                smn1_cn = 2
                 smn2_cn = 0
             elif self.has_smn1 is False and self.has_smn2 is True:
                 smn1_cn = 0
-                smn2_cn = 1
+                smn2_cn = 2
         else:
             smn1_cn = len(smn1_haps)
             smn2_cn = len(smn2_haps)

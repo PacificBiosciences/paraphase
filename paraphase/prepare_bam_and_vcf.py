@@ -258,6 +258,7 @@ class BamTagger:
                     match, mismatch, extend = VariantGraph.compare_two_haps(
                         read_seq, ass_hap
                     )
+                    # if match > 0:
                     keys.append(ass_hap)
                     mismatches.append(mismatch)
                 mismatches_sorted = sorted(mismatches)
@@ -267,8 +268,15 @@ class BamTagger:
                     and mismatches_sorted[1] >= mismatches_sorted[0] + 2
                 ):
                     best_match = keys[mismatches.index(mismatches_sorted[0])]
-                    read.set_tag("HP", hp_keys[best_match], "Z")
+                    selected_hap = hp_keys[best_match]
+                    read.set_tag("HP", selected_hap, "Z")
                     hp_found = True
+                    read.set_tag("YC", self.read_color, "Z")
+                    if alleles != []:
+                        if selected_hap in alleles[0]:
+                            read.set_tag("YC", self.read_color_allele1, "Z")
+                        elif len(alleles) > 1 and selected_hap in alleles[1]:
+                            read.set_tag("YC", self.read_color_allele2, "Z")
         if hp_found is False:
             if random_assign is False:
                 read.set_tag("HP", "Unassigned", "Z")
@@ -495,6 +503,23 @@ class VcfGenerater:
                     call_info = variants_info[pos]
                     # unique variants at this site
                     variant_observed = set([a[0] for a in call_info if a is not None])
+                    ref_only = False
+                    if len(variant_observed) == 1:
+                        _, ref, alt = list(variant_observed)[0].split("_")
+                        if ref == alt:
+                            ref_only = True
+                    if len(variant_observed) == 2:
+                        has_ref = False
+                        has_del = False
+                        for var in variant_observed:
+                            _, a, b = var.split("_")
+                            if a == b:
+                                has_ref = True
+                            elif b == "*":
+                                has_del = True
+                        if has_ref and has_del:
+                            ref_only = True
+
                     for variant in variant_observed:
                         _, ref, alt = variant.split("_")
                         merge_gt = []
@@ -527,7 +552,9 @@ class VcfGenerater:
                                             ]
                                         )
                                     else:
-                                        this_ad = ",".join([str(a) for a in [ad[0], 0]])
+                                        this_ad = ",".join(
+                                            [str(a) for a in [ad[0], dp - ad[0]]]
+                                        )
                                 if var_filter != []:
                                     gt = "."
                                 merge_dp.append(str(dp))
@@ -540,26 +567,28 @@ class VcfGenerater:
                                 else:
                                     merge_gt.append(".")
                                     merge_ad.append(this_ad)
-                        if list_counter == 0 and haps_ids != haps_ids1:
-                            for _ in range(len(haps_ids2)):
-                                merge_gt.append(".")
-                                merge_ad.append(".")
-                                merge_dp.append(".")
-                        elif list_counter > 0:
-                            for _ in range(len(haps_ids1)):
-                                merge_gt.insert(0, ".")
-                                merge_ad.insert(0, ".")
-                                merge_dp.insert(0, ".")
+
                         final_qual = "."
                         if (
-                            alt != ref
+                            (alt != ref or ref_only)
                             and alt not in [".", "*"]
-                            and "1" in merge_gt  # or "." in merge_gt
+                            and ("1" in merge_gt or "." in merge_gt)
                         ):
+                            if list_counter == 0 and haps_ids != haps_ids1:
+                                for _ in range(len(haps_ids2)):
+                                    merge_gt.append(".")
+                                    merge_ad.append(".")
+                                    merge_dp.append(".")
+                            elif list_counter > 0:
+                                for _ in range(len(haps_ids1)):
+                                    merge_gt.insert(0, ".")
+                                    merge_ad.insert(0, ".")
+                                    merge_dp.insert(0, ".")
+
                             if "1" in merge_gt:
                                 variant_filter = "PASS"
-                            # else:
-                            #    variant_filter = "LowQual"
+                            else:
+                                variant_filter = "LowQual"
                             info_field = "HPBOUND=" + ",".join(haps_bounds)
                             alleles = self.call_sum.get("alleles_final")
                             if alleles is not None and alleles != []:
@@ -778,7 +807,7 @@ class VcfGenerater:
                 var_filter = []
                 if dp < min_depth:
                     var_filter.append("LowDP")
-                if ad[1] < dp * 0.7:
+                if (gt == "1" and ad[1] < dp * 0.7) or (gt == "0" and ad[0] < dp * 0.7):
                     var_filter.append("LowQual")
                 if var_filter != []:
                     gt = "."
@@ -862,6 +891,11 @@ class VcfGenerater:
             hap_name = f"{self.gene}_homozygous_hap1"
             pileups_raw = {}
             read_names = {}
+
+            for pos in range(self.left_boundary, self.right_boundary):
+                pileups_raw.setdefault(pos, [])
+                read_names.setdefault(pos, [])
+
             for pileupcolumn in bamh.pileup(
                 nchr,
                 truncate=True,
@@ -871,8 +905,8 @@ class VcfGenerater:
                 this_pos_bases = [
                     a.upper() for a in pileupcolumn.get_query_sequences(add_indels=True)
                 ]
-                pileups_raw.setdefault(pos, this_pos_bases)
-                read_names.setdefault(pos, pileupcolumn.get_query_names())
+                pileups_raw[pos] = this_pos_bases
+                read_names[pos] = pileupcolumn.get_query_names()
             variants_called = self.pileup_to_variant(
                 pileups_raw,
                 read_names,
@@ -887,13 +921,14 @@ class VcfGenerater:
             )
 
             for pos, var_name, dp, ad, var_filter, gt, counter in variants_called:
-                variants_info.setdefault(
-                    pos,
-                    [
-                        [var_name, dp, ad, var_filter, gt, counter],
-                        [var_name, dp, ad, var_filter, gt, counter],
-                    ],
-                )
+                if pos > self.left_boundary and pos < self.right_boundary:
+                    variants_info.setdefault(
+                        pos,
+                        [
+                            [var_name, dp, ad, var_filter, gt, counter],
+                            [var_name, dp, ad, var_filter, gt, counter],
+                        ],
+                    )
 
         i = 0
         for hap_name in final_haps.values():
@@ -943,6 +978,12 @@ class VcfGenerater:
             # by HP tag
             pileups_raw = {}
             read_names = {}
+
+            if hap_bound != []:
+                for pos in range(hap_bound[0], hap_bound[1]):
+                    pileups_raw.setdefault(pos, [])
+                    read_names.setdefault(pos, [])
+
             for pileupcolumn in bamh.pileup(
                 nchr,
                 truncate=True,
