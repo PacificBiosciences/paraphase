@@ -1139,14 +1139,16 @@ class VariantGraph:
             if i == len(block_order) and success is False:
                 break
 
-    def run(self, debug=False, make_plot=False):
+    def run(self, debug=False, make_plot=False, min_count=4):
         """Run the whole haplotype phasing process"""
         self.initialize_graph(debug=debug)
         final_haps = self.assemble_haplotypes(debug=debug, make_plot=make_plot)
         if debug:
             print("assembled_haps are", final_haps)
 
-        final_haps = self.filter_low_support_haps(final_haps, min_count=4, debug=debug)
+        final_haps = self.filter_low_support_haps(
+            final_haps, min_count=min_count, debug=debug
+        )
         highest_cn, main_haps_candidates = self.get_highest_cn(final_haps)
 
         # extend all possible haps

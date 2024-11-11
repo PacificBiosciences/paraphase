@@ -88,44 +88,52 @@ class Paraphase:
             try:
                 if gene == "smn1":
                     phaser = genes.Smn1Phaser(
-                        sample_id, tmpdir, gdepth, bam, sample_sex
+                        sample_id, tmpdir, args, gdepth, bam, sample_sex
                     )
                 elif gene == "rccx":
                     phaser = genes.RccxPhaser(
-                        sample_id, tmpdir, gdepth, bam, sample_sex
+                        sample_id, tmpdir, args, gdepth, bam, sample_sex
                     )
                 elif gene == "pms2":
                     phaser = genes.Pms2Phaser(
-                        sample_id, tmpdir, gdepth, bam, sample_sex
+                        sample_id, tmpdir, args, gdepth, bam, sample_sex
                     )
                 elif gene == "strc":
                     phaser = genes.StrcPhaser(
-                        sample_id, tmpdir, gdepth, bam, sample_sex
+                        sample_id, tmpdir, args, gdepth, bam, sample_sex
                     )
                 elif gene == "ncf1":
                     phaser = genes.Ncf1Phaser(
-                        sample_id, tmpdir, gdepth, bam, sample_sex
+                        sample_id, tmpdir, args, gdepth, bam, sample_sex
                     )
                 elif gene == "cfc1":
                     phaser = genes.Cfc1Phaser(
-                        sample_id, tmpdir, gdepth, bam, sample_sex
+                        sample_id, tmpdir, args, gdepth, bam, sample_sex
                     )
                 elif gene == "neb":
-                    phaser = genes.NebPhaser(sample_id, tmpdir, gdepth, bam, sample_sex)
+                    phaser = genes.NebPhaser(
+                        sample_id, tmpdir, args, gdepth, bam, sample_sex
+                    )
                 elif gene == "ikbkg":
                     phaser = genes.IkbkgPhaser(
-                        sample_id, tmpdir, gdepth, bam, sample_sex
+                        sample_id, tmpdir, args, gdepth, bam, sample_sex
                     )
                 elif gene == "f8":
-                    phaser = genes.F8Phaser(sample_id, tmpdir, gdepth, bam, sample_sex)
+                    phaser = genes.F8Phaser(
+                        sample_id, tmpdir, args, gdepth, bam, sample_sex
+                    )
                 elif gene == "opn1lw":
                     phaser = genes.Opn1lwPhaser(
-                        sample_id, tmpdir, gdepth, bam, sample_sex
+                        sample_id, tmpdir, args, gdepth, bam, sample_sex
                     )
                 elif gene == "hba":
-                    phaser = genes.HbaPhaser(sample_id, tmpdir, gdepth, bam, sample_sex)
+                    phaser = genes.HbaPhaser(
+                        sample_id, tmpdir, args, gdepth, bam, sample_sex
+                    )
                 else:
-                    phaser = Phaser(sample_id, tmpdir, gdepth, sample_sex=sample_sex)
+                    phaser = Phaser(
+                        sample_id, tmpdir, args, gdepth, sample_sex=sample_sex
+                    )
 
                 config = configs[gene]
                 logging.info(
@@ -623,6 +631,24 @@ class Paraphase:
             required=False,
             type=int,
             default=1,
+        )
+        parser.add_argument(
+            "--min-read-variant",
+            help="Optional. Lower bound for the number of supporting reads for a variant.\n"
+            + "The cutoff for variant-supporting reads is determined by min(this number, max(5, depth*0.11)).\n"
+            + "Set this number low for low-coverage data or to increase sensitivity.\n"
+            + "Note that when set high enough, it will be overwritten by max(5, depth*0.11).\n"
+            + "Default is 20.",
+            required=False,
+            type=int,
+            default=20,
+        )
+        parser.add_argument(
+            "--min-read-haplotype",
+            help="Optional. Minimum number of supporting reads for a haplotype. Default is 4.",
+            required=False,
+            type=int,
+            default=4,
         )
         parser.add_argument(
             "--genome",

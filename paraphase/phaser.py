@@ -53,6 +53,7 @@ class Phaser:
         self,
         sample_id,
         outdir,
+        args,
         wgs_depth=None,
         genome_bam=None,
         sample_sex=None,
@@ -67,6 +68,8 @@ class Phaser:
         self.mdepth = wgs_depth
         self.genome_bam = genome_bam
         self.sample_sex = sample_sex
+        self.trusted_read_support = args.min_read_variant
+        self.min_read_haplotype = args.min_read_haplotype
 
     def set_parameter(self, config):
         self.gene = config["gene"]
@@ -751,7 +754,6 @@ class Phaser:
         regions_to_check=[],
         min_read_support=5,
         min_vaf=0.11,
-        trusted_read_support=20,
         white_list={},
     ):
         """
@@ -829,7 +831,7 @@ class Phaser:
                                     var_count >= min_read_support
                                     and var_count / total_depth > min_vaf
                                 )
-                                or var_count >= trusted_read_support
+                                or var_count >= self.trusted_read_support
                             ):
                                 # SNV
                                 if "-" not in var_seq and "+" not in var_seq:
@@ -1233,10 +1235,11 @@ class Phaser:
             read_count.setdefault(hap, len(lreads))
         return read_count
 
-    def phase_haps(self, raw_read_haps, min_support=4, debug=False):
+    def phase_haps(self, raw_read_haps, debug=False):
         """
         Assemble and evaluate haplotypes
         """
+        min_support = self.min_read_haplotype
         het_sites = self.het_sites
         haplotypes_to_reads, raw_read_haps = self.simplify_read_haps(raw_read_haps)
 
@@ -1254,7 +1257,9 @@ class Phaser:
             hap_graph = VariantGraph(
                 raw_read_haps, pivot_index, figure_id=self.sample_id
             )
-            ass_haps, original_haps, hcn = hap_graph.run(debug=debug, make_plot=debug)
+            ass_haps, original_haps, hcn = hap_graph.run(
+                debug=debug, make_plot=debug, min_count=min_support
+            )
 
         if ass_haps == []:
             return (ass_haps, original_haps, hcn, {}, {}, raw_read_haps, None)
@@ -1284,6 +1289,7 @@ class Phaser:
             and read_counts[0] <= 4
             and read_counts[1] >= 12
             and "x" not in "".join(ass_haps)
+            and min_support == 4
         ):
             min_support = 5
 

@@ -33,9 +33,17 @@ class StrcPhaser(Phaser):
     )
 
     def __init__(
-        self, sample_id, outdir, genome_depth=None, genome_bam=None, sample_sex=None
+        self,
+        sample_id,
+        outdir,
+        args,
+        genome_depth=None,
+        genome_bam=None,
+        sample_sex=None,
     ):
-        Phaser.__init__(self, sample_id, outdir, genome_depth, genome_bam, sample_sex)
+        Phaser.__init__(
+            self, sample_id, outdir, args, genome_depth, genome_bam, sample_sex
+        )
         self.del1_reads = set()
         self.del1_reads_partial = set()
 

@@ -19,9 +19,17 @@ class Ncf1Phaser(Phaser):
     )
 
     def __init__(
-        self, sample_id, outdir, genome_depth=None, genome_bam=None, sample_sex=None
+        self,
+        sample_id,
+        outdir,
+        args,
+        genome_depth=None,
+        genome_bam=None,
+        sample_sex=None,
     ):
-        Phaser.__init__(self, sample_id, outdir, genome_depth, genome_bam, sample_sex)
+        Phaser.__init__(
+            self, sample_id, outdir, args, genome_depth, genome_bam, sample_sex
+        )
 
     def set_parameter(self, config):
         super().set_parameter(config)
