@@ -538,7 +538,7 @@ class Phaser:
                 if var not in self.het_sites:
                     self.het_sites.append(var)
         # add sites before 5p clip and after 3p clip
-        if self.clip_5p_positions != [] and self.het_sites != []:
+        if self.clip_5p_positions != []:  # and self.het_sites != []:
             clip_pos = min(self.clip_5p_positions)
             var_before_clip = [
                 a for a in self.het_sites if int(a.split("_")[0]) < clip_pos
@@ -551,7 +551,7 @@ class Phaser:
                 var_base = [a for a in ["A", "C", "G", "T"] if a != ref_base][0]
                 new_var = f"{var_pos}_{ref_base}_{var_base}"
                 self.het_sites.append(new_var)
-        if self.clip_3p_positions != [] and self.het_sites != []:
+        if self.clip_3p_positions != []:  # and self.het_sites != []:
             clip_pos = max(self.clip_3p_positions)
             var_after_clip = [
                 a for a in self.het_sites if int(a.split("_")[0]) > clip_pos
@@ -1779,6 +1779,9 @@ class Phaser:
                     two_cp_haps.append(ass_haps[gene1s[0]])
                 if len(gene2s) == 1 and ass_haps[gene2s[0]] not in two_cp_haps:
                     two_cp_haps.append(ass_haps[gene2s[0]])
+            # homozygous fusion
+            elif len(fusions) == 1 and len(ass_haps) == 1:
+                two_cp_haps.append(ass_haps[fusions[0]])
         return two_cp_haps
 
     def new_hap_for_breakpoint(self, hap):
@@ -1968,7 +1971,7 @@ class Phaser:
         total_cn = len(ass_haps) + len(two_cp_haps)
 
         # fully homozygous
-        if self.het_sites == []:
+        if self.het_sites == [] or total_cn <= 1:
             total_cn = 2
 
         # two pairs of identical copies

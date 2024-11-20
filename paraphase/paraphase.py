@@ -235,15 +235,16 @@ class Paraphase:
                 sample_sex = None
                 query_genes = list(configs.keys())
 
-                logging.info(
-                    f"Getting genome depth for sample {sample_id} at {datetime.datetime.now()}..."
-                )
                 if sample_id in dcov:
                     gdepth = dcov[sample_id]
                 if (
                     gdepth is None
                     and set(query_genes) - set(self.no_genome_depth_genes) != set()
+                    and args.targeted is False
                 ):
+                    logging.info(
+                        f"Getting genome depth for sample {sample_id} at {datetime.datetime.now()}..."
+                    )
                     depth = GenomeDepth(
                         bam,
                         os.path.join(
@@ -315,6 +316,7 @@ class Paraphase:
                     cfh_cluster_caller = genes.CfhClust(
                         sample_id,
                         tmpdir,
+                        args,
                         sample_out["CFH"],
                         sample_out["CFHR3"],
                     )
@@ -669,6 +671,12 @@ class Paraphase:
             help="Optional. If specified, variant calls will be made against the main gene only.\n"
             + "By default, for SMN1, PMS2, STRC, NCF1 and IKBKG, haplotypes are assigned to gene or\n"
             + "paralog/pseudogene, and variants are called against gene or paralog/pseudogene, respectively.\n",
+            required=False,
+            action="store_true",
+        )
+        parser.add_argument(
+            "--targeted",
+            help="Optional. If specified, paraphase will not assume depth is uniform across the genome.",
             required=False,
             action="store_true",
         )
