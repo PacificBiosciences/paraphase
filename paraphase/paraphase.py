@@ -179,6 +179,7 @@ class Paraphase:
                             sample_id,
                             outdir,
                             phaser_call,
+                            args,
                         )
                         vcf_generater.set_parameter(
                             config, tmpdir=tmpdir, prog_cmd=prog_cmd
@@ -189,6 +190,7 @@ class Paraphase:
                             sample_id,
                             outdir,
                             phaser_call,
+                            args,
                         )
                         vcf_generater.set_parameter(
                             config, tmpdir=tmpdir, prog_cmd=prog_cmd
@@ -671,6 +673,13 @@ class Paraphase:
             help="Optional. If specified, variant calls will be made against the main gene only.\n"
             + "By default, for SMN1, PMS2, STRC, NCF1 and IKBKG, haplotypes are assigned to gene or\n"
             + "paralog/pseudogene, and variants are called against gene or paralog/pseudogene, respectively.\n",
+            required=False,
+            action="store_true",
+        )
+        parser.add_argument(
+            "--lowqual",
+            help="Optional. If specified, Paraphase will write all low quality sites in the VCFs.\n"
+            + "i.e. all sites (within the reported boundaries of phased haplotypes) not written in VCFs are confidently reference calls.\n",
             required=False,
             action="store_true",
         )

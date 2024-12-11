@@ -352,10 +352,11 @@ class VcfGenerater:
     search_range = 200
     min_base_quality_for_variant_calling = 25
 
-    def __init__(self, sample_id, outdir, call_sum):
+    def __init__(self, sample_id, outdir, call_sum, args):
         self.sample_id = sample_id
         self.outdir = outdir
         self.call_sum = call_sum
+        self.args = args
         self.match = {}
 
     def set_parameter(self, config, tmpdir=None, prog_cmd=None):
@@ -567,13 +568,18 @@ class VcfGenerater:
                                 else:
                                     merge_gt.append(".")
                                     merge_ad.append(this_ad)
-
+                        write_variant = False
+                        if self.args.lowqual is True:
+                            if (
+                                (alt != ref or ref_only)
+                                and alt not in [".", "*"]
+                                and ("1" in merge_gt or "." in merge_gt)
+                            ):
+                                write_variant = True
+                        elif alt != ref and alt not in [".", "*"] and "1" in merge_gt:
+                            write_variant = True
                         final_qual = "."
-                        if (
-                            (alt != ref or ref_only)
-                            and alt not in [".", "*"]
-                            and ("1" in merge_gt or "." in merge_gt)
-                        ):
+                        if write_variant:
                             if list_counter == 0 and haps_ids != haps_ids1:
                                 for _ in range(len(haps_ids2)):
                                     merge_gt.append(".")
@@ -1065,8 +1071,8 @@ class TwoGeneVcfGenerater(VcfGenerater):
     Make vcf for two-gene scenario
     """
 
-    def __init__(self, sample_id, outdir, call_sum):
-        VcfGenerater.__init__(self, sample_id, outdir, call_sum)
+    def __init__(self, sample_id, outdir, call_sum, args):
+        VcfGenerater.__init__(self, sample_id, outdir, call_sum, args)
 
     def set_parameter(self, config, tmpdir=None, prog_cmd=None):
         super().set_parameter(config, tmpdir, prog_cmd)
