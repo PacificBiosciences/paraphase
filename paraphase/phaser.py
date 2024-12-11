@@ -53,6 +53,7 @@ class Phaser:
         self,
         sample_id,
         outdir,
+        args,
         wgs_depth=None,
         genome_bam=None,
         sample_sex=None,
@@ -67,6 +68,8 @@ class Phaser:
         self.mdepth = wgs_depth
         self.genome_bam = genome_bam
         self.sample_sex = sample_sex
+        self.trusted_read_support = args.min_read_variant
+        self.min_read_haplotype = args.min_read_haplotype
 
     def set_parameter(self, config):
         self.gene = config["gene"]
@@ -535,7 +538,7 @@ class Phaser:
                 if var not in self.het_sites:
                     self.het_sites.append(var)
         # add sites before 5p clip and after 3p clip
-        if self.clip_5p_positions != [] and self.het_sites != []:
+        if self.clip_5p_positions != []:  # and self.het_sites != []:
             clip_pos = min(self.clip_5p_positions)
             var_before_clip = [
                 a for a in self.het_sites if int(a.split("_")[0]) < clip_pos
@@ -548,7 +551,7 @@ class Phaser:
                 var_base = [a for a in ["A", "C", "G", "T"] if a != ref_base][0]
                 new_var = f"{var_pos}_{ref_base}_{var_base}"
                 self.het_sites.append(new_var)
-        if self.clip_3p_positions != [] and self.het_sites != []:
+        if self.clip_3p_positions != []:  # and self.het_sites != []:
             clip_pos = max(self.clip_3p_positions)
             var_after_clip = [
                 a for a in self.het_sites if int(a.split("_")[0]) > clip_pos
@@ -751,7 +754,6 @@ class Phaser:
         regions_to_check=[],
         min_read_support=5,
         min_vaf=0.11,
-        trusted_read_support=20,
         white_list={},
     ):
         """
@@ -829,7 +831,7 @@ class Phaser:
                                     var_count >= min_read_support
                                     and var_count / total_depth > min_vaf
                                 )
-                                or var_count >= trusted_read_support
+                                or var_count >= self.trusted_read_support
                             ):
                                 # SNV
                                 if "-" not in var_seq and "+" not in var_seq:
@@ -1233,10 +1235,11 @@ class Phaser:
             read_count.setdefault(hap, len(lreads))
         return read_count
 
-    def phase_haps(self, raw_read_haps, min_support=4, debug=False):
+    def phase_haps(self, raw_read_haps, debug=False):
         """
         Assemble and evaluate haplotypes
         """
+        min_support = self.min_read_haplotype
         het_sites = self.het_sites
         haplotypes_to_reads, raw_read_haps = self.simplify_read_haps(raw_read_haps)
 
@@ -1254,7 +1257,9 @@ class Phaser:
             hap_graph = VariantGraph(
                 raw_read_haps, pivot_index, figure_id=self.sample_id
             )
-            ass_haps, original_haps, hcn = hap_graph.run(debug=debug, make_plot=debug)
+            ass_haps, original_haps, hcn = hap_graph.run(
+                debug=debug, make_plot=debug, min_count=min_support
+            )
 
         if ass_haps == []:
             return (ass_haps, original_haps, hcn, {}, {}, raw_read_haps, None)
@@ -1284,6 +1289,7 @@ class Phaser:
             and read_counts[0] <= 4
             and read_counts[1] >= 12
             and "x" not in "".join(ass_haps)
+            and min_support == 4
         ):
             min_support = 5
 
@@ -1773,6 +1779,9 @@ class Phaser:
                     two_cp_haps.append(ass_haps[gene1s[0]])
                 if len(gene2s) == 1 and ass_haps[gene2s[0]] not in two_cp_haps:
                     two_cp_haps.append(ass_haps[gene2s[0]])
+            # homozygous fusion
+            elif len(fusions) == 1 and len(ass_haps) == 1:
+                two_cp_haps.append(ass_haps[fusions[0]])
         return two_cp_haps
 
     def new_hap_for_breakpoint(self, hap):
@@ -1962,7 +1971,7 @@ class Phaser:
         total_cn = len(ass_haps) + len(two_cp_haps)
 
         # fully homozygous
-        if self.het_sites == []:
+        if self.het_sites == [] or total_cn <= 1:
             total_cn = 2
 
         # two pairs of identical copies

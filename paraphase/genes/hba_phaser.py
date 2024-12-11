@@ -20,9 +20,17 @@ class HbaPhaser(Phaser):
     )
 
     def __init__(
-        self, sample_id, outdir, genome_depth=None, genome_bam=None, sample_sex=None
+        self,
+        sample_id,
+        outdir,
+        args,
+        genome_depth=None,
+        genome_bam=None,
+        sample_sex=None,
     ):
-        Phaser.__init__(self, sample_id, outdir, genome_depth, genome_bam, sample_sex)
+        Phaser.__init__(
+            self, sample_id, outdir, args, genome_depth, genome_bam, sample_sex
+        )
 
     def set_parameter(self, config):
         super().set_parameter(config)
@@ -110,10 +118,19 @@ class HbaPhaser(Phaser):
                         two_cp_haps += [
                             a for a in ass_haps.values() if "hba1" in a or "hba2" in a
                         ]
+        elif (
+            count_unknown == 0
+            and count_del == 1
+            and count_hba1 == 0
+            and count_hba2 == 0
+            and count_dup == 0
+        ):
+            count_del += 1
+            two_cp_haps += [a for a in ass_haps.values() if "del" in a]
 
         total_cn = len(ass_haps) + len(two_cp_haps)
         if self.het_sites == [] or total_cn <= 1:
-            total_cn = None
+            total_cn = 2
         if count_del == 1 and total_cn == 3:
             genotype = "-a/aa"
         if count_del == 1 and total_cn == 4 and count_dup == 1:
