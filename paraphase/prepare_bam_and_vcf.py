@@ -25,11 +25,12 @@ class BamRealigner:
     deletion = r"\d+D"
     insertion = r"\d+I"
 
-    def __init__(self, bam, outdir, config, prog_cmd, sample_id):
+    def __init__(self, bam, outdir, config, prog_cmd, sample_id, genome_reference):
         self.bam = bam
         self.outdir = outdir
         self.prog_cmd = prog_cmd
         self.sample_id = sample_id
+        self.genome_reference = genome_reference
         self.gene = config["gene"]
         self.ref = config["data"]["reference"]
         self.nchr_old = config["nchr_old"]
@@ -95,7 +96,7 @@ class BamRealigner:
             nchr_length = self.nchr_length_gene2
 
         realign_cmd = (
-            f"{self.samtools} view -F 0x100 -F 0x200 -F 0x800 -e '[rq]>=0.99' {self.bam} {self.extract_regions} | sort | uniq | "
+            f"{self.samtools} view -F 0x100 -F 0x200 -F 0x800 -e '[rq]>=0.99' -T {self.genome_reference} {self.bam} {self.extract_regions} | sort | uniq | "
             + f'awk \'BEGIN {{FS="\\t"}} {{print "@" $1 "\\n" $10 "\\n+\\n" $11}}\''
             + f" | {self.minimap2} {self.use_r2k} -a -x map-pb {realign_ref} - | {self.samtools} view -bh | {self.samtools} sort > {realign_out_tmp}"
         )

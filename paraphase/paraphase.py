@@ -142,7 +142,9 @@ class Paraphase:
                 logging.info(
                     f"Realigning reads for {gene} for sample {sample_id} at {datetime.datetime.now()}..."
                 )
-                bam_realigner = BamRealigner(bam, tmpdir, config, prog_cmd, sample_id)
+                bam_realigner = BamRealigner(
+                    bam, tmpdir, config, prog_cmd, sample_id, args.reference
+                )
                 bam_realigner.write_realign_bam()
 
                 logging.info(
@@ -568,6 +570,15 @@ class Paraphase:
             return list(gene_list)
         return self.accepted_genes
 
+    @staticmethod
+    def check_index(file_name):
+        """Check index file for bam or cram"""
+        if file_name.endswith("bam"):
+            return os.path.exists(file_name + ".bai")
+        elif file_name.endswith("cram"):
+            return os.path.exists(file_name + ".crai")
+        return False
+
     def load_parameters(self):
         parser = argparse.ArgumentParser(
             description="Paraphase: HiFi-based caller for highly homologous genes",
@@ -744,7 +755,7 @@ class Paraphase:
             bamlist = []
             # one bam, multiprocess by gene
             if args.bam is not None:
-                if os.path.exists(args.bam) and os.path.exists(args.bam + ".bai"):
+                if os.path.exists(args.bam) and self.check_index(args.bam):
                     bamlist = [args.bam]
                     self.process_sample(
                         bamlist,
@@ -758,16 +769,20 @@ class Paraphase:
                         genome_build_dir,
                     )
                 else:
-                    logging.warning(f"{args.bam} bam or bai file doesn't exist")
+                    logging.warning(
+                        f"Input file is {args.bam} but bam/cram or bai/crai file doesn't exist."
+                    )
             # multiple bams, multiprocess by sample
             elif args.list is not None:
                 with open(args.list) as f:
                     for line in f:
                         bam = line[:-1]
-                        if os.path.exists(bam) and os.path.exists(bam + ".bai"):
+                        if os.path.exists(bam) and self.check_index(bam):
                             bamlist.append(bam)
                         else:
-                            logging.warning(f"{bam} bam or bai file doesn't exist")
+                            logging.warning(
+                                f"Input file is {args.bam} but bam/cram or bai/crai file doesn't exist."
+                            )
 
                 process_sample_partial = partial(
                     self.process_sample,
