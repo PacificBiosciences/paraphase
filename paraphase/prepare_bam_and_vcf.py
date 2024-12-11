@@ -405,7 +405,7 @@ class VcfGenerater:
         """Write VCF header"""
         fout.write("##fileformat=VCFv4.2\n")
         fout.write('##FILTER=<ID=PASS,Description="All filters passed">\n')
-        # fout.write('##FILTER=<ID=LowQual,Description="Nonpassing variant">\n')
+        fout.write('##FILTER=<ID=LowQual,Description="Nonpassing variant">\n')
         fout.write(
             '##INFO=<ID=HPBOUND,Number=.,Type=String,Description="Boundary coordinates of the phased haplotype">\n'
         )

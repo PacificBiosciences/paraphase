@@ -581,7 +581,7 @@ class Paraphase:
 
     def load_parameters(self):
         parser = argparse.ArgumentParser(
-            description="Paraphase: HiFi-based caller for highly homologous genes",
+            description="Paraphase: HiFi-based caller for highly similar paralogous genes",
             formatter_class=RawTextHelpFormatter,
         )
         inputp = parser.add_argument_group("Input Options")
