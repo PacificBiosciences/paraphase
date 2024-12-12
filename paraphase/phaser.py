@@ -1719,23 +1719,24 @@ class Phaser:
                         bp2 = self.get_range_in_other_gene(bp1, search_range=1000)
                         bp3 = int(all_sites[fusion_breakpoint_index - 1].split("_")[0])
                         bp4 = self.get_range_in_other_gene(bp3, search_range=1000)
-                        if bp1 < bp2:
-                            fusion_breakpoint = (
-                                (bp3, bp1),
-                                (bp4, bp2),
+                        if bp2 is not None:
+                            if bp1 < bp2:
+                                fusion_breakpoint = (
+                                    (bp3, bp1),
+                                    (bp4, bp2),
+                                )
+                            else:
+                                fusion_breakpoint = (
+                                    (bp4, bp2),
+                                    (bp3, bp1),
+                                )
+                            fusions_called.setdefault(hap_name, {})
+                            fusion_type = self.get_fusion_type(hap)
+                            fusions_called[hap_name].setdefault("type", fusion_type)
+                            fusions_called[hap_name].setdefault("sequence", new_hap)
+                            fusions_called[hap_name].setdefault(
+                                "breakpoint", fusion_breakpoint
                             )
-                        else:
-                            fusion_breakpoint = (
-                                (bp4, bp2),
-                                (bp3, bp1),
-                            )
-                        fusions_called.setdefault(hap_name, {})
-                        fusion_type = self.get_fusion_type(hap)
-                        fusions_called[hap_name].setdefault("type", fusion_type)
-                        fusions_called[hap_name].setdefault("sequence", new_hap)
-                        fusions_called[hap_name].setdefault(
-                            "breakpoint", fusion_breakpoint
-                        )
         return two_cp_haps, fusions_called
 
     def get_fusion_type(self, hap):
