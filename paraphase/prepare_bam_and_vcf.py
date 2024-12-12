@@ -401,7 +401,7 @@ class VcfGenerater:
                 return self.match[new_pos]
         return None
 
-    def write_header(self, fout):
+    def write_header(self, fout, has_sv=False):
         """Write VCF header"""
         fout.write("##fileformat=VCFv4.2\n")
         fout.write('##FILTER=<ID=PASS,Description="All filters passed">\n')
@@ -414,7 +414,7 @@ class VcfGenerater:
             fout.write(
                 '##INFO=<ID=ALLELE,Number=.,Type=String,Description="Haplotypes phased into alleles">\n'
             )
-        if self.gene in ["ikbkg", "f8"]:
+        if has_sv:
             fout.write(
                 '##INFO=<ID=SVLEN,Number=1,Type=Integer,Description="Length of the SV">\n'
             )
@@ -425,6 +425,7 @@ class VcfGenerater:
                 '##INFO=<ID=END,Number=1,Type=Integer,Description="End position of the structural variant">\n'
             )
             fout.write('##ALT=<ID=DEL,Description="Deletion">\n')
+            fout.write('##ALT=<ID=DUP,Description="Duplication">\n')
             fout.write('##ALT=<ID=INV,Description="Inversion">\n')
         fout.write(
             '##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype per haplotype">\n'
@@ -469,9 +470,23 @@ class VcfGenerater:
         Merge vcfs from multiple haplotypes.
         """
         os.makedirs(self.vcf_dir, exist_ok=True)
+        has_sv = False
+        for variants_info, _ in vars_list:
+            for pos in variants_info:
+                for var in variants_info[pos]:
+                    if var is not None:
+                        _, _, alt = var[0].split("_")
+                        if alt.isdigit():
+                            has_sv = True
+                            break
+                if has_sv:
+                    break
+            if has_sv:
+                break
+
         merged_vcf = os.path.join(self.vcf_dir, self.sample_id + f"_{self.gene}.vcf")
         with open(merged_vcf, "w") as fout:
-            self.write_header(fout)
+            self.write_header(fout, has_sv=has_sv)
             assert len(vars_list) <= 2
             haps_ids = []
             haps_ids1 = []
@@ -757,8 +772,8 @@ class VcfGenerater:
         Filter pileups and make variant calls.
         """
         variants = []
-        if self.gene == "f8":
-            for pos in variants_to_add:
+        for pos in variants_to_add:
+            if pos not in pileups_raw:
                 var_name = variants_to_add[pos]
                 nstart, var_type, nend = var_name.split("_")
                 nstart = int(nstart)
@@ -766,7 +781,7 @@ class VcfGenerater:
                 variants.append([nstart, var_name, ".", ".", [], "1", None])
 
         ref_name = refh.references[0]
-        del_pos = []
+        sv_pos = []
         for pos in pileups_raw:
             if pos in variants_to_add:
                 var_name = variants_to_add[pos]
@@ -774,7 +789,7 @@ class VcfGenerater:
                 nstart = int(nstart)
                 nend = int(nend)
                 variants.append([nstart, var_name, ".", ".", [], "1", None])
-                del_pos = [nstart, nend]
+                sv_pos = [nstart, nend]
 
             all_bases = pileups_raw[pos]
             if offset < 0:
@@ -789,7 +804,14 @@ class VcfGenerater:
             if (
                 hap_bound == []
                 or (None not in hap_bound and hap_bound[0] < true_pos < hap_bound[1])
-            ) and (del_pos == [] or true_pos < del_pos[0] or true_pos > del_pos[1]):
+            ) and (
+                sv_pos == []
+                or (
+                    self.gene == "ikbkg"
+                    and (true_pos < sv_pos[0] or true_pos > sv_pos[1])
+                )
+                or (self.gene != "ikbkg" and true_pos != sv_pos[0])
+            ):
                 # use only unique reads for positions at the edge
                 # or no-call when using all reads
                 if (
@@ -821,23 +843,9 @@ class VcfGenerater:
                 variants.append([true_pos, var, dp, ad, var_filter, gt, counter])
         return variants
 
-    def run_without_realign(
-        self,
-        gene2=False,
-        final_haps={},
-        match_range=False,
-    ):
-        """
-        Make vcf from existing alignment.
-        This works for gene/pseudogene scenarios,
-        i.e. no need to realign to pseudogene reference.
-        """
+    def get_sv(self, gene2=False):
+        """Get SVs to report for certain genes"""
         call_sum = self.call_sum
-        if gene2 is False:
-            final_haps = call_sum.get("final_haplotypes")
-        if final_haps is None:
-            return
-        # special SV type variants to report for certain genes
         special_variants = {}
         if self.gene == "ikbkg":
             del_haps = call_sum.get("deletion_haplotypes")
@@ -865,6 +873,39 @@ class VcfGenerater:
                     elif sv == "deletion":
                         sv_name = f"{extract_region1_end}_DEL_{extract_region2_start}"
                         special_variants.setdefault(sv_hap, sv_name)
+        # add fusions
+        fusion_calls = call_sum.get("fusions_called")
+        if fusion_calls is not None and fusion_calls != {}:
+            for sv_hap, sv_info in fusion_calls.items():
+                sv_type = sv_info["type"]
+                bp1 = sv_info["breakpoint"][0][0]
+                bp2 = sv_info["breakpoint"][1][0]
+                if sv_type == "deletion":
+                    sv_name = f"{bp1}_DEL_{bp2}"
+                    special_variants.setdefault(sv_hap, sv_name)
+                elif sv_type == "duplication":
+                    sv_name = f"{bp1}_DUP_{bp2}"
+                    special_variants.setdefault(sv_hap, sv_name)
+        return special_variants
+
+    def run_without_realign(
+        self,
+        gene2=False,
+        final_haps={},
+        match_range=False,
+    ):
+        """
+        Make vcf from existing alignment.
+        This works for gene/pseudogene scenarios,
+        i.e. no need to realign to pseudogene reference.
+        """
+        call_sum = self.call_sum
+        if gene2 is False:
+            final_haps = call_sum.get("final_haplotypes")
+        if final_haps is None:
+            return
+        # special SV type variants to report for certain genes
+        special_variants = self.get_sv(gene2)
 
         uniq_reads = []
         for read_set in self.call_sum["unique_supporting_reads"].values():
