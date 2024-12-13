@@ -95,11 +95,32 @@ class BamRealigner:
             nchr = self.nchr_gene2
             nchr_length = self.nchr_length_gene2
 
-        realign_cmd = (
-            f"{self.samtools} view -F 0x100 -F 0x200 -F 0x800  -T {self.genome_reference} {self.bam} {self.extract_regions} | sort | uniq | "
-            + f'awk \'BEGIN {{FS="\\t"}} {{print "@" $1 "\\n" $10 "\\n+\\n" $11}}\''
-            + f" | {self.minimap2} {self.use_r2k} -a -x map-pb {realign_ref} - | {self.samtools} view -bh | {self.samtools} sort > {realign_out_tmp}"
-        )
+        has_rq = False
+        ext_region_first = self.extract_regions.split()[0].split(":")
+        i = 0
+        with pysam.AlignmentFile(self.bam) as wgs:
+            for read in wgs.fetch(
+                ext_region_first[0],
+                int(ext_region_first[1].split("-")[0]),
+                int(ext_region_first[1].split("-")[1]),
+            ):
+                i += 1
+                if read.has_tag("rq"):
+                    has_rq = True
+                if i > 0:
+                    break
+        if has_rq:
+            realign_cmd = (
+                f"{self.samtools} view -F 0x100 -F 0x200 -F 0x800 -e '[rq]>=0.99' -T {self.genome_reference} {self.bam} {self.extract_regions} | sort | uniq | "
+                + f'awk \'BEGIN {{FS="\\t"}} {{print "@" $1 "\\n" $10 "\\n+\\n" $11}}\''
+                + f" | {self.minimap2} {self.use_r2k} -a -x map-pb {realign_ref} - | {self.samtools} view -bh | {self.samtools} sort > {realign_out_tmp}"
+            )
+        else:
+            realign_cmd = (
+                f"{self.samtools} view -F 0x100 -F 0x200 -F 0x800 -T {self.genome_reference} {self.bam} {self.extract_regions} | sort | uniq | "
+                + f'awk \'BEGIN {{FS="\\t"}} {{print "@" $1 "\\n" $10 "\\n+\\n" $11}}\''
+                + f" | {self.minimap2} {self.use_r2k} -a -x map-pb {realign_ref} - | {self.samtools} view -bh | {self.samtools} sort > {realign_out_tmp}"
+            )
         result = subprocess.run(realign_cmd, capture_output=True, text=True, shell=True)
         result.check_returncode()
         if os.path.exists(realign_out_tmp) is False:
