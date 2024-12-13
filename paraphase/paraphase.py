@@ -315,19 +315,9 @@ class Paraphase:
                     for phaser_call_set in phaser_calls:
                         sample_out.update(phaser_call_set)
 
-                # merge cfh cluster result
-                if "CFH" in sample_out and "CFHR3" in sample_out:
-                    cfh_cluster_caller = genes.CfhClust(
-                        sample_id,
-                        tmpdir,
-                        args,
-                        sample_out["CFH"],
-                        sample_out["CFHR3"],
-                    )
-                    sample_out.setdefault(
-                        "CFHclust", cfh_cluster_caller.call()._asdict()
-                    )
-
+                sample_out = self.update_calls_after_per_gene_analysis(
+                    sample_out, sample_id, tmpdir, args
+                )
                 sample_out = dict(sorted(sample_out.items()))
 
                 logging.info(
@@ -346,6 +336,37 @@ class Paraphase:
                     f"Error running sample {sample_id}...See error message below"
                 )
                 traceback.print_exc()
+
+    def update_calls_after_per_gene_analysis(self, sample_out, sample_id, tmpdir, args):
+        # update smn1
+        if "SERF1A" in sample_out and "smn1" in sample_out:
+            serf1_haps = sample_out["SERF1A"].get("final_haplotypes")
+            smn_haps = sample_out["SERF1A"].get("final_haplotypes")
+            if serf1_haps is not None and smn_haps is not None:
+                smn1_cn = sample_out["smn1"].get("smn1_cn")
+                if smn1_cn is not None and smn1_cn == 1:
+                    if len(serf1_haps) > len(smn_haps):
+                        sample_out["smn1"]["smn1_cn"] = None
+        # update ncf1
+        if "ncf1" in sample_out and "GTF2I" in sample_out:
+            ncf_haps = sample_out["ncf1"].get("final_haplotypes")
+            gtf2i_haps = sample_out["GTF2I"].get("final_haplotypes")
+            if gtf2i_haps is not None and ncf_haps is not None:
+                ncf1_cn = sample_out["ncf1"].get("gene_cn")
+                if ncf1_cn is not None and ncf1_cn == 1:
+                    if len(gtf2i_haps) > len(ncf_haps):
+                        sample_out["ncf1"]["gene_cn"] = None
+        # merge cfh cluster result
+        if "CFH" in sample_out and "CFHR3" in sample_out:
+            cfh_cluster_caller = genes.CfhClust(
+                sample_id,
+                tmpdir,
+                args,
+                sample_out["CFH"],
+                sample_out["CFHR3"],
+            )
+            sample_out.setdefault("CFHclust", cfh_cluster_caller.call()._asdict())
+        return sample_out
 
     @staticmethod
     def get_sample_id_from_header(bam):

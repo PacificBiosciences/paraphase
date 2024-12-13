@@ -96,7 +96,7 @@ class BamRealigner:
             nchr_length = self.nchr_length_gene2
 
         realign_cmd = (
-            f"{self.samtools} view -F 0x100 -F 0x200 -F 0x800 -e '[rq]>=0.99' -T {self.genome_reference} {self.bam} {self.extract_regions} | sort | uniq | "
+            f"{self.samtools} view -F 0x100 -F 0x200 -F 0x800  -T {self.genome_reference} {self.bam} {self.extract_regions} | sort | uniq | "
             + f'awk \'BEGIN {{FS="\\t"}} {{print "@" $1 "\\n" $10 "\\n+\\n" $11}}\''
             + f" | {self.minimap2} {self.use_r2k} -a -x map-pb {realign_ref} - | {self.samtools} view -bh | {self.samtools} sort > {realign_out_tmp}"
         )
