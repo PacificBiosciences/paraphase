@@ -1948,7 +1948,9 @@ class Phaser:
             )
 
         two_cp_haps = []
-        if (
+        if len(ass_haps) == 1:
+            two_cp_haps.append(list(ass_haps.values())[0])
+        elif (
             len(ass_haps) == 3 and self.expect_cn2 is False and self.gene != "BPY2"
         ) or (self.gene == "BPY2" and len(ass_haps) < 3):
             two_cp_haps = self.compare_depth(haplotypes, stringent=True)
