@@ -10,11 +10,10 @@ class CfhClust(Phaser):
         self,
         sample_id,
         outdir,
-        args,
         cfh,
         cfhr3,
     ):
-        Phaser.__init__(self, sample_id, outdir, args)
+        Phaser.__init__(self, sample_id, outdir)
         self.cfh = cfh
         self.cfhr3 = cfhr3
 

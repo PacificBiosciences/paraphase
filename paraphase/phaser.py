@@ -53,7 +53,7 @@ class Phaser:
         self,
         sample_id,
         outdir,
-        args,
+        args=None,
         wgs_depth=None,
         genome_bam=None,
         sample_sex=None,
@@ -68,8 +68,12 @@ class Phaser:
         self.mdepth = wgs_depth
         self.genome_bam = genome_bam
         self.sample_sex = sample_sex
-        self.trusted_read_support = args.min_read_variant
-        self.min_read_haplotype = args.min_read_haplotype
+        self.trusted_read_support = 20
+        if args is not None:
+            self.trusted_read_support = args.min_read_variant
+        self.min_read_haplotype = 4
+        if args is not None:
+            self.min_read_haplotype = args.min_read_haplotype
 
     def set_parameter(self, config):
         self.gene = config["gene"]

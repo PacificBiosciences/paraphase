@@ -25,7 +25,7 @@ class F8Phaser(Phaser):
         self,
         sample_id,
         outdir,
-        args,
+        args=None,
         genome_depth=None,
         genome_bam=None,
         sample_sex=None,

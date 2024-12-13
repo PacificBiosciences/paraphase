@@ -361,7 +361,6 @@ class Paraphase:
             cfh_cluster_caller = genes.CfhClust(
                 sample_id,
                 tmpdir,
-                args,
                 sample_out["CFH"],
                 sample_out["CFHR3"],
             )

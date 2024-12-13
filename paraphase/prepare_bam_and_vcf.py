@@ -374,11 +374,13 @@ class VcfGenerater:
     search_range = 200
     min_base_quality_for_variant_calling = 25
 
-    def __init__(self, sample_id, outdir, call_sum, args):
+    def __init__(self, sample_id, outdir, call_sum, args=None):
         self.sample_id = sample_id
         self.outdir = outdir
         self.call_sum = call_sum
-        self.args = args
+        self.lowqual = False
+        if args is not None:
+            self.lowqual = args.lowqual
         self.match = {}
 
     def set_parameter(self, config, tmpdir=None, prog_cmd=None):
@@ -606,7 +608,7 @@ class VcfGenerater:
                                     merge_gt.append(".")
                                     merge_ad.append(this_ad)
                         write_variant = False
-                        if self.args.lowqual is True:
+                        if self.lowqual is True:
                             if (
                                 (alt != ref or ref_only)
                                 and alt not in [".", "*"]
