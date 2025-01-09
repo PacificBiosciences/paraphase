@@ -896,7 +896,8 @@ class VcfGenerater:
                     elif sv == "deletion":
                         sv_name = f"{extract_region1_end}_DEL_{extract_region2_start}"
                         special_variants.setdefault(sv_hap, sv_name)
-        # add fusions
+        """
+        # add fusions, disabled for now
         fusion_calls = call_sum.get("fusions_called")
         if fusion_calls is not None and fusion_calls != {}:
             for sv_hap, sv_info in fusion_calls.items():
@@ -909,6 +910,7 @@ class VcfGenerater:
                 elif sv_type == "duplication":
                     sv_name = f"{bp1}_DUP_{bp2}"
                     special_variants.setdefault(sv_hap, sv_name)
+        """
         return special_variants
 
     def run_without_realign(

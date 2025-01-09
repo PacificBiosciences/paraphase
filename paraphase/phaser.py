@@ -195,7 +195,7 @@ class Phaser:
             self._bamh, [[check_region_start, check_region_end]]
         )[0]
         if np.isnan(self.region_avg_depth.median) or (
-            self.region_avg_depth.median < 10
+            self.region_avg_depth.median <= 8
             and self.region_avg_depth.percentile80 < 50
         ):
             logging.warning(
