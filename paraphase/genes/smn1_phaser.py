@@ -533,6 +533,7 @@ class Smn1Phaser(Phaser):
 
         self.het_sites = sorted(list(self.candidate_pos))
         self.remove_noisy_sites()
+        self.init_het_sites = [a for a in self.het_sites]
         homo_sites_to_add = self.add_homo_sites()
         raw_read_haps = self.get_haplotypes_from_reads(
             kept_sites=homo_sites_to_add, add_sites=self.add_sites
@@ -578,7 +579,7 @@ class Smn1Phaser(Phaser):
         smn2_cn = None
         smn2_del_cn = 0
         smn1_haps, smn2_haps, smn2_del_haps = self.assign_haps_to_gene(ass_haps)
-        if ass_haps == [] and self.het_sites == []:
+        if ass_haps == [] and self.init_het_sites == []:
             if self.has_smn1 is True and self.has_smn2 is False:
                 smn1_cn = 2
                 smn2_cn = 0

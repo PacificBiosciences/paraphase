@@ -62,6 +62,7 @@ class Phaser:
         self.sample_id = sample_id
         self.homopolymer_sites = {}
         self.het_sites = []  # for phasing
+        self.init_het_sites = []
         self.het_no_phasing = []
         self.homo_sites = []
         self.candidate_pos = set()
@@ -717,6 +718,8 @@ class Phaser:
         for var in sites_to_remove:
             if var in self.het_sites:
                 self.het_sites.remove(var)
+            if var in self.init_het_sites:
+                self.init_het_sites.remove(var)
 
     def allow_del_bases(self, pos):
         """
@@ -1677,22 +1680,43 @@ class Phaser:
 
     def add_homo_sites(self, min_no_var_region_size=10000, max_homo_var_to_add=10):
         """add some homozygous sites to het sites in long homozygous regions"""
-        if self.het_sites == []:
-            return []
-        het_pos = [int(a.split("_")[0]) for a in self.het_sites]
-        min_pos = min(het_pos)
-        max_pos = max(het_pos)
+        # if self.het_sites == []:
+        #    return []
         homo_sites_to_add = []
-        if min_pos - self.left_boundary > min_no_var_region_size:
+        het_pos = [int(a.split("_")[0]) for a in self.het_sites]
+        if het_pos == []:
             for var in self.homo_sites:
                 pos, ref, alt = var.split("_")
-                if int(pos) < min_pos and len(ref) == 1 and len(alt) == 1:
+                if len(ref) == 1 and len(alt) == 1:
                     homo_sites_to_add.append(var)
-        if self.right_boundary - max_pos > min_no_var_region_size:
-            for var in self.homo_sites:
-                pos, ref, alt = var.split("_")
-                if int(pos) > max_pos and len(ref) == 1 and len(alt) == 1:
-                    homo_sites_to_add.append(var)
+            if self.homo_sites == []:
+                full_range = self.right_boundary - self.left_boundary
+                interval_size = int(full_range / 4)
+                positions = [
+                    self.left_boundary + interval_size,
+                    self.left_boundary + interval_size * 2,
+                    self.left_boundary + interval_size * 3,
+                ]
+                for var_pos in positions:
+                    ref_base = self._refh.fetch(
+                        self.nchr_old, var_pos - self.offset - 1, var_pos - self.offset
+                    ).upper()
+                    var_base = [a for a in ["A", "C", "G", "T"] if a != ref_base][0]
+                    new_var = f"{var_pos}_{ref_base}_{var_base}"
+                    homo_sites_to_add.append(new_var)
+        else:
+            min_pos = min([a for a in het_pos if a > self.left_boundary])
+            max_pos = max([a for a in het_pos if a < self.right_boundary])
+            if min_pos - self.left_boundary > min_no_var_region_size:
+                for var in self.homo_sites:
+                    pos, ref, alt = var.split("_")
+                    if int(pos) < min_pos and len(ref) == 1 and len(alt) == 1:
+                        homo_sites_to_add.append(var)
+            if self.right_boundary - max_pos > min_no_var_region_size:
+                for var in self.homo_sites:
+                    pos, ref, alt = var.split("_")
+                    if int(pos) > max_pos and len(ref) == 1 and len(alt) == 1:
+                        homo_sites_to_add.append(var)
         if homo_sites_to_add != []:
             homo_sites_to_add = sorted(homo_sites_to_add)
             homo_sites_to_add_size = len(homo_sites_to_add)
@@ -1895,6 +1919,7 @@ class Phaser:
 
         self.het_sites = sorted(list(self.candidate_pos))
         self.remove_noisy_sites()
+        self.init_het_sites = [a for a in self.het_sites]
         homo_sites_to_add = self.add_homo_sites()
 
         raw_read_haps = self.get_haplotypes_from_reads(
@@ -1952,7 +1977,7 @@ class Phaser:
             )
 
         two_cp_haps = []
-        if len(ass_haps) == 1:
+        if len(ass_haps) == 1 and self.init_het_sites == []:
             two_cp_haps.append(list(ass_haps.values())[0])
         elif (
             len(ass_haps) == 3 and self.expect_cn2 is False and self.gene != "BPY2"
@@ -1978,16 +2003,11 @@ class Phaser:
         total_cn = len(ass_haps) + len(two_cp_haps)
 
         # fully homozygous
-        if self.het_sites == [] or total_cn <= 1:
+        if ass_haps == {} and self.init_het_sites == []:
             total_cn = 2
 
         # two pairs of identical copies
-        if (
-            two_cp_haps == []
-            and total_cn == 2
-            and self.expect_cn2 is False
-            and self.gene != "BPY2"
-        ):
+        if total_cn == 2 and self.expect_cn2 is False and self.gene != "BPY2":
             if self.mdepth is not None:
                 prob = self.depth_prob(int(self.region_avg_depth.median), self.mdepth)
                 if prob[0] < 0.75:
@@ -2000,7 +2020,7 @@ class Phaser:
         #            total_cn = None
         #        elif self.sample_sex == "male" and total_cn < 2:
         #            total_cn = None
-        if total_cn is not None and total_cn == 1:
+        if total_cn is not None and total_cn <= 1:
             total_cn = None
 
         # phase

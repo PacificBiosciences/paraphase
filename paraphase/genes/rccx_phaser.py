@@ -182,8 +182,17 @@ class RccxPhaser(Phaser):
         """Update phased alleles"""
         two_cp_haplotypes = []
         successful_phasing = False
+        # update the case with homozygous deletion
+        if (
+            len(final_haps) == 1
+            and len(single_copies) == 1
+            and self.init_het_sites == []
+        ):
+            two_cp_haplotypes.append(list(final_haps.values())[0])
+            new_alleles = [[single_copies[0]], [single_copies[0]]]
+            successful_phasing = True
         # the deletion haplotype will be reported as an allele
-        if len(single_copies) == 1 and len(final_haps) < 5:
+        elif len(single_copies) == 1 and len(final_haps) < 5:
             if (
                 len(new_alleles) == 1
                 and len(new_alleles[0]) == len(final_haps) - 1
@@ -382,32 +391,16 @@ class RccxPhaser(Phaser):
             white_list=self.white_list,
         )
 
-        # add last snp outside of repeat
-        var_found = False
-        for var in self.candidate_pos:
-            pos = int(var.split("_")[0])
-            if pos > self.clip_3p_positions[0]:
-                var_found = True
-                break
-        if var_found is False and self.candidate_pos != set():
-            self.candidate_pos.add(self.add_sites[1])
-        # add last snp outside of repeat, 5prime
-        var_found = False
-        for var in self.candidate_pos:
-            pos = int(var.split("_")[0])
-            if pos < self.clip_5p_positions[0]:
-                var_found = True
-                break
-        if var_found is False and self.candidate_pos != set():
-            self.candidate_pos.add(self.add_sites[0])
-
         self.het_sites = sorted(list(self.candidate_pos))
         self.remove_noisy_sites()
+        self.init_het_sites = [a for a in self.het_sites]
+        homo_sites_to_add = self.add_homo_sites()
 
         raw_read_haps = self.get_haplotypes_from_reads(
             check_clip=True,
             partial_deletion_reads=self.del1_reads_partial,
-            kept_sites=self.add_sites,
+            kept_sites=homo_sites_to_add,
+            add_sites=self.add_sites,
             multi_allelic_sites=self.white_list,
         )
 
@@ -510,7 +503,7 @@ class RccxPhaser(Phaser):
                         hap_variants[hap].append(self.known_variants[var])
 
         total_cn = len(ass_haps) + len(two_cp_haplotypes)
-        if ass_haps == [] and self.het_sites == []:
+        if ass_haps == [] and self.init_het_sites == []:
             # homozygous, feed all reads to call variants
             total_cn = 2
         if total_cn < 2 or len(ending_copies) > 2:

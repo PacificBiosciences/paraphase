@@ -1086,6 +1086,7 @@ CBS:
   extract_regions: chr21:43052692-43076335 chr21:6444370-6468013
   left_boundary: 43052693
   right_boundary: 43076334
+  noisy_region: [[43057600, 43058100]]
   expect_cn2: True
 CRYAA:
   genes: CRYAA

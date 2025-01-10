@@ -49,6 +49,7 @@ class HbaPhaser(Phaser):
         self.get_candidate_pos()
         self.het_sites = sorted(list(self.candidate_pos))
         self.remove_noisy_sites()
+        self.init_het_sites = [a for a in self.het_sites]
         raw_read_haps = self.get_haplotypes_from_reads(check_clip=True)
 
         (
@@ -129,7 +130,7 @@ class HbaPhaser(Phaser):
             two_cp_haps += [a for a in ass_haps.values() if "del" in a]
 
         total_cn = len(ass_haps) + len(two_cp_haps)
-        if self.het_sites == [] or total_cn <= 1:
+        if self.init_het_sites == [] or total_cn <= 1:
             total_cn = 2
         if count_del == 1 and total_cn == 3:
             genotype = "-a/aa"

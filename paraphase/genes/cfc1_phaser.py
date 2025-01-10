@@ -26,6 +26,7 @@ class Cfc1Phaser(Phaser):
         self.get_candidate_pos()
         self.het_sites = sorted(list(self.candidate_pos))
         self.remove_noisy_sites()
+        self.init_het_sites = [a for a in self.het_sites]
         homo_sites_to_add = self.add_homo_sites()
         raw_read_haps = self.get_haplotypes_from_reads(
             kept_sites=homo_sites_to_add, add_sites=self.add_sites
@@ -55,7 +56,7 @@ class Cfc1Phaser(Phaser):
             )
 
         two_cp_haps = []
-        if len(ass_haps) == 2:
+        if len(ass_haps) <= 2:
             two_cp_haps = list(ass_haps.values())
         elif len(ass_haps) == 3:
             two_cp_haps = self.compare_depth(haplotypes, loose=True)
@@ -72,7 +73,7 @@ class Cfc1Phaser(Phaser):
 
         total_cn = len(ass_haps) + len(two_cp_haps)
 
-        if self.het_sites == []:
+        if self.init_het_sites == []:
             total_cn = 4
 
         if total_cn < 4:
