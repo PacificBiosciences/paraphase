@@ -133,8 +133,10 @@ class Phaser:
         self.clip_5p_positions = []
         if "clip_3p_positions" in config:
             self.clip_3p_positions = config["clip_3p_positions"]
+        self.clip_3p_positions = sorted(self.clip_3p_positions)
         if "clip_5p_positions" in config:
             self.clip_5p_positions = config["clip_5p_positions"]
+        self.clip_5p_positions = sorted(self.clip_5p_positions)
         self.noisy_region = []
         if "noisy_region" in config:
             self.noisy_region = config["noisy_region"]
@@ -514,6 +516,53 @@ class Phaser:
                 read_names.append(read.query_name)
         return read_names
 
+    def add_variant_around_clip(self):
+        """add sites before 5p clip and after 3p clip"""
+        if self.clip_5p_positions != []:  # and self.het_sites != []:
+            for i in range(len(self.clip_5p_positions)):
+                clip_pos = self.clip_5p_positions[i]
+                if i > 0:
+                    prev_clip_pos = self.clip_5p_positions[i - 1]
+                    var_before_clip = [
+                        a
+                        for a in self.het_sites
+                        if prev_clip_pos < int(a.split("_")[0]) < clip_pos
+                    ]
+                else:
+                    var_before_clip = [
+                        a for a in self.het_sites if int(a.split("_")[0]) < clip_pos
+                    ]
+                if var_before_clip == []:
+                    var_pos = clip_pos - 30
+                    ref_base = self._refh.fetch(
+                        self.nchr_old, var_pos - self.offset - 1, var_pos - self.offset
+                    ).upper()
+                    var_base = [a for a in ["A", "C", "G", "T"] if a != ref_base][0]
+                    new_var = f"{var_pos}_{ref_base}_{var_base}"
+                    self.het_sites.append(new_var)
+        if self.clip_3p_positions != []:  # and self.het_sites != []:
+            for i in reversed(range(len(self.clip_3p_positions))):
+                clip_pos = self.clip_3p_positions[i]
+                if i == len(self.clip_3p_positions) - 1:
+                    var_after_clip = [
+                        a for a in self.het_sites if int(a.split("_")[0]) > clip_pos
+                    ]
+                else:
+                    next_clip_pos = self.clip_3p_positions[i + 1]
+                    var_after_clip = [
+                        a
+                        for a in self.het_sites
+                        if clip_pos < int(a.split("_")[0]) < next_clip_pos
+                    ]
+                if var_after_clip == []:
+                    var_pos = clip_pos + 30
+                    ref_base = self._refh.fetch(
+                        self.nchr_old, var_pos - self.offset - 1, var_pos - self.offset
+                    ).upper()
+                    var_base = [a for a in ["A", "C", "G", "T"] if a != ref_base][0]
+                    new_var = f"{var_pos}_{ref_base}_{var_base}"
+                    self.het_sites.append(new_var)
+
     def get_haplotypes_from_reads(
         self,
         exclude_reads=[],
@@ -543,33 +592,7 @@ class Phaser:
                 if var not in self.het_sites:
                     self.het_sites.append(var)
         # add sites before 5p clip and after 3p clip
-        if self.clip_5p_positions != []:  # and self.het_sites != []:
-            clip_pos = min(self.clip_5p_positions)
-            var_before_clip = [
-                a for a in self.het_sites if int(a.split("_")[0]) < clip_pos
-            ]
-            if var_before_clip == []:
-                var_pos = clip_pos - 30
-                ref_base = self._refh.fetch(
-                    self.nchr_old, var_pos - self.offset - 1, var_pos - self.offset
-                ).upper()
-                var_base = [a for a in ["A", "C", "G", "T"] if a != ref_base][0]
-                new_var = f"{var_pos}_{ref_base}_{var_base}"
-                self.het_sites.append(new_var)
-        if self.clip_3p_positions != []:  # and self.het_sites != []:
-            clip_pos = max(self.clip_3p_positions)
-            var_after_clip = [
-                a for a in self.het_sites if int(a.split("_")[0]) > clip_pos
-            ]
-            if var_after_clip == []:
-                var_pos = clip_pos + 30
-                ref_base = self._refh.fetch(
-                    self.nchr_old, var_pos - self.offset - 1, var_pos - self.offset
-                ).upper()
-                var_base = [a for a in ["A", "C", "G", "T"] if a != ref_base][0]
-                new_var = f"{var_pos}_{ref_base}_{var_base}"
-                self.het_sites.append(new_var)
-
+        self.add_variant_around_clip()
         self.het_sites = sorted(self.het_sites)
         raw_read_haps = self.get_haplotypes_from_reads_step(
             exclude_reads,
