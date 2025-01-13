@@ -242,13 +242,13 @@ class Opn1lwPhaser(Phaser):
                 var_intersect = var.intersection(pivot_vars)
                 if var_intersect == set():
                     counter_lw += 1
-                    renamed_hap = f"opn1lw_hap{counter_lw}"
+                    renamed_hap = f"{self.gene}_opn1lwhap{counter_lw}"
                 elif len(var_intersect) == 2:
                     counter_mw += 1
-                    renamed_hap = f"opn1mw_hap{counter_mw}"
+                    renamed_hap = f"{self.gene}_opn1mwhap{counter_mw}"
                 else:
                     counter_unknown += 1
-                    renamed_hap = f"opnunknown_hap{counter_unknown}"
+                    renamed_hap = f"{self.gene}_opnunknownhap{counter_unknown}"
                 hap_rename.setdefault(hap_name, renamed_hap)
                 # first, middle, last copies
                 if hap[0] not in ["x", "0"]:

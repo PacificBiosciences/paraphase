@@ -74,33 +74,33 @@ class HbaPhaser(Phaser):
         for i, hap in enumerate(ass_haps):
             if "x" in [hap[0], hap[1], hap[-2], hap[-1]]:
                 count_unknown += 1
-                new_hap_name = f"hba_unknownhap{count_unknown}"
+                new_hap_name = f"{self.gene}_unknownhap{count_unknown}"
             elif hap.startswith("00"):
                 if hap[-1] != "0":
                     count_4p2del += 1
-                    new_hap_name = f"hba_4p2delhap{count_4p2del}"
+                    new_hap_name = f"{self.gene}_4p2delhap{count_4p2del}"
                 else:
                     count_homology += 1
-                    new_hap_name = f"hba_homologyhap{count_homology}"
+                    new_hap_name = f"{self.gene}_homologyhap{count_homology}"
             elif hap.endswith("00"):
                 if hap[0] == "0":
                     count_hba1 += 1
-                    new_hap_name = f"hba_hba1hap{count_hba1}"
+                    new_hap_name = f"{self.gene}_hba1hap{count_hba1}"
                 else:
                     count_3p7del += 1
-                    new_hap_name = f"hba_3p7delhap{count_3p7del}"
+                    new_hap_name = f"{self.gene}_3p7delhap{count_3p7del}"
             elif hap[0] == "0" and hap[-1] != "0":
                 count_3p7dup += 1
-                new_hap_name = f"hba_3p7duphap{count_3p7dup}"
+                new_hap_name = f"{self.gene}_3p7duphap{count_3p7dup}"
             elif hap[0] != "0" and hap[-1] == "0":
                 count_4p2dup += 1
-                new_hap_name = f"hba_4p2duphap{count_4p2dup}"
+                new_hap_name = f"{self.gene}_4p2duphap{count_4p2dup}"
             elif hap[0] != "0" and hap[-1] != "0":
                 count_hba2 += 1
-                new_hap_name = f"hba_hba2hap{count_hba2}"
+                new_hap_name = f"{self.gene}_hba2hap{count_hba2}"
             else:
                 count_unknown += 1
-                new_hap_name = f"hba_unknownhap{count_unknown}"
+                new_hap_name = f"{self.gene}_unknownhap{count_unknown}"
             tmp.setdefault(hap, new_hap_name)
         ass_haps = tmp
 

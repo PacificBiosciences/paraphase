@@ -79,13 +79,13 @@ class Pms2Phaser(Phaser):
         for hap in ass_haps:
             if hap.endswith("x"):
                 counter_unknown += 1
-                hap_name = f"pms2_unknown_hap{counter_gene}"
+                hap_name = f"{self.gene}_unknownhap{counter_gene}"
             elif hap.endswith("0"):
                 counter_pseudo += 1
-                hap_name = f"pms2clhap{counter_pseudo}"
+                hap_name = f"{self.gene}_pms2clhap{counter_pseudo}"
             else:
                 counter_gene += 1
-                hap_name = f"pms2hap{counter_gene}"
+                hap_name = f"{self.gene}_pms2hap{counter_gene}"
             tmp.setdefault(hap, hap_name)
         ass_haps = tmp
 

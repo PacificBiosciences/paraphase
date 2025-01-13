@@ -139,19 +139,19 @@ class F8Phaser(Phaser):
         for i, hap in enumerate(ass_haps):
             if len(hap) < 3:
                 unknown_count += 1
-                hap_name = f"{self.gene}_unknown_hap{unknown_count}"
+                hap_name = f"{self.gene}_unknownhap{unknown_count}"
             elif hap[-2:] == "00":
                 h1_count += 1
-                hap_name = f"{self.gene}_int22h1_hap{h1_count}"
+                hap_name = f"{self.gene}_int22h1hap{h1_count}"
             elif hap[-1] == "0" and hap[-2] != "x":
                 h3_count += 1
-                hap_name = f"{self.gene}_int22h3_hap{h3_count}"
+                hap_name = f"{self.gene}_int22h3hap{h3_count}"
             elif "x" not in hap[-2:] and "0" not in hap[-2:]:
                 h2_count += 1
-                hap_name = f"{self.gene}_int22h2_hap{h2_count}"
+                hap_name = f"{self.gene}_int22h2hap{h2_count}"
             else:
                 unknown_count += 1
-                hap_name = f"{self.gene}_unknown_hap{unknown_count}"
+                hap_name = f"{self.gene}_unknownhap{unknown_count}"
             tmp.setdefault(hap, hap_name)
         ass_haps = tmp
 

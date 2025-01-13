@@ -109,10 +109,10 @@ class StrcPhaser(Phaser):
         for hap in ass_haps:
             if "3" in hap:
                 counter_pseudo += 1
-                tmp.setdefault(hap, f"strcp1_hap{counter_pseudo}")
+                tmp.setdefault(hap, f"{self.gene}_strcp1hap{counter_pseudo}")
             else:
                 counter_gene += 1
-                tmp.setdefault(hap, f"strc_hap{counter_gene}")
+                tmp.setdefault(hap, f"{self.gene}_strchap{counter_gene}")
         ass_haps = tmp
 
         if self.het_sites != []:

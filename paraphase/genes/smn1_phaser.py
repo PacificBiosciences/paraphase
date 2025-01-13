@@ -593,15 +593,15 @@ class Smn1Phaser(Phaser):
 
         tmp = {}
         for i, hap in enumerate(smn1_haps):
-            tmp.setdefault(hap, f"smn1hap{i+1}")
+            tmp.setdefault(hap, f"{self.gene}_smn1hap{i+1}")
         smn1_haps = tmp
         tmp = {}
         for i, hap in enumerate(smn2_haps):
-            tmp.setdefault(hap, f"smn2hap{i+1}")
+            tmp.setdefault(hap, f"{self.gene}_smn2hap{i+1}")
         smn2_haps = tmp
         tmp = {}
         for i, hap in enumerate(smn2_del_haps):
-            tmp.setdefault(hap, f"smn2del78hap{i+1}")
+            tmp.setdefault(hap, f"{self.gene}_smn2del78hap{i+1}")
         smn2_del_haps = tmp
 
         # update cn based on depth

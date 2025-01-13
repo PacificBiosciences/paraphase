@@ -128,22 +128,22 @@ class IkbkgPhaser(Phaser):
                 if start_seq.startswith("0") is False:
                     if len(start_seq) < 15:
                         unknown_counter += 1
-                        hap_name = f"ikbkg_unknown_hap{unknown_counter}"
+                        hap_name = f"{self.gene}_unknownhap{unknown_counter}"
                     elif start_seq.count("2") <= 5:
                         gene_counter += 1
-                        hap_name = f"ikbkg_hap{gene_counter}"
+                        hap_name = f"{self.gene}_hap{gene_counter}"
                     elif start_seq.count("2") >= 15:
                         pseudo_counter += 1
-                        hap_name = f"ikbkg_pseudo_hap{pseudo_counter}"
+                        hap_name = f"{self.gene}_pseudohap{pseudo_counter}"
                     else:
                         unknown_counter += 1
-                        hap_name = f"ikbkg_unknown_hap{unknown_counter}"
+                        hap_name = f"{self.gene}_unknownhap{unknown_counter}"
                     tmp.setdefault(hap, hap_name)
                     if "3" in hap:
                         deletion_haplotypes.append(hap_name)
                 else:
                     dup_counter += 1
-                    tmp.setdefault(hap, f"ikbkg_dup_hap{dup_counter}")
+                    tmp.setdefault(hap, f"{self.gene}_duphap{dup_counter}")
         ass_haps = tmp
 
         haplotypes = None
