@@ -111,7 +111,7 @@ class Ncf1Phaser(Phaser):
 
         two_cp_haps = []
         if counter_gene == 1:
-            two_cp_hap_candidate = self.compare_depth(haplotypes)
+            two_cp_hap_candidate = self.compare_depth(haplotypes, ass_haps)
             if "ncf1_hap1" in two_cp_hap_candidate:
                 two_cp_haps = two_cp_hap_candidate
                 counter_gene += 1

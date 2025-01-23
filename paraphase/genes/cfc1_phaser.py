@@ -29,7 +29,9 @@ class Cfc1Phaser(Phaser):
         self.init_het_sites = [a for a in self.het_sites]
         homo_sites_to_add = self.add_homo_sites()
         raw_read_haps = self.get_haplotypes_from_reads(
-            kept_sites=homo_sites_to_add, add_sites=self.add_sites
+            kept_sites=homo_sites_to_add,
+            add_sites=self.add_sites,
+            homo_sites=homo_sites_to_add,
         )
 
         (
@@ -59,7 +61,7 @@ class Cfc1Phaser(Phaser):
         if len(ass_haps) <= 2:
             two_cp_haps = list(ass_haps.values())
         elif len(ass_haps) == 3:
-            two_cp_haps = self.compare_depth(haplotypes, loose=True)
+            two_cp_haps = self.compare_depth(haplotypes, ass_haps, loose=True)
             if two_cp_haps == [] and read_counts is not None:
                 # check if one smn1 haplotype has more reads than others
                 haps = list(read_counts.keys())

@@ -42,9 +42,14 @@ class Pms2Phaser(Phaser):
         self.get_candidate_pos()
         self.het_sites = sorted(list(self.candidate_pos))
         self.remove_noisy_sites()
+        homo_sites_to_add = self.add_homo_sites(min_no_var_region_size=6000)
         # for distinguishing pms2 from pms2cl
         raw_read_haps = self.get_haplotypes_from_reads(
-            check_clip=True, add_sites=self.add_sites
+            clip_buffer=50,
+            check_clip=True,
+            kept_sites=homo_sites_to_add,
+            add_sites=self.add_sites,
+            homo_sites=homo_sites_to_add,
         )
 
         het_sites = self.het_sites
@@ -77,13 +82,15 @@ class Pms2Phaser(Phaser):
         counter_pseudo = 0
         counter_unknown = 0
         for hap in ass_haps:
-            if hap.endswith("x"):
+            clip_position = self.get_3pclip_from_hap(hap)
+            if clip_position is None:
                 counter_unknown += 1
-                hap_name = f"{self.gene}_unknownhap{counter_gene}"
-            elif hap.endswith("0"):
+                hap_name = f"{self.gene}_unknownhap{counter_unknown}"
+            elif clip_position in self.clip_3p_positions:
                 counter_pseudo += 1
                 hap_name = f"{self.gene}_pms2clhap{counter_pseudo}"
             else:
+                assert clip_position == 0
                 counter_gene += 1
                 hap_name = f"{self.gene}_pms2hap{counter_gene}"
             tmp.setdefault(hap, hap_name)
@@ -103,8 +110,11 @@ class Pms2Phaser(Phaser):
         if len(ass_haps) < 4 and counter_unknown == 0:
             if counter_gene == 1 and counter_pseudo == 1:
                 two_cp_haps = list(ass_haps.values())
-            elif len(ass_haps) == 3 and 2 in [counter_gene, counter_pseudo]:
-                two_cp_haps = self.compare_depth(haplotypes, loose=True)
+            elif len(ass_haps) == 3:
+                if counter_gene == 2 and counter_pseudo == 1:
+                    two_cp_haps = [a for a in ass_haps.values() if "pms2cl" in a]
+                elif counter_gene == 1 and counter_pseudo == 2:
+                    two_cp_haps = [a for a in ass_haps.values() if "pms2hap" in a]
 
         total_cn = len(ass_haps) + len(two_cp_haps)
         pms2_cn = len(

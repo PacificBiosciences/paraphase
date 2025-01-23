@@ -536,7 +536,9 @@ class Smn1Phaser(Phaser):
         self.init_het_sites = [a for a in self.het_sites]
         homo_sites_to_add = self.add_homo_sites()
         raw_read_haps = self.get_haplotypes_from_reads(
-            kept_sites=homo_sites_to_add, add_sites=self.add_sites
+            kept_sites=homo_sites_to_add,
+            add_sites=self.add_sites,
+            homo_sites=homo_sites_to_add,
         )
 
         # update reads for those overlapping known deletions

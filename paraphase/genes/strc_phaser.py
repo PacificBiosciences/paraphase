@@ -124,7 +124,7 @@ class StrcPhaser(Phaser):
             )
 
             if counter_gene == 1 or counter_pseudo == 1:
-                two_cp_haps = self.compare_depth(haplotypes)
+                two_cp_haps = self.compare_depth(haplotypes, ass_haps)
                 for hap in two_cp_haps:
                     if "strcp1" not in hap:
                         counter_gene += 1

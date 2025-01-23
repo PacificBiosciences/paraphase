@@ -191,7 +191,10 @@ class Opn1lwPhaser(Phaser):
         self.remove_noisy_sites()
         homo_sites_to_add = self.add_homo_sites()
         raw_read_haps = self.get_haplotypes_from_reads(
-            check_clip=True, kept_sites=homo_sites_to_add, add_sites=self.add_sites
+            check_clip=True,
+            kept_sites=homo_sites_to_add,
+            add_sites=self.add_sites,
+            homo_sites=homo_sites_to_add,
         )
 
         (
@@ -259,7 +262,7 @@ class Opn1lwPhaser(Phaser):
                     middle_copies.append(renamed_hap)
                 # annotate exon3
                 hap_annotated = self.call_exon3(var)
-                gene_annotated = renamed_hap.split("_")[0]
+                gene_annotated = renamed_hap.split("_")[1].split("hap")[0]
                 gene_annotated += "_" + hap_annotated
                 annotated_haps.setdefault(renamed_hap, gene_annotated)
 
@@ -391,7 +394,7 @@ class Opn1lwPhaser(Phaser):
                         if each_hap is not None:
                             hap_vars = haplotypes[each_hap]["variants"]
                             hap_annotated = self.call_exon3(hap_vars)
-                            gene_annotated = each_hap.split("_")[0]
+                            gene_annotated = each_hap.split("_")[1].split("hap")[0]
                             gene_annotated += "_" + hap_annotated
                         else:
                             gene_annotated = None

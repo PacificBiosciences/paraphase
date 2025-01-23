@@ -237,7 +237,9 @@ class RccxPhaser(Phaser):
                 successful_phasing = True
             # depth-based adjustment when found 3 haplotypes or <2 ending haplotypes
             if haplotypes is not None:
-                two_cp_hap_candidate = self.compare_depth(haplotypes, loose=True)
+                two_cp_hap_candidate = self.compare_depth(
+                    haplotypes, final_haps, loose=True
+                )
                 if len(ending_copies) == 1 and len(starting_copies) == 2:
                     if two_cp_hap_candidate == ending_copies:
                         two_cp_haplotypes = two_cp_hap_candidate
@@ -401,6 +403,7 @@ class RccxPhaser(Phaser):
             partial_deletion_reads=self.del1_reads_partial,
             kept_sites=homo_sites_to_add,
             add_sites=self.add_sites,
+            homo_sites=homo_sites_to_add,
             multi_allelic_sites=self.white_list,
         )
 

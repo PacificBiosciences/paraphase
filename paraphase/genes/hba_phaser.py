@@ -72,35 +72,41 @@ class HbaPhaser(Phaser):
         count_homology = 0
         tmp = {}
         for i, hap in enumerate(ass_haps):
-            if "x" in [hap[0], hap[1], hap[-2], hap[-1]]:
+            clip_5p = self.get_5pclip_from_hap(hap)
+            clip_3p = self.get_3pclip_from_hap(hap)
+            if clip_3p is None or clip_5p is None:
                 count_unknown += 1
                 new_hap_name = f"{self.gene}_unknownhap{count_unknown}"
-            elif hap.startswith("00"):
-                if hap[-1] != "0":
-                    count_4p2del += 1
-                    new_hap_name = f"{self.gene}_4p2delhap{count_4p2del}"
-                else:
-                    count_homology += 1
-                    new_hap_name = f"{self.gene}_homologyhap{count_homology}"
-            elif hap.endswith("00"):
-                if hap[0] == "0":
-                    count_hba1 += 1
-                    new_hap_name = f"{self.gene}_hba1hap{count_hba1}"
-                else:
-                    count_3p7del += 1
-                    new_hap_name = f"{self.gene}_3p7delhap{count_3p7del}"
-            elif hap[0] == "0" and hap[-1] != "0":
-                count_3p7dup += 1
-                new_hap_name = f"{self.gene}_3p7duphap{count_3p7dup}"
-            elif hap[0] != "0" and hap[-1] == "0":
-                count_4p2dup += 1
-                new_hap_name = f"{self.gene}_4p2duphap{count_4p2dup}"
-            elif hap[0] != "0" and hap[-1] != "0":
+            elif clip_5p == 0 and clip_3p == 0:
                 count_hba2 += 1
                 new_hap_name = f"{self.gene}_hba2hap{count_hba2}"
+            elif clip_5p == 0:
+                if clip_3p == self.clip_3p_positions[0]:
+                    count_3p7del += 1
+                    new_hap_name = f"{self.gene}_3p7delhap{count_3p7del}"
+                elif clip_3p == self.clip_3p_positions[1]:
+                    count_4p2dup += 1
+                    new_hap_name = f"{self.gene}_4p2duphap{count_4p2dup}"
+            elif clip_3p == 0:
+                if clip_5p == self.clip_5p_positions[0]:
+                    count_3p7dup += 1
+                    new_hap_name = f"{self.gene}_3p7duphap{count_3p7dup}"
+                elif clip_5p == self.clip_5p_positions[1]:
+                    count_4p2del += 1
+                    new_hap_name = f"{self.gene}_4p2delhap{count_4p2del}"
             else:
-                count_unknown += 1
-                new_hap_name = f"{self.gene}_unknownhap{count_unknown}"
+                if (
+                    clip_5p == self.clip_5p_positions[0]
+                    and clip_3p == self.clip_3p_positions[0]
+                ):
+                    count_hba1 += 1
+                    new_hap_name = f"{self.gene}_hba1hap{count_hba1}"
+                if (
+                    clip_5p == self.clip_5p_positions[1]
+                    and clip_3p == self.clip_3p_positions[1]
+                ):
+                    count_homology += 1
+                    new_hap_name = f"{self.gene}_homologyhap{count_homology}"
             tmp.setdefault(hap, new_hap_name)
         ass_haps = tmp
 
@@ -121,11 +127,14 @@ class HbaPhaser(Phaser):
         if count_3p7del == 0 and count_4p2del == 1:
             if count_hba1 == 1 and count_hba2 == 1:
                 two_cp_haps += [a for a in ass_haps.values() if "hba1" in a]
+                count_hba1 += 1
         elif count_3p7del == 0 and count_4p2del == 0:
             if count_hba1 == 1 and count_hba2 == 2:
                 two_cp_haps += [a for a in ass_haps.values() if "hba1" in a]
+                count_hba1 += 1
             elif count_hba1 == 2 and count_hba2 == 1:
                 two_cp_haps += [a for a in ass_haps.values() if "hba2" in a]
+                count_hba2 += 1
             elif count_hba1 == 1 and count_hba2 == 1:
                 # two possible scenarios:
                 # two pairs of identical copies, or big deletion on one allele
@@ -135,6 +144,8 @@ class HbaPhaser(Phaser):
                     two_cp_haps += [
                         a for a in ass_haps.values() if "hba1" in a or "hba2" in a
                     ]
+                    count_hba1 += 1
+                    count_hba2 += 1
                 else:
                     prob = self.depth_prob(
                         int(surrounding_region_depth), self.mdepth / 2
@@ -144,6 +155,8 @@ class HbaPhaser(Phaser):
                         two_cp_haps += [
                             a for a in ass_haps.values() if "hba1" in a or "hba2" in a
                         ]
+                        count_hba1 += 1
+                        count_hba2 += 1
         elif (
             count_3p7del == 1
             and count_hba1 == 0

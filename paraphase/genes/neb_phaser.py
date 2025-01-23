@@ -41,7 +41,10 @@ class NebPhaser(Phaser):
         self.het_sites = sorted(list(self.candidate_pos))
         self.remove_noisy_sites()
         homo_sites_to_add = self.add_homo_sites()
-        raw_read_haps = self.get_haplotypes_from_reads(kept_sites=homo_sites_to_add)
+        raw_read_haps = self.get_haplotypes_from_reads(
+            kept_sites=homo_sites_to_add,
+            homo_sites=homo_sites_to_add,
+        )
 
         (
             ass_haps,
@@ -90,7 +93,7 @@ class NebPhaser(Phaser):
         if len(ass_haps) == 3 and len(tri1) == 1 and len(tri2) == 1 and len(tri3) == 1:
             two_cp_haps = list(ass_haps.values())
         elif len(ass_haps) < 6 and len(ass_haps) > 1:
-            two_cp_haps = self.compare_depth(haplotypes, loose=True)
+            two_cp_haps = self.compare_depth(haplotypes, ass_haps, loose=True)
             if two_cp_haps == [] and read_counts is not None:
                 # check if one haplotype has more reads than others
                 haps = list(read_counts.keys())

@@ -356,6 +356,14 @@ class Paraphase:
                 if ncf1_cn is not None and ncf1_cn == 1:
                     if len(gtf2i_haps) > len(ncf_haps):
                         sample_out["ncf1"]["gene_cn"] = None
+        # update TNXB
+        if "TNXB" in sample_out and "rccx" in sample_out:
+            tnxb_cn = sample_out["TNXB"].get("total_cn")
+            rccx_cn = sample_out["rccx"].get("total_cn")
+            if tnxb_cn is not None and rccx_cn is not None:
+                if tnxb_cn > rccx_cn:
+                    sample_out["TNXB"]["total_cn"] = None
+                    sample_out["TNXB"]["two_copy_haplotypes"] = []
         # merge cfh cluster result
         if "CFH" in sample_out and "CFHR3" in sample_out:
             cfh_cluster_caller = genes.CfhClust(
@@ -490,8 +498,11 @@ class Paraphase:
                 position_match_file = os.path.join(
                     ref_dir, f"{gene}_position_match.txt"
                 )
+                r2k = ""
+                if "use_r2k" in configs[gene]:
+                    r2k = "-r2k"
                 self.make_position_match_file(
-                    position_match_file, gene, realign_region, ref_dir
+                    position_match_file, gene, realign_region, ref_dir, r2k
                 )
                 data_paths.setdefault("gene_position_match", position_match_file)
 
@@ -524,7 +535,7 @@ class Paraphase:
         pysam.faidx(ref_file)
 
     def make_position_match_file(
-        self, position_match_file, gene, realign_region, tmpdir
+        self, position_match_file, gene, realign_region, tmpdir, r2k=""
     ):
         """
         For variant calling against a second gene, align both sequences
@@ -533,7 +544,7 @@ class Paraphase:
         tmp_bam = os.path.join(tmpdir, f"{gene}_aln.bam")
         ref_file = os.path.join(tmpdir, f"{gene}_ref.fa")
         gene2_ref_file = os.path.join(tmpdir, f"{gene}_gene2_ref.fa")
-        minimap_cmd = f"{self.minimap2} -a {ref_file} {gene2_ref_file} | {self.samtools} view -bS | {self.samtools} sort > {tmp_bam}"
+        minimap_cmd = f"{self.minimap2} {r2k} -a {ref_file} {gene2_ref_file} | {self.samtools} view -bS | {self.samtools} sort > {tmp_bam}"
         result = subprocess.run(minimap_cmd, capture_output=True, text=True, shell=True)
         result.check_returncode()
         pysam.index(tmp_bam)
