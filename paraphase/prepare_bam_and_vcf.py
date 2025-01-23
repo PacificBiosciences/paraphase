@@ -488,25 +488,24 @@ class VcfGenerater:
             return f"{ref[0]}-{del_len}{del_seq_n}"
         return alt
 
-    def merge_vcf(self, vars_list):
-        """
-        Merge vcfs from multiple haplotypes.
-        """
-        os.makedirs(self.vcf_dir, exist_ok=True)
-        has_sv = False
+    @staticmethod
+    def check_sv_call_presence(vars_list):
+        """Check if variant calls contain any SV"""
         for variants_info, _ in vars_list:
             for pos in variants_info:
                 for var in variants_info[pos]:
                     if var is not None:
                         _, _, alt = var[0].split("_")
                         if alt.isdigit():
-                            has_sv = True
-                            break
-                if has_sv:
-                    break
-            if has_sv:
-                break
+                            return True
+        return False
 
+    def merge_vcf(self, vars_list):
+        """
+        Merge vcfs from multiple haplotypes.
+        """
+        os.makedirs(self.vcf_dir, exist_ok=True)
+        has_sv = self.check_sv_call_presence(vars_list)
         merged_vcf = os.path.join(self.vcf_dir, self.sample_id + f"_{self.gene}.vcf")
         with open(merged_vcf, "w") as fout:
             self.write_header(fout, has_sv=has_sv)

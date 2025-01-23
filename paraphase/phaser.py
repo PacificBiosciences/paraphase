@@ -1190,6 +1190,7 @@ class Phaser:
         return haplotype_info
 
     def get_5pclip_from_hap(self, hap):
+        """Given a haplotype, get its 5p clip position"""
         assert len(self.het_sites) == len(hap)
         clips_not_present = []
         for i, base in enumerate(hap):
@@ -1209,25 +1210,9 @@ class Phaser:
         if clips_not_present == self.clip_5p_positions:
             return 0
         return None
-        """
-        if (
-            hap.startswith("0")
-            and self.clip_5p_positions != []
-            and ("1" in hap or "2" in hap)
-        ):
-            for first_pos_after_clip, base in enumerate(hap):
-                if base != "0":
-                    break
-            first_pos_after_clip_position = int(
-                self.het_sites[first_pos_after_clip].split("_")[0]
-            )
-            for clip_position in sorted(self.clip_5p_positions, reverse=True):
-                if clip_position < first_pos_after_clip_position:
-                    return clip_position
-        return None
-        """
 
     def get_3pclip_from_hap(self, hap):
+        """Given a haplotype, get its 3p clip position"""
         assert len(self.het_sites) == len(hap)
         clips_not_present = []
         for i, base in enumerate(hap):
@@ -1247,23 +1232,6 @@ class Phaser:
         if clips_not_present == self.clip_3p_positions:
             return 0
         return None
-        """
-        if (
-            hap.endswith("0")
-            and self.clip_3p_positions != []
-            and ("1" in hap or "2" in hap)
-        ):
-            for first_pos_before_clip in reversed(range(len(hap))):
-                if hap[first_pos_before_clip] != "0":
-                    break
-            first_pos_before_clip_position = int(
-                self.het_sites[first_pos_before_clip].split("_")[0]
-            )
-            for clip_position in sorted(self.clip_3p_positions):
-                if clip_position > first_pos_before_clip_position:
-                    return clip_position
-        return None
-        """
 
     def get_genotype_in_hap(self, var_reads, hap_reads, hap_reads_nonunique):
         """For a given variant, return its status in a haplotype"""
@@ -2097,14 +2065,16 @@ class Phaser:
 
         # add pivot site
         if self.pivot_site is not None:
-            ref_base = self._refh.fetch(
-                self.nchr_old,
-                self.pivot_site - self.offset - 1,
-                self.pivot_site - self.offset,
-            ).upper()
-            var_base = [a for a in ["A", "C", "G", "T"] if a != ref_base][0]
-            pivot_var = f"{self.pivot_site}_{ref_base}_{var_base}"
-            if pivot_var not in self.add_sites:
+            if self.pivot_site not in [
+                int(a.split("_")[0]) for a in self.het_sites + self.add_sites
+            ]:
+                ref_base = self._refh.fetch(
+                    self.nchr_old,
+                    self.pivot_site - self.offset - 1,
+                    self.pivot_site - self.offset,
+                ).upper()
+                var_base = [a for a in ["A", "C", "G", "T"] if a != ref_base][0]
+                pivot_var = f"{self.pivot_site}_{ref_base}_{var_base}"
                 self.add_sites.append(pivot_var)
 
         raw_read_haps = self.get_haplotypes_from_reads(

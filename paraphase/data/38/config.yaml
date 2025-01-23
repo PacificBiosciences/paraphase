@@ -38,12 +38,6 @@ pms2:
   is_reverse: True
   add_sites: ["5986569_G_A"]
   clip_3p_positions: [5989089]
-TNXB:
-  genes: TNXB
-  realign_region: chr6:32041000-32109500
-  extract_regions: chr6:32008265-32013273 chr6:32041000-32109500
-  clip_3p_positions: [32046127]
-  noisy_region: [[32067074, 32067190]]
 rccx: 
   genes: CYP21A2,C4A,C4B,TNXB
   is_tandem: True
@@ -173,7 +167,12 @@ hba:
   is_tandem: True
   depth_region: [[160000, 190000]]
   noisy_region: [[172417, 172418]]
-
+TNXB:
+  genes: TNXB
+  realign_region: chr6:32041000-32109500
+  extract_regions: chr6:32008265-32013273 chr6:32041000-32109500
+  clip_3p_positions: [32046127]
+  noisy_region: [[32067074, 32067190]]
 SSX2: 
   genes: SSX2,SSX2B
   is_tandem: True
