@@ -380,7 +380,7 @@ class VcfGenerater:
         self.call_sum = call_sum
         self.lowqual = False
         if args is not None:
-            self.lowqual = args.lowqual
+            self.lowqual = args.write_nocalls_in_vcf
         self.match = {}
 
     def set_parameter(self, config, tmpdir=None, prog_cmd=None):
@@ -561,14 +561,33 @@ class VcfGenerater:
 
                     for variant in variant_observed:
                         _, ref, alt = variant.split("_")
+                        valid_gts = []
                         merge_gt = []
                         merge_ad = []
                         merge_dp = []
-                        for each_call in call_info:
+                        for each_call_index, each_call in enumerate(call_info):
                             if each_call is None:
                                 merge_gt.append(".")
                                 merge_ad.append(".")
                                 merge_dp.append(".")
+                                hap_info = haps_info[each_call_index]
+                                (
+                                    _,
+                                    hap_info_bound1,
+                                    hap_info_bound2,
+                                    hap_info_truncated,
+                                ) = hap_info
+                                if hap_info_truncated is None:
+                                    valid_gts.append(".")
+                                elif hap_info_truncated == ["5p"]:
+                                    if pos > hap_info_bound1:
+                                        valid_gts.append(".")
+                                elif hap_info_truncated == ["3p"]:
+                                    if pos < hap_info_bound2:
+                                        valid_gts.append(".")
+                                elif hap_info_truncated == ["5p", "3p"]:
+                                    if hap_info_bound1 < pos < hap_info_bound2:
+                                        valid_gts.append(".")
                             else:
                                 var_name, dp, ad, var_filter, gt, counter = each_call
                                 if counter is None:
@@ -599,19 +618,22 @@ class VcfGenerater:
                                 merge_dp.append(str(dp))
                                 if gt == "0":
                                     merge_gt.append(gt)
+                                    valid_gts.append(gt)
                                     merge_ad.append(this_ad)
                                 elif var_name == variant:
                                     merge_gt.append(gt)
+                                    valid_gts.append(gt)
                                     merge_ad.append(this_ad)
                                 else:
                                     merge_gt.append(".")
+                                    valid_gts.append(gt)
                                     merge_ad.append(this_ad)
                         write_variant = False
                         if self.lowqual is True:
                             if (
                                 (alt != ref or ref_only)
                                 and alt not in [".", "*"]
-                                and ("1" in merge_gt or "." in merge_gt)
+                                and ("1" in merge_gt or "." in valid_gts)
                             ):
                                 write_variant = True
                         elif alt != ref and alt not in [".", "*"] and "1" in merge_gt:

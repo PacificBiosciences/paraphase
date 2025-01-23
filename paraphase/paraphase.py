@@ -719,9 +719,8 @@ class Paraphase:
             action="store_true",
         )
         parser.add_argument(
-            "--lowqual",
-            help="Optional. If specified, Paraphase will write all low quality sites in the VCFs.\n"
-            + "i.e. all sites (within the reported boundaries of phased haplotypes) not written in VCFs are confidently reference calls.\n",
+            "--write-nocalls-in-vcf",
+            help="Optional. If specified, Paraphase will write no-call sites in the VCFs, marked with LowQual filter.",
             required=False,
             action="store_true",
         )
