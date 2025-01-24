@@ -577,7 +577,10 @@ class VcfGenerater:
                                     hap_info_bound2,
                                     hap_info_truncated,
                                 ) = hap_info
-                                if hap_info_truncated is None:
+                                if (
+                                    hap_info_truncated is None
+                                    or hap_info_truncated is False
+                                ):
                                     valid_gts.append(".")
                                 elif hap_info_truncated == ["5p"]:
                                     if pos > hap_info_bound1:
@@ -626,7 +629,7 @@ class VcfGenerater:
                                     merge_ad.append(this_ad)
                                 else:
                                     merge_gt.append(".")
-                                    valid_gts.append(gt)
+                                    valid_gts.append(".")
                                     merge_ad.append(this_ad)
                         write_variant = False
                         if self.lowqual is True:
@@ -966,7 +969,7 @@ class VcfGenerater:
         two_cp_haplotypes = self.call_sum.get("two_copy_haplotypes")
         nhap = len(final_haps)
         if two_cp_haplotypes is not None:
-            nhap += len(two_cp_haplotypes)
+            nhap += len([a for a in two_cp_haplotypes if a in final_haps.values()])
         hap_info = []
 
         # gene1only, or two-gene mode but gene1 side
