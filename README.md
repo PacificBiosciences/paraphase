@@ -86,6 +86,10 @@ Optional parameters:
 - `--genome`: Genome reference build. Default is `38`. If `37` or `19` is specified, Paraphase will run the analysis for GRCh37 or hg19, respectively (note that only 11 medically relevant [regions](docs/regions.md) are supported now for GRCh37/hg19).
 - `--gene1only`: If specified, variants calls will be made against the main gene only for SMN1, PMS2, STRC, NCF1 and IKBKG, see more information [here](docs/vcf.md).
 - `--novcf`: If specified, no VCF files will be produced.
+- `--write-nocalls-in-vcf`: If specified, Paraphase will write no-call sites in the VCFs, marked with LowQual filter.
+- `--targeted`: If specified, paraphase will not assume depth is uniform across the genome. See more information on running targeted data [here](docs/targeted_data.md).
+- `--min-read-variant`: Partially controls the number of supporting reads for a variant to be used for phasing. The cutoff for variant-supporting reads is determined by min(this number, max(5, depth\*0.11)). Default is 20 (at standard WGS depth, it is overwritten by max(5, depth*0.11)).
+- `--min-read-haplotype`: Minimum number of unique supporting reads for a haplotype. Default is 4.
 - `--samtools`: path to samtools. If the paths to samtools or minimap2 are not already in the PATH environment variable, they can be provided through the `--samtools` and `--minimap2` parameters.
 - `--minimap2`: path to minimap2
 

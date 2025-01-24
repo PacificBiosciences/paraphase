@@ -680,18 +680,16 @@ class Paraphase:
         )
         parser.add_argument(
             "--min-read-variant",
-            help="Optional. Lower bound for the number of supporting reads for a variant.\n"
+            help="Optional. Partially controls the number of supporting reads for a variant to be used for phasing.\n"
             + "The cutoff for variant-supporting reads is determined by min(this number, max(5, depth*0.11)).\n"
-            + "Set this number low for low-coverage data or to increase sensitivity.\n"
-            + "Note that when set high enough, it will be overwritten by max(5, depth*0.11).\n"
-            + "Default is 20.",
+            + "Default is 20 (at standard WGS depth, it is overwritten by max(5, depth*0.11)).",
             required=False,
             type=int,
             default=20,
         )
         parser.add_argument(
             "--min-read-haplotype",
-            help="Optional. Minimum number of supporting reads for a haplotype. Default is 4.",
+            help="Optional. Minimum number of unique supporting reads for a haplotype. Default is 4.",
             required=False,
             type=int,
             default=4,
