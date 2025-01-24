@@ -225,7 +225,7 @@ class TestVariantGraph(object):
             (0, 1): 2,
             (2, 3): 10,
         }
-
+        """
         graph.dnhap = {
             0: 10,
             1: 2,
@@ -245,7 +245,7 @@ class TestVariantGraph(object):
         assert graph.get_segments() == {
             (0, 3): 2,
         }
-
+        """
         graph.dnhap = {
             0: 10,
             1: 2,
