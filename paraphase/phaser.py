@@ -11,6 +11,7 @@ from itertools import product
 import re
 import logging
 import json
+import traceback
 from scipy.stats import poisson
 from collections import namedtuple
 from .haplotype_assembler import VariantGraph
@@ -200,33 +201,27 @@ class Phaser:
             check_region_start = max(self.left_boundary, max(self.clip_5p_positions))
         elif self.clip_3p_positions != []:
             check_region_end = min(self.right_boundary, min(self.clip_3p_positions))
-        self.region_avg_depth = self.get_regional_depth(
+        depth1 = self.get_regional_depth(
             self._bamh, [[self.left_boundary, self.right_boundary]]
         )[0]
+        self.region_avg_depth = depth1
+        if (
+            check_region_start != self.left_boundary
+            or check_region_end != self.right_boundary
+        ):
+            depth2 = self.get_regional_depth(
+                self._bamh, [[check_region_start, check_region_end]]
+            )[0]
+            if np.isnan(depth1.median) or depth2.median > depth1.median:
+                self.region_avg_depth = depth2
         if np.isnan(self.region_avg_depth.median) or (
             self.region_avg_depth.median <= 8
             and self.region_avg_depth.percentile80 < 50
         ):
-            skip_for_low_coverage = False
-            if (
-                check_region_start == self.left_boundary
-                and check_region_end == self.right_boundary
-            ):
-                skip_for_low_coverage = True
-            else:
-                self.region_avg_depth = self.get_regional_depth(
-                    self._bamh, [[check_region_start, check_region_end]]
-                )[0]
-                if np.isnan(self.region_avg_depth.median) or (
-                    self.region_avg_depth.median <= 8
-                    and self.region_avg_depth.percentile80 < 50
-                ):
-                    skip_for_low_coverage = True
-            if skip_for_low_coverage:
-                logging.warning(
-                    "This region does not appear to have coverage. Will not attempt to phase haplotypes."
-                )
-                return False
+            logging.warning(
+                "This region does not appear to have coverage. Will not attempt to phase haplotypes."
+            )
+            return False
         return True
 
     def get_range_in_other_gene(self, pos, search_range=200):
@@ -779,13 +774,16 @@ class Phaser:
             elif bases_ref + bases_alt == len(bases) - bases_x - bases_0 and (
                 bases_alt <= 3 or bases_ref <= 3
             ):
-                if this_var not in kept_sites:
+                if bases_alt <= 3 and bases_ref <= 3:
                     sites_to_remove.append(this_var)
-                if this_var in homo_sites:
-                    if bases_alt <= 3:
-                        absent_base_per_site.setdefault(this_var, "2")
-                    elif bases_ref <= 3:
-                        absent_base_per_site.setdefault(this_var, "1")
+                else:
+                    if this_var not in kept_sites:
+                        sites_to_remove.append(this_var)
+                    if this_var in homo_sites:
+                        if bases_alt <= 3:
+                            absent_base_per_site.setdefault(this_var, "2")
+                        elif bases_ref <= 3:
+                            absent_base_per_site.setdefault(this_var, "1")
         for var in sites_to_remove:
             if var in self.het_sites:
                 self.het_sites.remove(var)
@@ -2110,15 +2108,42 @@ class Phaser:
             known_del.setdefault("4", self.deletion2_name)
         self.het_sites = het_sites
 
-        (
-            ass_haps,
-            original_haps,
-            hcn,
-            uniquely_supporting_reads,
-            nonuniquely_supporting_reads,
-            raw_read_haps,
-            read_counts,
-        ) = self.phase_haps(raw_read_haps)
+        try:
+            (
+                ass_haps,
+                original_haps,
+                hcn,
+                uniquely_supporting_reads,
+                nonuniquely_supporting_reads,
+                raw_read_haps,
+                read_counts,
+            ) = self.phase_haps(raw_read_haps)
+        except Exception:
+            logging.warning(
+                "Did not phase haplotypes successfully, possibly due to low coverage. See error message below"
+            )
+            traceback.print_exc()
+            return self.GeneCall(
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                self.het_sites,
+                None,
+                self.het_no_phasing,
+                self.homo_sites,
+                None,
+                None,
+                {a: "".join(b) for a, b in raw_read_haps.items()},
+                self.mdepth,
+                self.region_avg_depth._asdict(),
+                self.sample_sex,
+                None,
+            )
 
         tmp = {}
         for i, hap in enumerate(ass_haps):

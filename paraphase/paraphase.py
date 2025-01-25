@@ -204,7 +204,7 @@ class Paraphase:
                     f"Error running {gene} for sample {sample_id}...See error message below"
                 )
                 traceback.print_exc()
-                phaser_calls.setdefault(gene, None)
+                phaser_calls.setdefault(gene, Phaser.GeneCall())
         return phaser_calls
 
     def process_sample(
@@ -316,7 +316,7 @@ class Paraphase:
                         sample_out.update(phaser_call_set)
 
                 sample_out = self.update_calls_after_per_gene_analysis(
-                    sample_out, sample_id, tmpdir, args
+                    sample_out, sample_id, tmpdir
                 )
                 sample_out = dict(sorted(sample_out.items()))
 
@@ -337,7 +337,8 @@ class Paraphase:
                 )
                 traceback.print_exc()
 
-    def update_calls_after_per_gene_analysis(self, sample_out, sample_id, tmpdir, args):
+    def update_calls_after_per_gene_analysis(self, sample_out, sample_id, tmpdir):
+        """Update calls of one target based on another target"""
         # update smn1
         if "SERF1A" in sample_out and "smn1" in sample_out:
             serf1_haps = sample_out["SERF1A"].get("final_haplotypes")
