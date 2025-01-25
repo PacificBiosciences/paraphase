@@ -29,15 +29,15 @@ smn1:
 pms2: 
   genes: PMS2
   check_nm: 0.1
-  realign_region: chr7:6004631-6049631
-  extract_regions: chr7:6004631-6033041 chr7:6773174-6799427
+  use_r2k: True
+  realign_region: chr7:6004631-6049131
+  extract_regions: chr7:6004631-6049131 chr7:6773174-6799427
   gene2_region: chr7:6773174-6799427
-  right_boundary: 6033081
   pivot_site: 6026200
-  noisy_region: [[6020511, 6020611], [6019294, 6019300], [6015581, 6015711], [6028131, 6031981], [6032411, 6033031]]
+  noisy_region: [[6020511, 6020611], [6019294, 6019300], [6015581, 6015711], [6036207, 6036263], [6042921, 6042979], [6048361, 6048369]]
   is_reverse: True
   add_sites: ["6026200_G_A"]
-  clip_3p_positions: [6033041]
+  clip_3p_positions: [6028720]
 rccx: 
   genes: CYP21A2,C4A,C4B,TNXB
   is_tandem: True
@@ -95,15 +95,14 @@ cfc1:
 ikbkg: 
   genes: IKBKG
   use_supplementary: True
-  realign_region: chrX:153783815-153803263
-  extract_regions: chrX:153784098-153800231 chrX:153860696-153876829
+  realign_region: chrX:153775825-153800231
+  extract_regions: chrX:153775825-153800231 chrX:153860696-153876829
   gene2_region: chrX:153860252-153877274
   clip_3p_positions: [153797929]
-  clip_5p_positions: [153785351]
+  clip_5p_positions: [153783719, 153785351]
   add_sites: ["153784097_C_G", "153798031_T_G"]
   pivot_site: 153784097
-  left_boundary: 153783915
-  right_boundary: 153797929
+  right_boundary: 153798131
   deletion1_size: 11700
   deletion1_name: "153786229_del_11700"
   deletion1_in_gene1: "153786229_DEL_153797929"
@@ -112,8 +111,9 @@ ikbkg:
   del1_3p_pos2: 153786245
   del1_5p_pos1: 153797031
   del1_5p_pos2: 153797071
-  noisy_region: [[153795215, 153795402], [153784084, 153784091], [153793571, 153793618]]
+  noisy_region: [[153795215, 153795402], [153783765, 153783965], [153784084, 153784091], [153793571, 153793618]]
   is_reverse: True
+  check_nm: 0.08
 ncf1:
   genes: NCF1
   check_nm: 0.1
@@ -159,10 +159,11 @@ opn1lw:
   exon3_variants: [[["153418460_C_A"], "M", "L"], [["153418514_G_A", "153418516_G_T"], "I", "V"], [["153418524_C_T"], "V", "A"], [["153418535_A_G"], "V", "I"], [["153418541_T_G"], "A", "S"]]
 hba:
   genes: HBA1,HBA2
-  realign_region: chr16:221799-223899
+  realign_region: chr16:221799-225499
   extract_regions: chr16:218655-227540
-  clip_5p_positions: [221988]
-  clip_3p_positions: [223728]
+  check_nm: 0.25
+  clip_5p_positions: [221988, 222889]
+  clip_3p_positions: [223728, 225045]
   is_tandem: True
   depth_region: [[209999, 239999]]
   noisy_region: [[222416, 222417]]

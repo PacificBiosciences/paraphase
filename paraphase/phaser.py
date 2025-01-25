@@ -11,6 +11,7 @@ from itertools import product
 import re
 import logging
 import json
+import traceback
 from scipy.stats import poisson
 from collections import namedtuple
 from .haplotype_assembler import VariantGraph
@@ -53,6 +54,7 @@ class Phaser:
         self,
         sample_id,
         outdir,
+        args=None,
         wgs_depth=None,
         genome_bam=None,
         sample_sex=None,
@@ -61,12 +63,19 @@ class Phaser:
         self.sample_id = sample_id
         self.homopolymer_sites = {}
         self.het_sites = []  # for phasing
+        self.init_het_sites = []
         self.het_no_phasing = []
         self.homo_sites = []
         self.candidate_pos = set()
         self.mdepth = wgs_depth
         self.genome_bam = genome_bam
         self.sample_sex = sample_sex
+        self.trusted_read_support = 20
+        if args is not None:
+            self.trusted_read_support = args.min_read_variant
+        self.min_read_haplotype = 4
+        if args is not None:
+            self.min_read_haplotype = args.min_read_haplotype
 
     def set_parameter(self, config):
         self.gene = config["gene"]
@@ -125,8 +134,10 @@ class Phaser:
         self.clip_5p_positions = []
         if "clip_3p_positions" in config:
             self.clip_3p_positions = config["clip_3p_positions"]
+        self.clip_3p_positions = sorted(self.clip_3p_positions)
         if "clip_5p_positions" in config:
             self.clip_5p_positions = config["clip_5p_positions"]
+        self.clip_5p_positions = sorted(self.clip_5p_positions)
         self.noisy_region = []
         if "noisy_region" in config:
             self.noisy_region = config["noisy_region"]
@@ -180,15 +191,31 @@ class Phaser:
         """check low coverage regions for enrichment data"""
         check_region_start = self.left_boundary
         check_region_end = self.right_boundary
-        if self.clip_5p_positions != []:
+        if self.clip_5p_positions != [] and self.clip_3p_positions != []:
+            clip_5p_max = max(self.clip_5p_positions)
+            clip_3p_min = min(self.clip_3p_positions)
+            if clip_5p_max < clip_3p_min:
+                check_region_start = clip_5p_max
+                check_region_end = clip_3p_min
+        elif self.clip_5p_positions != []:
             check_region_start = max(self.left_boundary, max(self.clip_5p_positions))
-        if self.clip_3p_positions != []:
+        elif self.clip_3p_positions != []:
             check_region_end = min(self.right_boundary, min(self.clip_3p_positions))
-        self.region_avg_depth = self.get_regional_depth(
-            self._bamh, [[check_region_start, check_region_end]]
+        depth1 = self.get_regional_depth(
+            self._bamh, [[self.left_boundary, self.right_boundary]]
         )[0]
+        self.region_avg_depth = depth1
+        if (
+            check_region_start != self.left_boundary
+            or check_region_end != self.right_boundary
+        ):
+            depth2 = self.get_regional_depth(
+                self._bamh, [[check_region_start, check_region_end]]
+            )[0]
+            if np.isnan(depth1.median) or depth2.median > depth1.median:
+                self.region_avg_depth = depth2
         if np.isnan(self.region_avg_depth.median) or (
-            self.region_avg_depth.median < 10
+            self.region_avg_depth.median <= 8
             and self.region_avg_depth.percentile80 < 50
         ):
             logging.warning(
@@ -506,15 +533,64 @@ class Phaser:
                 read_names.append(read.query_name)
         return read_names
 
+    def add_variant_around_clip(self):
+        """add sites before 5p clip and after 3p clip"""
+        if self.clip_5p_positions != []:  # and self.het_sites != []:
+            for i in range(len(self.clip_5p_positions)):
+                clip_pos = self.clip_5p_positions[i]
+                if i > 0:
+                    prev_clip_pos = self.clip_5p_positions[i - 1]
+                    var_before_clip = [
+                        a
+                        for a in self.het_sites
+                        if prev_clip_pos < int(a.split("_")[0]) < clip_pos
+                    ]
+                else:
+                    var_before_clip = [
+                        a for a in self.het_sites if int(a.split("_")[0]) < clip_pos
+                    ]
+                if var_before_clip == []:
+                    var_pos = clip_pos - 30
+                    ref_base = self._refh.fetch(
+                        self.nchr_old, var_pos - self.offset - 1, var_pos - self.offset
+                    ).upper()
+                    var_base = [a for a in ["A", "C", "G", "T"] if a != ref_base][0]
+                    new_var = f"{var_pos}_{ref_base}_{var_base}"
+                    self.het_sites.append(new_var)
+        if self.clip_3p_positions != []:  # and self.het_sites != []:
+            for i in reversed(range(len(self.clip_3p_positions))):
+                clip_pos = self.clip_3p_positions[i]
+                if i == len(self.clip_3p_positions) - 1:
+                    var_after_clip = [
+                        a for a in self.het_sites if int(a.split("_")[0]) > clip_pos
+                    ]
+                else:
+                    next_clip_pos = self.clip_3p_positions[i + 1]
+                    var_after_clip = [
+                        a
+                        for a in self.het_sites
+                        if clip_pos < int(a.split("_")[0]) < next_clip_pos
+                    ]
+                if var_after_clip == []:
+                    var_pos = clip_pos + 30
+                    ref_base = self._refh.fetch(
+                        self.nchr_old, var_pos - self.offset - 1, var_pos - self.offset
+                    ).upper()
+                    var_base = [a for a in ["A", "C", "G", "T"] if a != ref_base][0]
+                    new_var = f"{var_pos}_{ref_base}_{var_base}"
+                    self.het_sites.append(new_var)
+
     def get_haplotypes_from_reads(
         self,
         exclude_reads=[],
         min_mapq=5,
         min_clip_len=50,
+        clip_buffer=20,
         check_clip=False,
         partial_deletion_reads=[],
         kept_sites=[],
         add_sites=[],
+        homo_sites=[],
         multi_allelic_sites={},
     ):
         """
@@ -525,51 +601,28 @@ class Phaser:
             exclude_reads,
             min_mapq,
             min_clip_len,
+            clip_buffer,
             check_clip,
             partial_deletion_reads,
             multi_allelic_sites,
         )
-        self.remove_var(raw_read_haps, kept_sites)
+        absent_base_per_site = self.remove_var(raw_read_haps, kept_sites, homo_sites)
         if self.het_sites != []:
             for var in add_sites:
                 if var not in self.het_sites:
                     self.het_sites.append(var)
         # add sites before 5p clip and after 3p clip
-        if self.clip_5p_positions != [] and self.het_sites != []:
-            clip_pos = min(self.clip_5p_positions)
-            var_before_clip = [
-                a for a in self.het_sites if int(a.split("_")[0]) < clip_pos
-            ]
-            if var_before_clip == []:
-                var_pos = clip_pos - 30
-                ref_base = self._refh.fetch(
-                    self.nchr_old, var_pos - self.offset - 1, var_pos - self.offset
-                ).upper()
-                var_base = [a for a in ["A", "C", "G", "T"] if a != ref_base][0]
-                new_var = f"{var_pos}_{ref_base}_{var_base}"
-                self.het_sites.append(new_var)
-        if self.clip_3p_positions != [] and self.het_sites != []:
-            clip_pos = max(self.clip_3p_positions)
-            var_after_clip = [
-                a for a in self.het_sites if int(a.split("_")[0]) > clip_pos
-            ]
-            if var_after_clip == []:
-                var_pos = clip_pos + 30
-                ref_base = self._refh.fetch(
-                    self.nchr_old, var_pos - self.offset - 1, var_pos - self.offset
-                ).upper()
-                var_base = [a for a in ["A", "C", "G", "T"] if a != ref_base][0]
-                new_var = f"{var_pos}_{ref_base}_{var_base}"
-                self.het_sites.append(new_var)
-
+        self.add_variant_around_clip()
         self.het_sites = sorted(self.het_sites)
         raw_read_haps = self.get_haplotypes_from_reads_step(
             exclude_reads,
             min_mapq,
             min_clip_len,
+            clip_buffer,
             check_clip,
             partial_deletion_reads,
             multi_allelic_sites,
+            absent_base_per_site,
         )
         return raw_read_haps
 
@@ -578,9 +631,11 @@ class Phaser:
         exclude_reads=[],
         min_mapq=5,
         min_clip_len=50,
+        clip_buffer=20,
         check_clip=False,
         partial_deletion_reads=[],
         multi_allelic_sites={},
+        absent_base_per_site={},
     ):
         """
         Go through reads and get bases at sites of interest
@@ -638,9 +693,17 @@ class Phaser:
                                         and hap.upper()
                                         == multi_allelic_sites[snp_position]
                                     ):
-                                        read_haps[read_name][dsnp_index] = "1"
+                                        if allele_site not in absent_base_per_site or (
+                                            allele_site in absent_base_per_site
+                                            and absent_base_per_site[allele_site] != "1"
+                                        ):
+                                            read_haps[read_name][dsnp_index] = "1"
                                     elif hap.upper() == allele2.upper():
-                                        read_haps[read_name][dsnp_index] = "2"
+                                        if allele_site not in absent_base_per_site or (
+                                            allele_site in absent_base_per_site
+                                            and absent_base_per_site[allele_site] != "2"
+                                        ):
+                                            read_haps[read_name][dsnp_index] = "2"
 
         # for softclips starting at a predefined position, mark sites as 0 instead of x
         if check_clip and (
@@ -652,12 +715,14 @@ class Phaser:
                 for clip_position in sorted(self.clip_3p_positions):
                     if snp_position > clip_position:
                         for read in self._bamh.fetch(
-                            self.nchr, clip_position - 10, clip_position + 10
+                            self.nchr,
+                            clip_position - clip_buffer,
+                            clip_position + clip_buffer,
                         ):
                             read_name = self.get_read_name(read)
                             if read_name not in read_haps:
                                 read_haps.setdefault(read_name, ["x"] * nvar)
-                            if abs(read.reference_end - clip_position) < 20:
+                            if abs(read.reference_end - clip_position) < clip_buffer:
                                 find_clip_3p = re.findall(
                                     self.clip_3p, read.cigarstring
                                 )
@@ -669,12 +734,14 @@ class Phaser:
                 for clip_position in sorted(self.clip_5p_positions, reverse=True):
                     if snp_position < clip_position:
                         for read in self._bamh.fetch(
-                            self.nchr, clip_position - 10, clip_position + 10
+                            self.nchr,
+                            clip_position - clip_buffer,
+                            clip_position + clip_buffer,
                         ):
                             read_name = self.get_read_name(read)
                             if read_name not in read_haps:
                                 read_haps.setdefault(read_name, ["x"] * nvar)
-                            if abs(read.reference_start - clip_position) < 20:
+                            if abs(read.reference_start - clip_position) < clip_buffer:
                                 find_clip_5p = re.findall(
                                     self.clip_5p, read.cigarstring
                                 )
@@ -685,10 +752,11 @@ class Phaser:
                                     read_haps[read_name][dsnp_index] = "0"
         return read_haps
 
-    def remove_var(self, raw_read_haps, kept_sites):
+    def remove_var(self, raw_read_haps, kept_sites, homo_sites):
         """remove variants that are not present after checking each read-haplotype"""
         bases_per_site = {}
         sites_to_remove = []
+        absent_base_per_site = {}
         for i in range(len(self.het_sites)):
             for read, hap in raw_read_haps.items():
                 base = hap[i]
@@ -697,19 +765,31 @@ class Phaser:
         for pos in bases_per_site:
             bases = bases_per_site[pos]
             bases_x = bases.count("x")
+            bases_0 = bases.count("0")
             bases_ref = bases.count("1")
             bases_alt = bases.count("2")
             this_var = self.het_sites[pos]
-            if bases_x == len(bases):
+            if bases_x == len(bases) - bases_0:
                 sites_to_remove.append(this_var)
-            elif bases_ref + bases_alt == len(bases) - bases_x and (
+            elif bases_ref + bases_alt == len(bases) - bases_x - bases_0 and (
                 bases_alt <= 3 or bases_ref <= 3
             ):
-                if this_var not in kept_sites:
+                if bases_alt <= 3 and bases_ref <= 3:
                     sites_to_remove.append(this_var)
+                else:
+                    if this_var not in kept_sites:
+                        sites_to_remove.append(this_var)
+                    if this_var in homo_sites:
+                        if bases_alt <= 3:
+                            absent_base_per_site.setdefault(this_var, "2")
+                        elif bases_ref <= 3:
+                            absent_base_per_site.setdefault(this_var, "1")
         for var in sites_to_remove:
             if var in self.het_sites:
                 self.het_sites.remove(var)
+            if var in self.init_het_sites:
+                self.init_het_sites.remove(var)
+        return absent_base_per_site
 
     def allow_del_bases(self, pos):
         """
@@ -751,8 +831,8 @@ class Phaser:
         regions_to_check=[],
         min_read_support=5,
         min_vaf=0.11,
-        trusted_read_support=20,
         white_list={},
+        allow_del_region=[],
     ):
         """
         Get all polymorphic sites in the region, update self.candidate_pos
@@ -783,7 +863,12 @@ class Phaser:
             ).upper()
 
             if total_depth >= min_read_support and (
-                del_bases_count < min_read_support or self.allow_del_bases(pos)
+                del_bases_count < min_read_support
+                or self.allow_del_bases(pos)
+                or (
+                    allow_del_region != []
+                    and allow_del_region[0] < pos < allow_del_region[1]
+                )
             ):
                 all_bases = [a for a in all_bases if a != "*"]
                 counter = Counter(all_bases)
@@ -829,7 +914,7 @@ class Phaser:
                                     var_count >= min_read_support
                                     and var_count / total_depth > min_vaf
                                 )
-                                or var_count >= trusted_read_support
+                                or var_count >= self.trusted_read_support
                             ):
                                 # SNV
                                 if "-" not in var_seq and "+" not in var_seq:
@@ -888,13 +973,14 @@ class Phaser:
 
     def remove_noisy_sites(self):
         """remove variants in predefined noisy sites"""
-        problematic_sites = []
+        problematic_sites = set()
         for site in self.het_sites:
             for region in self.noisy_region:
                 if region[0] <= int(site.split("_")[0]) <= region[1]:
-                    problematic_sites.append(site)
+                    problematic_sites.add(site)
         for site in problematic_sites:
-            self.het_sites.remove(site)
+            if site in self.het_sites:
+                self.het_sites.remove(site)
 
     @staticmethod
     def simplify_read_haps(read_haps):
@@ -1040,43 +1126,27 @@ class Phaser:
                     if int(a.split("_")[0]) < pos1 or int(a.split("_")[0]) > pos2
                 ]
             # haps with clips
-            if hap.startswith("0") and self.clip_5p_positions != []:
-                for first_pos_after_clip, base in enumerate(hap):
-                    if base != "0":
-                        break
-                first_pos_after_clip_position = int(
-                    het_sites[first_pos_after_clip].split("_")[0]
-                )
-                for clip_position in sorted(self.clip_5p_positions, reverse=True):
-                    if clip_position < first_pos_after_clip_position:
-                        break
+            clip_position_5p = self.get_5pclip_from_hap(hap)
+            if clip_position_5p is not None and clip_position_5p != 0:
                 filtered_homo_sites = [
                     a
                     for a in filtered_homo_sites
-                    if int(a.split("_")[0]) > clip_position
+                    if int(a.split("_")[0]) > clip_position_5p
                 ]
-                hap_bound_start = max(hap_bound_start, clip_position)
-                haplotype_variants[hap_name].append(f"{clip_position}_clip_5p")
-                if clip_position > self.gene_start:
+                hap_bound_start = max(hap_bound_start, clip_position_5p)
+                haplotype_variants[hap_name].append(f"{clip_position_5p}_clip_5p")
+                if clip_position_5p > self.gene_start:
                     is_truncated = ["5p"]
-            if hap.endswith("0") and self.clip_3p_positions != []:
-                for first_pos_before_clip in reversed(range(len(hap))):
-                    if hap[first_pos_before_clip] != "0":
-                        break
-                first_pos_before_clip_position = int(
-                    het_sites[first_pos_before_clip].split("_")[0]
-                )
-                for clip_position in sorted(self.clip_3p_positions):
-                    if clip_position > first_pos_before_clip_position:
-                        break
+            clip_position_3p = self.get_3pclip_from_hap(hap)
+            if clip_position_3p is not None and clip_position_3p != 0:
                 filtered_homo_sites = [
                     a
                     for a in filtered_homo_sites
-                    if int(a.split("_")[0]) < clip_position
+                    if int(a.split("_")[0]) < clip_position_3p
                 ]
-                hap_bound_end = min(hap_bound_end, clip_position)
-                haplotype_variants[hap_name].append(f"{clip_position}_clip_3p")
-                if clip_position < self.gene_end:
+                hap_bound_end = min(hap_bound_end, clip_position_3p)
+                haplotype_variants[hap_name].append(f"{clip_position_3p}_clip_3p")
+                if clip_position_3p < self.gene_end:
                     if is_truncated is None:
                         is_truncated = ["3p"]
                     else:
@@ -1116,6 +1186,50 @@ class Phaser:
             )
 
         return haplotype_info
+
+    def get_5pclip_from_hap(self, hap):
+        """Given a haplotype, get its 5p clip position"""
+        assert len(self.het_sites) == len(hap)
+        clips_not_present = []
+        for i, base in enumerate(hap):
+            if i < len(hap) - 1:
+                next_base = hap[i + 1]
+                site_before = int(self.het_sites[i].split("_")[0])
+                site_after = int(self.het_sites[i + 1].split("_")[0])
+                for clip_position in self.clip_5p_positions:
+                    if site_before < clip_position < site_after:
+                        if base == "0" and next_base not in ["0", "x"]:
+                            return clip_position
+                        if next_base not in ["0", "x"]:
+                            if base not in ["0", "x"] or (
+                                base == "x" and site_after - clip_position < 5000
+                            ):
+                                clips_not_present.append(clip_position)
+        if clips_not_present == self.clip_5p_positions:
+            return 0
+        return None
+
+    def get_3pclip_from_hap(self, hap):
+        """Given a haplotype, get its 3p clip position"""
+        assert len(self.het_sites) == len(hap)
+        clips_not_present = []
+        for i, base in enumerate(hap):
+            if i < len(hap) - 1:
+                next_base = hap[i + 1]
+                site_before = int(self.het_sites[i].split("_")[0])
+                site_after = int(self.het_sites[i + 1].split("_")[0])
+                for clip_position in self.clip_3p_positions:
+                    if site_before < clip_position < site_after:
+                        if next_base == "0" and base not in ["0", "x"]:
+                            return clip_position
+                        if base not in ["0", "x"]:
+                            if next_base not in ["0", "x"] or (
+                                next_base == "x" and clip_position - site_before < 5000
+                            ):
+                                clips_not_present.append(clip_position)
+        if clips_not_present == self.clip_3p_positions:
+            return 0
+        return None
 
     def get_genotype_in_hap(self, var_reads, hap_reads, hap_reads_nonunique):
         """For a given variant, return its status in a haplotype"""
@@ -1233,10 +1347,11 @@ class Phaser:
             read_count.setdefault(hap, len(lreads))
         return read_count
 
-    def phase_haps(self, raw_read_haps, min_support=4, debug=False):
+    def phase_haps(self, raw_read_haps, debug=False):
         """
         Assemble and evaluate haplotypes
         """
+        min_support = self.min_read_haplotype
         het_sites = self.het_sites
         haplotypes_to_reads, raw_read_haps = self.simplify_read_haps(raw_read_haps)
 
@@ -1254,7 +1369,9 @@ class Phaser:
             hap_graph = VariantGraph(
                 raw_read_haps, pivot_index, figure_id=self.sample_id
             )
-            ass_haps, original_haps, hcn = hap_graph.run(debug=debug, make_plot=debug)
+            ass_haps, original_haps, hcn = hap_graph.run(
+                debug=debug, make_plot=debug, min_count=min_support
+            )
 
         if ass_haps == []:
             return (ass_haps, original_haps, hcn, {}, {}, raw_read_haps, None)
@@ -1284,6 +1401,7 @@ class Phaser:
             and read_counts[0] <= 4
             and read_counts[1] >= 12
             and "x" not in "".join(ass_haps)
+            and min_support == 4
         ):
             min_support = 5
 
@@ -1336,7 +1454,7 @@ class Phaser:
             read_counts,
         )
 
-    def compare_depth(self, haplotypes, loose=False, stringent=False):
+    def compare_depth(self, haplotypes, ass_haps, loose=False, stringent=False):
         """
         For each haplotype, identify the variants where it's different
         from other haplotypes. Check depth at those variant sites and
@@ -1346,9 +1464,23 @@ class Phaser:
             return []
         two_cp_haps = []
         bamh = self._bamh
-        boundaries = [haplotypes[a]["boundary"] for a in haplotypes]
-        nstart = max([a[0] for a in boundaries])
-        nend = min(a[1] for a in boundaries)
+        hap_name_to_seq = {v: k for k, v in ass_haps.items()}
+        bound_start = []
+        bound_end = []
+        for hap, hap_info in haplotypes.items():
+            bound = hap_info["boundary"]
+            hap_clip_5p = self.get_5pclip_from_hap(hap_name_to_seq[hap])
+            hap_clip_3p = self.get_3pclip_from_hap(hap_name_to_seq[hap])
+            if hap_clip_5p is not None and hap_clip_5p != 0:
+                bound_start.append(hap_clip_5p)
+            else:
+                bound_start.append(bound[0])
+            if hap_clip_3p is not None and hap_clip_3p != 0:
+                bound_end.append(hap_clip_3p)
+            else:
+                bound_end.append(bound[1])
+        nstart = max(bound_start)
+        nend = min(bound_end)
         variants = set()
         for hap in haplotypes:
             vars = haplotypes[hap]["variants"]
@@ -1392,7 +1524,8 @@ class Phaser:
             probs = []
             nsites = len(sites)
             for n1, n2 in counts:
-                probs.append(self.depth_prob(n1, n2 / other_cn))
+                this_site_prob = self.depth_prob(n1, n2 / other_cn)
+                probs.append(this_site_prob)
             probs_fil = [a for a in probs if a[0] < 0.25]
             if stringent is True:
                 if len(probs_fil) >= nsites * 0.8 and nsites >= 5:
@@ -1667,24 +1800,64 @@ class Phaser:
 
     def add_homo_sites(self, min_no_var_region_size=10000, max_homo_var_to_add=10):
         """add some homozygous sites to het sites in long homozygous regions"""
-        if self.het_sites == []:
-            return []
-        het_pos = [int(a.split("_")[0]) for a in self.het_sites]
-        min_pos = min(het_pos)
-        max_pos = max(het_pos)
+        # if self.het_sites == []:
+        #    return []
+        self.het_sites = sorted(self.het_sites, key=lambda x: int(x.split("_")[0]))
         homo_sites_to_add = []
-        if min_pos - self.left_boundary > min_no_var_region_size:
+        het_pos = []
+        for var in self.het_sites:
+            pos = int(var.split("_")[0])
+            if self.left_boundary < pos < self.right_boundary:
+                het_pos.append(pos)
+        if het_pos == []:
             for var in self.homo_sites:
                 pos, ref, alt = var.split("_")
-                if int(pos) < min_pos and len(ref) == 1 and len(alt) == 1:
+                if len(ref) == 1 and len(alt) == 1:
                     homo_sites_to_add.append(var)
-        if self.right_boundary - max_pos > min_no_var_region_size:
-            for var in self.homo_sites:
-                pos, ref, alt = var.split("_")
-                if int(pos) > max_pos and len(ref) == 1 and len(alt) == 1:
-                    homo_sites_to_add.append(var)
+            if self.homo_sites == []:
+                full_range = self.right_boundary - self.left_boundary
+                interval_size = int(full_range / 4)
+                positions = [
+                    self.left_boundary + interval_size,
+                    self.left_boundary + interval_size * 2,
+                    self.left_boundary + interval_size * 3,
+                ]
+                for var_pos in positions:
+                    ref_base = self._refh.fetch(
+                        self.nchr_old, var_pos - self.offset - 1, var_pos - self.offset
+                    ).upper()
+                    var_base = [a for a in ["A", "C", "G", "T"] if a != ref_base][0]
+                    new_var = f"{var_pos}_{ref_base}_{var_base}"
+                    homo_sites_to_add.append(new_var)
+        else:
+            min_pos = min(het_pos)
+            max_pos = max(het_pos)
+            if min_pos - self.left_boundary > min_no_var_region_size:
+                for var in self.homo_sites:
+                    pos, ref, alt = var.split("_")
+                    if int(pos) < min_pos and len(ref) == 1 and len(alt) == 1:
+                        homo_sites_to_add.append(var)
+            if self.right_boundary - max_pos > min_no_var_region_size:
+                for var in self.homo_sites:
+                    pos, ref, alt = var.split("_")
+                    if int(pos) > max_pos and len(ref) == 1 and len(alt) == 1:
+                        homo_sites_to_add.append(var)
+            for i in range(len(self.het_sites) - 1):
+                interval_start = int(self.het_sites[i].split("_")[0])
+                interval_end = int(self.het_sites[i + 1].split("_")[0])
+                if interval_end - interval_start > min_no_var_region_size:
+                    for var in self.homo_sites:
+                        pos, ref, alt = var.split("_")
+                        if (
+                            interval_start < int(pos) < interval_end
+                            and len(ref) == 1
+                            and len(alt) == 1
+                        ):
+                            homo_sites_to_add.append(var)
         if homo_sites_to_add != []:
-            homo_sites_to_add = sorted(homo_sites_to_add)
+            homo_sites_to_add = sorted(
+                homo_sites_to_add, key=lambda x: int(x.split("_")[0])
+            )
             homo_sites_to_add_size = len(homo_sites_to_add)
             homo_sites_to_add = homo_sites_to_add[
                 :: int(np.ceil(homo_sites_to_add_size / max_homo_var_to_add))
@@ -1713,23 +1886,24 @@ class Phaser:
                         bp2 = self.get_range_in_other_gene(bp1, search_range=1000)
                         bp3 = int(all_sites[fusion_breakpoint_index - 1].split("_")[0])
                         bp4 = self.get_range_in_other_gene(bp3, search_range=1000)
-                        if bp1 < bp2:
-                            fusion_breakpoint = (
-                                (bp3, bp1),
-                                (bp4, bp2),
+                        if bp2 is not None:
+                            if bp1 < bp2:
+                                fusion_breakpoint = (
+                                    (bp3, bp1),
+                                    (bp4, bp2),
+                                )
+                            else:
+                                fusion_breakpoint = (
+                                    (bp4, bp2),
+                                    (bp3, bp1),
+                                )
+                            fusions_called.setdefault(hap_name, {})
+                            fusion_type = self.get_fusion_type(hap)
+                            fusions_called[hap_name].setdefault("type", fusion_type)
+                            fusions_called[hap_name].setdefault("sequence", new_hap)
+                            fusions_called[hap_name].setdefault(
+                                "breakpoint", fusion_breakpoint
                             )
-                        else:
-                            fusion_breakpoint = (
-                                (bp4, bp2),
-                                (bp3, bp1),
-                            )
-                        fusions_called.setdefault(hap_name, {})
-                        fusion_type = self.get_fusion_type(hap)
-                        fusions_called[hap_name].setdefault("type", fusion_type)
-                        fusions_called[hap_name].setdefault("sequence", new_hap)
-                        fusions_called[hap_name].setdefault(
-                            "breakpoint", fusion_breakpoint
-                        )
         return two_cp_haps, fusions_called
 
     def get_fusion_type(self, hap):
@@ -1773,6 +1947,9 @@ class Phaser:
                     two_cp_haps.append(ass_haps[gene1s[0]])
                 if len(gene2s) == 1 and ass_haps[gene2s[0]] not in two_cp_haps:
                     two_cp_haps.append(ass_haps[gene2s[0]])
+            # homozygous fusion
+            elif len(fusions) == 1 and len(ass_haps) == 1:
+                two_cp_haps.append(ass_haps[fusions[0]])
         return two_cp_haps
 
     def new_hap_for_breakpoint(self, hap):
@@ -1881,10 +2058,28 @@ class Phaser:
 
         self.het_sites = sorted(list(self.candidate_pos))
         self.remove_noisy_sites()
+        self.init_het_sites = [a for a in self.het_sites]
         homo_sites_to_add = self.add_homo_sites()
 
+        # add pivot site
+        if self.pivot_site is not None:
+            if self.pivot_site not in [
+                int(a.split("_")[0]) for a in self.het_sites + self.add_sites
+            ]:
+                ref_base = self._refh.fetch(
+                    self.nchr_old,
+                    self.pivot_site - self.offset - 1,
+                    self.pivot_site - self.offset,
+                ).upper()
+                var_base = [a for a in ["A", "C", "G", "T"] if a != ref_base][0]
+                pivot_var = f"{self.pivot_site}_{ref_base}_{var_base}"
+                self.add_sites.append(pivot_var)
+
         raw_read_haps = self.get_haplotypes_from_reads(
-            check_clip=True, kept_sites=homo_sites_to_add, add_sites=self.add_sites
+            check_clip=True,
+            kept_sites=homo_sites_to_add,
+            add_sites=self.add_sites,
+            homo_sites=homo_sites_to_add,
         )
 
         het_sites = self.het_sites
@@ -1913,15 +2108,42 @@ class Phaser:
             known_del.setdefault("4", self.deletion2_name)
         self.het_sites = het_sites
 
-        (
-            ass_haps,
-            original_haps,
-            hcn,
-            uniquely_supporting_reads,
-            nonuniquely_supporting_reads,
-            raw_read_haps,
-            read_counts,
-        ) = self.phase_haps(raw_read_haps)
+        try:
+            (
+                ass_haps,
+                original_haps,
+                hcn,
+                uniquely_supporting_reads,
+                nonuniquely_supporting_reads,
+                raw_read_haps,
+                read_counts,
+            ) = self.phase_haps(raw_read_haps)
+        except Exception:
+            logging.warning(
+                "Did not phase haplotypes successfully, possibly due to low coverage. See error message below"
+            )
+            traceback.print_exc()
+            return self.GeneCall(
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                None,
+                self.het_sites,
+                None,
+                self.het_no_phasing,
+                self.homo_sites,
+                None,
+                None,
+                {a: "".join(b) for a, b in raw_read_haps.items()},
+                self.mdepth,
+                self.region_avg_depth._asdict(),
+                self.sample_sex,
+                None,
+            )
 
         tmp = {}
         for i, hap in enumerate(ass_haps):
@@ -1938,10 +2160,12 @@ class Phaser:
             )
 
         two_cp_haps = []
-        if (
+        if len(ass_haps) == 1 and self.init_het_sites == []:
+            two_cp_haps.append(list(ass_haps.values())[0])
+        elif (
             len(ass_haps) == 3 and self.expect_cn2 is False and self.gene != "BPY2"
         ) or (self.gene == "BPY2" and len(ass_haps) < 3):
-            two_cp_haps = self.compare_depth(haplotypes, stringent=True)
+            two_cp_haps = self.compare_depth(haplotypes, ass_haps, stringent=True)
             if two_cp_haps == [] and read_counts is not None:
                 # check if one haplotype has more reads than others
                 haps = list(read_counts.keys())
@@ -1962,16 +2186,11 @@ class Phaser:
         total_cn = len(ass_haps) + len(two_cp_haps)
 
         # fully homozygous
-        if self.het_sites == []:
+        if ass_haps == {} and self.init_het_sites == []:
             total_cn = 2
 
         # two pairs of identical copies
-        if (
-            two_cp_haps == []
-            and total_cn == 2
-            and self.expect_cn2 is False
-            and self.gene != "BPY2"
-        ):
+        if total_cn == 2 and self.expect_cn2 is False and self.gene != "BPY2":
             if self.mdepth is not None:
                 prob = self.depth_prob(int(self.region_avg_depth.median), self.mdepth)
                 if prob[0] < 0.75:
@@ -1984,7 +2203,7 @@ class Phaser:
         #            total_cn = None
         #        elif self.sample_sex == "male" and total_cn < 2:
         #            total_cn = None
-        if total_cn is not None and total_cn == 1:
+        if total_cn is not None and total_cn <= 1:
             total_cn = None
 
         # phase

@@ -55,9 +55,17 @@ class Opn1lwPhaser(Phaser):
     ]
 
     def __init__(
-        self, sample_id, outdir, genome_depth=None, genome_bam=None, sample_sex=None
+        self,
+        sample_id,
+        outdir,
+        args=None,
+        genome_depth=None,
+        genome_bam=None,
+        sample_sex=None,
     ):
-        Phaser.__init__(self, sample_id, outdir, genome_depth, genome_bam, sample_sex)
+        Phaser.__init__(
+            self, sample_id, outdir, args, genome_depth, genome_bam, sample_sex
+        )
 
     def set_parameter(self, config):
         super().set_parameter(config)
@@ -183,7 +191,10 @@ class Opn1lwPhaser(Phaser):
         self.remove_noisy_sites()
         homo_sites_to_add = self.add_homo_sites()
         raw_read_haps = self.get_haplotypes_from_reads(
-            check_clip=True, kept_sites=homo_sites_to_add, add_sites=self.add_sites
+            check_clip=True,
+            kept_sites=homo_sites_to_add,
+            add_sites=self.add_sites,
+            homo_sites=homo_sites_to_add,
         )
 
         (
@@ -234,13 +245,13 @@ class Opn1lwPhaser(Phaser):
                 var_intersect = var.intersection(pivot_vars)
                 if var_intersect == set():
                     counter_lw += 1
-                    renamed_hap = f"opn1lw_hap{counter_lw}"
+                    renamed_hap = f"{self.gene}_opn1lwhap{counter_lw}"
                 elif len(var_intersect) == 2:
                     counter_mw += 1
-                    renamed_hap = f"opn1mw_hap{counter_mw}"
+                    renamed_hap = f"{self.gene}_opn1mwhap{counter_mw}"
                 else:
                     counter_unknown += 1
-                    renamed_hap = f"opnunknown_hap{counter_unknown}"
+                    renamed_hap = f"{self.gene}_opnunknownhap{counter_unknown}"
                 hap_rename.setdefault(hap_name, renamed_hap)
                 # first, middle, last copies
                 if hap[0] not in ["x", "0"]:
@@ -251,7 +262,7 @@ class Opn1lwPhaser(Phaser):
                     middle_copies.append(renamed_hap)
                 # annotate exon3
                 hap_annotated = self.call_exon3(var)
-                gene_annotated = renamed_hap.split("_")[0]
+                gene_annotated = renamed_hap.split("_")[1].split("hap")[0]
                 gene_annotated += "_" + hap_annotated
                 annotated_haps.setdefault(renamed_hap, gene_annotated)
 
@@ -383,7 +394,7 @@ class Opn1lwPhaser(Phaser):
                         if each_hap is not None:
                             hap_vars = haplotypes[each_hap]["variants"]
                             hap_annotated = self.call_exon3(hap_vars)
-                            gene_annotated = each_hap.split("_")[0]
+                            gene_annotated = each_hap.split("_")[1].split("hap")[0]
                             gene_annotated += "_" + hap_annotated
                         else:
                             gene_annotated = None

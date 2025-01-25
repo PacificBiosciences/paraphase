@@ -33,9 +33,17 @@ class StrcPhaser(Phaser):
     )
 
     def __init__(
-        self, sample_id, outdir, genome_depth=None, genome_bam=None, sample_sex=None
+        self,
+        sample_id,
+        outdir,
+        args,
+        genome_depth=None,
+        genome_bam=None,
+        sample_sex=None,
     ):
-        Phaser.__init__(self, sample_id, outdir, genome_depth, genome_bam, sample_sex)
+        Phaser.__init__(
+            self, sample_id, outdir, args, genome_depth, genome_bam, sample_sex
+        )
         self.del1_reads = set()
         self.del1_reads_partial = set()
 
@@ -101,10 +109,10 @@ class StrcPhaser(Phaser):
         for hap in ass_haps:
             if "3" in hap:
                 counter_pseudo += 1
-                tmp.setdefault(hap, f"strcp1_hap{counter_pseudo}")
+                tmp.setdefault(hap, f"{self.gene}_strcp1hap{counter_pseudo}")
             else:
                 counter_gene += 1
-                tmp.setdefault(hap, f"strc_hap{counter_gene}")
+                tmp.setdefault(hap, f"{self.gene}_strchap{counter_gene}")
         ass_haps = tmp
 
         if self.het_sites != []:
@@ -116,7 +124,7 @@ class StrcPhaser(Phaser):
             )
 
             if counter_gene == 1 or counter_pseudo == 1:
-                two_cp_haps = self.compare_depth(haplotypes)
+                two_cp_haps = self.compare_depth(haplotypes, ass_haps)
                 for hap in two_cp_haps:
                     if "strcp1" not in hap:
                         counter_gene += 1

@@ -162,6 +162,7 @@ class VariantGraph:
         main_haps_candidates = []
         for i in reversed(range(self.nvar)):
             lhaps = [a for a in final_haps if a[i] != "x"]
+            # lhaps = [a for a in final_haps if a[i] not in ["x", "0"]]
             if lhaps not in main_haps_candidates:
                 main_haps_candidates.append(lhaps)
         main_haps_candidates = sorted(
@@ -333,10 +334,10 @@ class VariantGraph:
         dnhap_bk = copy.deepcopy(self.dnhap)
         list_keys = list(dnhap_bk.keys())
         list_values = list(dnhap_bk.values())
-        if list_values[:3] == [10, 2, 2] and list_values != [10, 2, 2, 10]:
-            dnhap[list_keys[0]] = 2
-        if list_values[-3:] == [2, 2, 10] and list_values != [10, 2, 2, 10]:
-            dnhap[list_keys[-1]] = 2
+        # if list_values[:3] == [10, 2, 2] and list_values != [10, 2, 2, 10]:
+        #    dnhap[list_keys[0]] = 2
+        # if list_values[-3:] == [2, 2, 10] and list_values != [10, 2, 2, 10]:
+        #    dnhap[list_keys[-1]] = 2
         for i, val in enumerate(list_values):
             if i > 0 and i < len(list_values) - 1:
                 if list_values[i - 1] == 10 and val == 2 and list_values[i + 1] == 10:
@@ -494,6 +495,7 @@ class VariantGraph:
                 for sub_hap in sub_hap_support_reads:
                     if debug:
                         print(sub_hap, len(sub_hap_support_reads[sub_hap]))
+                        print(sub_hap_support_reads[sub_hap])
                     if len(sub_hap_support_reads[sub_hap]) >= thres:
                         subregion_haps_assembled.add(sub_hap)
 
@@ -1139,14 +1141,16 @@ class VariantGraph:
             if i == len(block_order) and success is False:
                 break
 
-    def run(self, debug=False, make_plot=False):
+    def run(self, debug=False, make_plot=False, min_count=4):
         """Run the whole haplotype phasing process"""
         self.initialize_graph(debug=debug)
         final_haps = self.assemble_haplotypes(debug=debug, make_plot=make_plot)
         if debug:
             print("assembled_haps are", final_haps)
 
-        final_haps = self.filter_low_support_haps(final_haps, min_count=4, debug=debug)
+        final_haps = self.filter_low_support_haps(
+            final_haps, min_count=min_count, debug=debug
+        )
         highest_cn, main_haps_candidates = self.get_highest_cn(final_haps)
 
         # extend all possible haps

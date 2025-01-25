@@ -19,9 +19,17 @@ class Ncf1Phaser(Phaser):
     )
 
     def __init__(
-        self, sample_id, outdir, genome_depth=None, genome_bam=None, sample_sex=None
+        self,
+        sample_id,
+        outdir,
+        args,
+        genome_depth=None,
+        genome_bam=None,
+        sample_sex=None,
     ):
-        Phaser.__init__(self, sample_id, outdir, genome_depth, genome_bam, sample_sex)
+        Phaser.__init__(
+            self, sample_id, outdir, args, genome_depth, genome_bam, sample_sex
+        )
 
     def set_parameter(self, config):
         super().set_parameter(config)
@@ -83,13 +91,13 @@ class Ncf1Phaser(Phaser):
                 hap_var = [var_reads.get(a) for a in hap_reads]
                 if hap_var.count("alt") > (len(hap_var) - hap_var.count(None)) * 0.7:
                     counter_pseudo += 1
-                    hap_rename.setdefault(hap, f"ncf1_pseudo_hap{counter_pseudo}")
+                    hap_rename.setdefault(hap, f"{self.gene}_pseudohap{counter_pseudo}")
                 else:
                     counter_gene += 1
-                    hap_rename.setdefault(hap, f"ncf1_hap{counter_gene}")
+                    hap_rename.setdefault(hap, f"{self.gene}_hap{counter_gene}")
             else:
                 counter_pseudo += 1
-                hap_rename.setdefault(hap, f"ncf1_pseudo_hap{counter_pseudo}")
+                hap_rename.setdefault(hap, f"{self.gene}_pseudohap{counter_pseudo}")
 
         tmp = {}
         for hap, hap_name in ass_haps.items():
@@ -103,7 +111,7 @@ class Ncf1Phaser(Phaser):
 
         two_cp_haps = []
         if counter_gene == 1:
-            two_cp_hap_candidate = self.compare_depth(haplotypes)
+            two_cp_hap_candidate = self.compare_depth(haplotypes, ass_haps)
             if "ncf1_hap1" in two_cp_hap_candidate:
                 two_cp_haps = two_cp_hap_candidate
                 counter_gene += 1

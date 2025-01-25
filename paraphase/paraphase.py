@@ -88,44 +88,52 @@ class Paraphase:
             try:
                 if gene == "smn1":
                     phaser = genes.Smn1Phaser(
-                        sample_id, tmpdir, gdepth, bam, sample_sex
+                        sample_id, tmpdir, args, gdepth, bam, sample_sex
                     )
                 elif gene == "rccx":
                     phaser = genes.RccxPhaser(
-                        sample_id, tmpdir, gdepth, bam, sample_sex
+                        sample_id, tmpdir, args, gdepth, bam, sample_sex
                     )
                 elif gene == "pms2":
                     phaser = genes.Pms2Phaser(
-                        sample_id, tmpdir, gdepth, bam, sample_sex
+                        sample_id, tmpdir, args, gdepth, bam, sample_sex
                     )
                 elif gene == "strc":
                     phaser = genes.StrcPhaser(
-                        sample_id, tmpdir, gdepth, bam, sample_sex
+                        sample_id, tmpdir, args, gdepth, bam, sample_sex
                     )
                 elif gene == "ncf1":
                     phaser = genes.Ncf1Phaser(
-                        sample_id, tmpdir, gdepth, bam, sample_sex
+                        sample_id, tmpdir, args, gdepth, bam, sample_sex
                     )
                 elif gene == "cfc1":
                     phaser = genes.Cfc1Phaser(
-                        sample_id, tmpdir, gdepth, bam, sample_sex
+                        sample_id, tmpdir, args, gdepth, bam, sample_sex
                     )
                 elif gene == "neb":
-                    phaser = genes.NebPhaser(sample_id, tmpdir, gdepth, bam, sample_sex)
+                    phaser = genes.NebPhaser(
+                        sample_id, tmpdir, args, gdepth, bam, sample_sex
+                    )
                 elif gene == "ikbkg":
                     phaser = genes.IkbkgPhaser(
-                        sample_id, tmpdir, gdepth, bam, sample_sex
+                        sample_id, tmpdir, args, gdepth, bam, sample_sex
                     )
                 elif gene == "f8":
-                    phaser = genes.F8Phaser(sample_id, tmpdir, gdepth, bam, sample_sex)
+                    phaser = genes.F8Phaser(
+                        sample_id, tmpdir, args, gdepth, bam, sample_sex
+                    )
                 elif gene == "opn1lw":
                     phaser = genes.Opn1lwPhaser(
-                        sample_id, tmpdir, gdepth, bam, sample_sex
+                        sample_id, tmpdir, args, gdepth, bam, sample_sex
                     )
                 elif gene == "hba":
-                    phaser = genes.HbaPhaser(sample_id, tmpdir, gdepth, bam, sample_sex)
+                    phaser = genes.HbaPhaser(
+                        sample_id, tmpdir, args, gdepth, bam, sample_sex
+                    )
                 else:
-                    phaser = Phaser(sample_id, tmpdir, gdepth, sample_sex=sample_sex)
+                    phaser = Phaser(
+                        sample_id, tmpdir, args, gdepth, sample_sex=sample_sex
+                    )
 
                 config = configs[gene]
                 logging.info(
@@ -134,7 +142,9 @@ class Paraphase:
                 logging.info(
                     f"Realigning reads for {gene} for sample {sample_id} at {datetime.datetime.now()}..."
                 )
-                bam_realigner = BamRealigner(bam, tmpdir, config, prog_cmd, sample_id)
+                bam_realigner = BamRealigner(
+                    bam, tmpdir, config, prog_cmd, sample_id, args.reference
+                )
                 bam_realigner.write_realign_bam()
 
                 logging.info(
@@ -194,7 +204,7 @@ class Paraphase:
                     f"Error running {gene} for sample {sample_id}...See error message below"
                 )
                 traceback.print_exc()
-                phaser_calls.setdefault(gene, None)
+                phaser_calls.setdefault(gene, Phaser.GeneCall())
         return phaser_calls
 
     def process_sample(
@@ -229,15 +239,16 @@ class Paraphase:
                 sample_sex = None
                 query_genes = list(configs.keys())
 
-                logging.info(
-                    f"Getting genome depth for sample {sample_id} at {datetime.datetime.now()}..."
-                )
                 if sample_id in dcov:
                     gdepth = dcov[sample_id]
                 if (
                     gdepth is None
                     and set(query_genes) - set(self.no_genome_depth_genes) != set()
+                    and args.targeted is False
                 ):
+                    logging.info(
+                        f"Getting genome depth for sample {sample_id} at {datetime.datetime.now()}..."
+                    )
                     depth = GenomeDepth(
                         bam,
                         os.path.join(
@@ -304,18 +315,9 @@ class Paraphase:
                     for phaser_call_set in phaser_calls:
                         sample_out.update(phaser_call_set)
 
-                # merge cfh cluster result
-                if "CFH" in sample_out and "CFHR3" in sample_out:
-                    cfh_cluster_caller = genes.CfhClust(
-                        sample_id,
-                        tmpdir,
-                        sample_out["CFH"],
-                        sample_out["CFHR3"],
-                    )
-                    sample_out.setdefault(
-                        "CFHclust", cfh_cluster_caller.call()._asdict()
-                    )
-
+                sample_out = self.update_calls_after_per_gene_analysis(
+                    sample_out, sample_id, tmpdir
+                )
                 sample_out = dict(sorted(sample_out.items()))
 
                 logging.info(
@@ -334,6 +336,45 @@ class Paraphase:
                     f"Error running sample {sample_id}...See error message below"
                 )
                 traceback.print_exc()
+
+    def update_calls_after_per_gene_analysis(self, sample_out, sample_id, tmpdir):
+        """Update calls of one target based on another target"""
+        # update smn1
+        if "SERF1A" in sample_out and "smn1" in sample_out:
+            serf1_haps = sample_out["SERF1A"].get("final_haplotypes")
+            smn_haps = sample_out["SERF1A"].get("final_haplotypes")
+            if serf1_haps is not None and smn_haps is not None:
+                smn1_cn = sample_out["smn1"].get("smn1_cn")
+                if smn1_cn is not None and smn1_cn == 1:
+                    if len(serf1_haps) > len(smn_haps):
+                        sample_out["smn1"]["smn1_cn"] = None
+        # update ncf1
+        if "ncf1" in sample_out and "GTF2I" in sample_out:
+            ncf_haps = sample_out["ncf1"].get("final_haplotypes")
+            gtf2i_haps = sample_out["GTF2I"].get("final_haplotypes")
+            if gtf2i_haps is not None and ncf_haps is not None:
+                ncf1_cn = sample_out["ncf1"].get("gene_cn")
+                if ncf1_cn is not None and ncf1_cn == 1:
+                    if len(gtf2i_haps) > len(ncf_haps):
+                        sample_out["ncf1"]["gene_cn"] = None
+        # update TNXB
+        if "TNXB" in sample_out and "rccx" in sample_out:
+            tnxb_cn = sample_out["TNXB"].get("total_cn")
+            rccx_cn = sample_out["rccx"].get("total_cn")
+            if tnxb_cn is not None and rccx_cn is not None:
+                if tnxb_cn > rccx_cn:
+                    sample_out["TNXB"]["total_cn"] = None
+                    sample_out["TNXB"]["two_copy_haplotypes"] = []
+        # merge cfh cluster result
+        if "CFH" in sample_out and "CFHR3" in sample_out:
+            cfh_cluster_caller = genes.CfhClust(
+                sample_id,
+                tmpdir,
+                sample_out["CFH"],
+                sample_out["CFHR3"],
+            )
+            sample_out.setdefault("CFHclust", cfh_cluster_caller.call()._asdict())
+        return sample_out
 
     @staticmethod
     def get_sample_id_from_header(bam):
@@ -458,8 +499,11 @@ class Paraphase:
                 position_match_file = os.path.join(
                     ref_dir, f"{gene}_position_match.txt"
                 )
+                r2k = ""
+                if "use_r2k" in configs[gene]:
+                    r2k = "-r2k"
                 self.make_position_match_file(
-                    position_match_file, gene, realign_region, ref_dir
+                    position_match_file, gene, realign_region, ref_dir, r2k
                 )
                 data_paths.setdefault("gene_position_match", position_match_file)
 
@@ -492,7 +536,7 @@ class Paraphase:
         pysam.faidx(ref_file)
 
     def make_position_match_file(
-        self, position_match_file, gene, realign_region, tmpdir
+        self, position_match_file, gene, realign_region, tmpdir, r2k=""
     ):
         """
         For variant calling against a second gene, align both sequences
@@ -501,7 +545,7 @@ class Paraphase:
         tmp_bam = os.path.join(tmpdir, f"{gene}_aln.bam")
         ref_file = os.path.join(tmpdir, f"{gene}_ref.fa")
         gene2_ref_file = os.path.join(tmpdir, f"{gene}_gene2_ref.fa")
-        minimap_cmd = f"{self.minimap2} -a {ref_file} {gene2_ref_file} | {self.samtools} view -bS | {self.samtools} sort > {tmp_bam}"
+        minimap_cmd = f"{self.minimap2} {r2k} -a {ref_file} {gene2_ref_file} | {self.samtools} view -bS | {self.samtools} sort > {tmp_bam}"
         result = subprocess.run(minimap_cmd, capture_output=True, text=True, shell=True)
         result.check_returncode()
         pysam.index(tmp_bam)
@@ -558,9 +602,18 @@ class Paraphase:
             return list(gene_list)
         return self.accepted_genes
 
+    @staticmethod
+    def check_index(file_name):
+        """Check index file for bam or cram"""
+        if file_name.endswith("bam"):
+            return os.path.exists(file_name + ".bai")
+        elif file_name.endswith("cram"):
+            return os.path.exists(file_name + ".crai")
+        return False
+
     def load_parameters(self):
         parser = argparse.ArgumentParser(
-            description="Paraphase: HiFi-based caller for highly homologous genes",
+            description="Paraphase: HiFi-based caller for highly similar paralogous genes",
             formatter_class=RawTextHelpFormatter,
         )
         inputp = parser.add_argument_group("Input Options")
@@ -627,6 +680,22 @@ class Paraphase:
             default=1,
         )
         parser.add_argument(
+            "--min-read-variant",
+            help="Optional. Partially controls the number of supporting reads for a variant to be used for phasing.\n"
+            + "The cutoff for variant-supporting reads is determined by min(this number, max(5, depth*0.11)).\n"
+            + "Default is 20 (at standard WGS depth, it is overwritten by max(5, depth*0.11)).",
+            required=False,
+            type=int,
+            default=20,
+        )
+        parser.add_argument(
+            "--min-read-haplotype",
+            help="Optional. Minimum number of unique supporting reads for a haplotype. Default is 4.",
+            required=False,
+            type=int,
+            default=4,
+        )
+        parser.add_argument(
             "--genome",
             help="Optionally specify which genome reference build the input BAM files are aligned against.\n"
             + "Accepted values are 19, 37 and 38. Default is 38.\n"
@@ -651,6 +720,12 @@ class Paraphase:
         parser.add_argument(
             "--write-nocalls-in-vcf",
             help="Optional. If specified, Paraphase will write no-call sites in the VCFs, marked with LowQual filter.",
+            required=False,
+            action="store_true",
+        )
+        parser.add_argument(
+            "--targeted",
+            help="Optional. If specified, paraphase will not assume depth is uniform across the genome.",
             required=False,
             action="store_true",
         )
@@ -709,7 +784,7 @@ class Paraphase:
             bamlist = []
             # one bam, multiprocess by gene
             if args.bam is not None:
-                if os.path.exists(args.bam) and os.path.exists(args.bam + ".bai"):
+                if os.path.exists(args.bam) and self.check_index(args.bam):
                     bamlist = [args.bam]
                     self.process_sample(
                         bamlist,
@@ -723,16 +798,20 @@ class Paraphase:
                         genome_build_dir,
                     )
                 else:
-                    logging.warning(f"{args.bam} bam or bai file doesn't exist")
+                    logging.warning(
+                        f"Input file is {args.bam} but bam/cram or bai/crai file doesn't exist."
+                    )
             # multiple bams, multiprocess by sample
             elif args.list is not None:
                 with open(args.list) as f:
                     for line in f:
                         bam = line[:-1]
-                        if os.path.exists(bam) and os.path.exists(bam + ".bai"):
+                        if os.path.exists(bam) and self.check_index(bam):
                             bamlist.append(bam)
                         else:
-                            logging.warning(f"{bam} bam or bai file doesn't exist")
+                            logging.warning(
+                                f"Input file is {args.bam} but bam/cram or bai/crai file doesn't exist."
+                            )
 
                 process_sample_partial = partial(
                     self.process_sample,

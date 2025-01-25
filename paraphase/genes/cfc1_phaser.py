@@ -7,9 +7,17 @@ from ..phaser import Phaser
 
 class Cfc1Phaser(Phaser):
     def __init__(
-        self, sample_id, outdir, genome_depth=None, genome_bam=None, sample_sex=None
+        self,
+        sample_id,
+        outdir,
+        args,
+        genome_depth=None,
+        genome_bam=None,
+        sample_sex=None,
     ):
-        Phaser.__init__(self, sample_id, outdir, genome_depth, genome_bam, sample_sex)
+        Phaser.__init__(
+            self, sample_id, outdir, args, genome_depth, genome_bam, sample_sex
+        )
 
     def call(self):
         if self.check_coverage_before_analysis() is False:
@@ -18,9 +26,12 @@ class Cfc1Phaser(Phaser):
         self.get_candidate_pos()
         self.het_sites = sorted(list(self.candidate_pos))
         self.remove_noisy_sites()
+        self.init_het_sites = [a for a in self.het_sites]
         homo_sites_to_add = self.add_homo_sites()
         raw_read_haps = self.get_haplotypes_from_reads(
-            kept_sites=homo_sites_to_add, add_sites=self.add_sites
+            kept_sites=homo_sites_to_add,
+            add_sites=self.add_sites,
+            homo_sites=homo_sites_to_add,
         )
 
         (
@@ -47,10 +58,10 @@ class Cfc1Phaser(Phaser):
             )
 
         two_cp_haps = []
-        if len(ass_haps) == 2:
+        if len(ass_haps) <= 2:
             two_cp_haps = list(ass_haps.values())
         elif len(ass_haps) == 3:
-            two_cp_haps = self.compare_depth(haplotypes, loose=True)
+            two_cp_haps = self.compare_depth(haplotypes, ass_haps, loose=True)
             if two_cp_haps == [] and read_counts is not None:
                 # check if one smn1 haplotype has more reads than others
                 haps = list(read_counts.keys())
@@ -64,7 +75,7 @@ class Cfc1Phaser(Phaser):
 
         total_cn = len(ass_haps) + len(two_cp_haps)
 
-        if self.het_sites == []:
+        if self.init_het_sites == []:
             total_cn = 4
 
         if total_cn < 4:

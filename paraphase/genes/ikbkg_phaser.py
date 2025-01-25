@@ -17,9 +17,17 @@ class IkbkgPhaser(Phaser):
     )
 
     def __init__(
-        self, sample_id, outdir, genome_depth=None, genome_bam=None, sample_sex=None
+        self,
+        sample_id,
+        outdir,
+        args,
+        genome_depth=None,
+        genome_bam=None,
+        sample_sex=None,
     ):
-        Phaser.__init__(self, sample_id, outdir, genome_depth, genome_bam, sample_sex)
+        Phaser.__init__(
+            self, sample_id, outdir, args, genome_depth, genome_bam, sample_sex
+        )
         self.del1_reads = set()
         self.del1_reads_partial = set()
 
@@ -59,13 +67,20 @@ class IkbkgPhaser(Phaser):
             self.candidate_pos.add(self.add_sites[1])
 
         self.het_sites = sorted(list(self.candidate_pos))
+
+        kept_sites = [self.add_sites[1]]
+        self.het_sites = sorted(self.het_sites)
         self.remove_noisy_sites()
+        homo_sites_to_add = self.add_homo_sites(min_no_var_region_size=6000)
+        # print(homo_sites_to_add)
+        kept_sites += homo_sites_to_add
 
         raw_read_haps = self.get_haplotypes_from_reads(
             check_clip=True,
             partial_deletion_reads=self.del1_reads_partial,
-            kept_sites=[self.add_sites[1]],
+            kept_sites=kept_sites,
             add_sites=[self.add_sites[0]],  # pivot site
+            homo_sites=homo_sites_to_add,
         )
         het_sites = self.het_sites
         if self.del1_reads_partial != set():
@@ -102,26 +117,25 @@ class IkbkgPhaser(Phaser):
             return self.GeneCall()
         else:
             for i, hap in enumerate(ass_haps):
-                start_seq = hap[: pivot_index + 1]
-                if start_seq.startswith("0") is False:
-                    if len(start_seq) < 15:
-                        unknown_counter += 1
-                        hap_name = f"ikbkg_unknown_hap{unknown_counter}"
-                    elif start_seq.count("2") <= 5:
-                        gene_counter += 1
-                        hap_name = f"ikbkg_hap{gene_counter}"
-                    elif start_seq.count("2") >= 15:
-                        pseudo_counter += 1
-                        hap_name = f"ikbkg_pseudo_hap{pseudo_counter}"
-                    else:
-                        unknown_counter += 1
-                        hap_name = f"ikbkg_unknown_hap{unknown_counter}"
-                    tmp.setdefault(hap, hap_name)
-                    if "3" in hap:
-                        deletion_haplotypes.append(hap_name)
+                clip_5p = self.get_5pclip_from_hap(hap)
+                if clip_5p is None:
+                    unknown_counter += 1
+                    hap_name = f"{self.gene}_unknownhap{unknown_counter}"
                 else:
-                    dup_counter += 1
-                    tmp.setdefault(hap, f"ikbkg_dup_hap{dup_counter}")
+                    if clip_5p == self.clip_5p_positions[0]:
+                        pseudo_counter += 1
+                        hap_name = f"{self.gene}_pseudohap{pseudo_counter}"
+                    elif clip_5p == self.clip_5p_positions[1]:
+                        dup_counter += 1
+                        tmp.setdefault(hap, f"{self.gene}_duphap{dup_counter}")
+                    else:
+                        assert clip_5p == 0
+                        gene_counter += 1
+                        hap_name = f"{self.gene}_ikbkghap{gene_counter}"
+                tmp.setdefault(hap, hap_name)
+                if "3" in hap:
+                    deletion_haplotypes.append(hap_name)
+
         ass_haps = tmp
 
         haplotypes = None
@@ -151,7 +165,7 @@ class IkbkgPhaser(Phaser):
             elif (gene_counter > 1 and pseudo_counter == 1) or (
                 gene_counter == 1 and pseudo_counter > 1
             ):
-                two_cp_haps = self.compare_depth(haplotypes, loose=True)
+                two_cp_haps = self.compare_depth(haplotypes, ass_haps, loose=True)
                 if two_cp_haps == [] and read_counts is not None:
                     # check if one haplotype has more reads than others
                     haps = list(read_counts.keys())
@@ -164,7 +178,7 @@ class IkbkgPhaser(Phaser):
                         two_cp_haps.append(ass_haps[cp2_hap])
             for hap in two_cp_haps:
                 total_cn += 1
-                if "ikbkg_hap" in hap:
+                if "ikbkghap" in hap:
                     gene_counter += 1
             if gene_counter == 1 and pseudo_counter != 1:
                 gene_counter = None

@@ -18,7 +18,7 @@ class TestF8Phaser(object):
         config = update_config("f8")
         phaser.set_parameter(config)
         f8_call = phaser.call()
-        assert f8_call.sv_called == {"f8_int22h3_hap1": "inversion"}
+        assert f8_call.sv_called == {"f8_int22h3hap1": "inversion"}
 
     def test_deletion(self):
         sample_id = "del"
@@ -29,4 +29,4 @@ class TestF8Phaser(object):
         config = update_config("f8")
         phaser.set_parameter(config)
         f8_call = phaser.call()
-        assert f8_call.sv_called == {"f8_int22h2_hap1": "deletion"}
+        assert f8_call.sv_called == {"f8_int22h2hap1": "deletion"}
