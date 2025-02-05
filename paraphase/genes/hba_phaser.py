@@ -5,6 +5,7 @@ import copy
 from collections import namedtuple
 import pysam
 from ..phaser import Phaser
+from paraphase.prepare_bam_and_vcf import pysam_handle
 
 
 class HbaPhaser(Phaser):
@@ -31,6 +32,9 @@ class HbaPhaser(Phaser):
         Phaser.__init__(
             self, sample_id, outdir, args, genome_depth, genome_bam, sample_sex
         )
+        self.reference_fasta = None
+        if args is not None:
+            self.reference_fasta = args.reference
 
     def set_parameter(self, config):
         super().set_parameter(config)
@@ -39,7 +43,7 @@ class HbaPhaser(Phaser):
     def call(self):
         if self.check_coverage_before_analysis() is False:
             return self.GeneCall()
-        genome_bamh = pysam.AlignmentFile(self.genome_bam, "rb")
+        genome_bamh = pysam_handle(self.genome_bam, self.reference_fasta)
         surrounding_region_depth = self.get_regional_depth(
             genome_bamh, self.depth_region
         )[0].median

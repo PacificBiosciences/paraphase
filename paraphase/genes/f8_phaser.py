@@ -5,6 +5,7 @@ import copy
 from collections import namedtuple
 import pysam
 from ..phaser import Phaser
+from paraphase.prepare_bam_and_vcf import pysam_handle
 
 
 class F8Phaser(Phaser):
@@ -33,6 +34,9 @@ class F8Phaser(Phaser):
         Phaser.__init__(
             self, sample_id, outdir, args, genome_depth, genome_bam, sample_sex
         )
+        self.reference_fasta = None
+        if args is not None:
+            self.reference_fasta = args.reference
 
     def set_parameter(self, config):
         super().set_parameter(config)
@@ -41,11 +45,11 @@ class F8Phaser(Phaser):
             "extract_regions"
         ].split()
 
-    def get_read_positions(self, min_extension=5000):
+    def get_read_positions(self, genome_bamh, min_extension=5000):
         """Get mapped region of the part of reads not overlapping repeat"""
         dpos5 = {}
         dpos3 = {}
-        genome_bamh = pysam.AlignmentFile(self.genome_bam, "rb")
+
         for i, extract_region in enumerate(
             [self.extract_region1, self.extract_region2, self.extract_region3]
         ):
@@ -86,11 +90,11 @@ class F8Phaser(Phaser):
         if self.check_coverage_before_analysis() is False:
             return self.GeneCall()
 
-        genome_bamh = pysam.AlignmentFile(self.genome_bam, "rb")
+        genome_bamh = pysam_handle(self.genome_bam, self.reference_fasta)
         e1_e22_depth = self.get_regional_depth(genome_bamh, self.depth_region)[0].median
-        genome_bamh.close()
 
-        dpos5, dpos3 = self.get_read_positions()
+        dpos5, dpos3 = self.get_read_positions(genome_bamh)
+        genome_bamh.close()
         self.get_homopolymer()
         self.get_candidate_pos()
 

@@ -45,7 +45,6 @@ class BamRealigner:
         self.use_r2k = ""
         if "use_r2k" in config:
             self.use_r2k = "-r2k"
-        self._bamh = pysam.AlignmentFile(bam, "rb")
         self.realign_bam = os.path.join(
             self.outdir, self.sample_id + f"_{self.gene}_realigned_old.bam"
         )
@@ -95,20 +94,21 @@ class BamRealigner:
             nchr = self.nchr_gene2
             nchr_length = self.nchr_length_gene2
 
+        wgs_bamh = pysam_handle(self.bam, reference_fasta=self.genome_reference)
         has_rq = False
         ext_region_first = self.extract_regions.split()[0].split(":")
         i = 0
-        with pysam.AlignmentFile(self.bam) as wgs:
-            for read in wgs.fetch(
-                ext_region_first[0],
-                int(ext_region_first[1].split("-")[0]),
-                int(ext_region_first[1].split("-")[1]),
-            ):
-                i += 1
-                if read.has_tag("rq"):
-                    has_rq = True
-                if i > 0:
-                    break
+        for read in wgs_bamh.fetch(
+            ext_region_first[0],
+            int(ext_region_first[1].split("-")[0]),
+            int(ext_region_first[1].split("-")[1]),
+        ):
+            i += 1
+            if read.has_tag("rq"):
+                has_rq = True
+            if i > 0:
+                break
+        wgs_bamh.close()
         if has_rq:
             realign_cmd = (
                 f"{self.samtools} view -F 0x100 -F 0x200 -F 0x800 -e '[rq]>=0.99' -T {self.genome_reference} {self.bam} {self.extract_regions} | sort | uniq | "
@@ -1253,3 +1253,10 @@ class TwoGeneVcfGenerater(VcfGenerater):
                     (vars_gene1, gene1_hap_info),
                 ]
             )
+
+
+def pysam_handle(input_file, reference_fasta=None):
+    """Get pysam handle for bam/cram files"""
+    if input_file.lower().endswith("cram"):
+        return pysam.AlignmentFile(input_file, "rc", reference_filename=reference_fasta)
+    return pysam.AlignmentFile(input_file, "rb")

@@ -5,6 +5,7 @@
 from collections import namedtuple
 import pysam
 from ..phaser import Phaser
+from paraphase.prepare_bam_and_vcf import pysam_handle
 
 
 class StrcPhaser(Phaser):
@@ -46,6 +47,9 @@ class StrcPhaser(Phaser):
         )
         self.del1_reads = set()
         self.del1_reads_partial = set()
+        self.reference_fasta = None
+        if args is not None:
+            self.reference_fasta = args.reference
 
     def set_parameter(self, config):
         super().set_parameter(config)
@@ -60,7 +64,7 @@ class StrcPhaser(Phaser):
     def call(self):
         if self.check_coverage_before_analysis() is False:
             return self.GeneCall()
-        genome_bamh = pysam.AlignmentFile(self.genome_bam, "rb")
+        genome_bamh = pysam_handle(self.genome_bam, self.reference_fasta)
         intergenic_depth = self.get_regional_depth(genome_bamh, self.depth_region)[
             0
         ].median
