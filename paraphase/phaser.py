@@ -1439,7 +1439,9 @@ class Phaser:
             for read_hap in uniquely_supporting_haps[hap]:
                 uniquely_supporting_reads[hap] += haplotypes_to_reads[read_hap]
         for hap in uniquely_supporting_haps:
-            uniquely_supporting_reads[hap] = list(set(uniquely_supporting_reads[hap]))
+            uniquely_supporting_reads[hap] = sorted(
+                list(set(uniquely_supporting_reads[hap]))
+            )
 
         nonuniquely_supporting_reads = {}
         for read in read_support.by_read:
