@@ -249,6 +249,7 @@ class BamTagger:
         nonuniquelly matching. The randomly assigned reads are in gray
         while unique reads are in blue.
         """
+        read.set_tag("RN", self.gene, "Z")
         hp_found = False
         read_name = read.qname
         if (
