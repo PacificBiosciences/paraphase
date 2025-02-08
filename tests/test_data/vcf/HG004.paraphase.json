@@ -530,6 +530,7 @@
             "percentile80": 28.0
         },
         "sample_sex": "female",
+        "heterozygous_sites": [],
         "fusions_called": null
     },
     "ikbkg": {
