@@ -468,13 +468,12 @@ class VcfGenerater:
     def modify_hapbound(bound1, bound2, truncated):
         """Get haplotype boundaries to appear in vcf"""
         hap_bound = f"{bound1}-{bound2}"
-        if truncated is not None:
-            if truncated == ["5p"]:
-                hap_bound = f"{bound1}truncated-{bound2}"
-            elif truncated == ["3p"]:
-                hap_bound = f"{bound1}-{bound2}truncated"
-            elif truncated == ["5p", "3p"]:
-                hap_bound = f"{bound1}truncated-{bound2}truncated"
+        if truncated == ["5p"]:
+            hap_bound = f"{bound1}truncated-{bound2}"
+        elif truncated == ["3p"]:
+            hap_bound = f"{bound1}-{bound2}truncated"
+        elif truncated == ["5p", "3p"]:
+            hap_bound = f"{bound1}truncated-{bound2}truncated"
         return hap_bound
 
     @staticmethod
@@ -578,10 +577,7 @@ class VcfGenerater:
                                     hap_info_bound2,
                                     hap_info_truncated,
                                 ) = hap_info
-                                if (
-                                    hap_info_truncated is None
-                                    or hap_info_truncated is False
-                                ):
+                                if hap_info_truncated == []:
                                     valid_gts.append(".")
                                 elif hap_info_truncated == ["5p"]:
                                     if pos > hap_info_bound1:
@@ -786,9 +782,7 @@ class VcfGenerater:
         is_truncated = self.call_sum["haplotype_details"][hap_name]["is_truncated"]
         # find the positions next to the existing boundaries
         confident_position = hap_bound[0]
-        if confident_position == self.left_boundary or (
-            is_truncated is not None and "5p" in is_truncated
-        ):
+        if confident_position == self.left_boundary or "5p" in is_truncated:
             hap_bound.append(confident_position)
         else:
             for var in self.call_sum["sites_for_phasing"]:
@@ -797,9 +791,7 @@ class VcfGenerater:
                     break
             hap_bound.append(confident_position)
         confident_position = hap_bound[1]
-        if confident_position == self.right_boundary or (
-            is_truncated is not None and "3p" in is_truncated
-        ):
+        if confident_position == self.right_boundary or "3p" in is_truncated:
             hap_bound.append(confident_position)
         else:
             for var in reversed(self.call_sum["sites_for_phasing"]):

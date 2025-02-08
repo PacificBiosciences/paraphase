@@ -1092,7 +1092,7 @@ class Phaser:
         for hap, hap_name in haps.items():
             # find boundary for confident variant calling
             hap_bound_start, hap_bound_end = self.get_hap_variant_ranges(hap)
-            is_truncated = None
+            is_truncated = []
             # het sites
             for i in range(len(hap)):
                 if hap[i] == "2":
@@ -1138,7 +1138,8 @@ class Phaser:
                 hap_bound_start = max(hap_bound_start, clip_position_5p)
                 haplotype_variants[hap_name].append(f"{clip_position_5p}_clip_5p")
                 if clip_position_5p > self.gene_start:
-                    is_truncated = ["5p"]
+                    if "5p" not in is_truncated:
+                        is_truncated.append("5p")
             clip_position_3p = self.get_3pclip_from_hap(hap)
             if clip_position_3p is not None and clip_position_3p != 0:
                 filtered_homo_sites = [
@@ -1149,9 +1150,7 @@ class Phaser:
                 hap_bound_end = min(hap_bound_end, clip_position_3p)
                 haplotype_variants[hap_name].append(f"{clip_position_3p}_clip_3p")
                 if clip_position_3p < self.gene_end:
-                    if is_truncated is None:
-                        is_truncated = ["3p"]
-                    else:
+                    if "3p" not in is_truncated:
                         is_truncated.append("3p")
 
             haplotype_variants[hap_name] += filtered_homo_sites

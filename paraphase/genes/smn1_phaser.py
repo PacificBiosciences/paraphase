@@ -268,7 +268,7 @@ class Smn1Phaser(Phaser):
                         ),
                     ],
                     haplogroup,
-                    False,
+                    [],
                 )._asdict(),
             )
 

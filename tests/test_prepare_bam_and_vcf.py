@@ -101,8 +101,8 @@ class TestVcfGenerater(object):
         vcf_generater.set_parameter(config, tmpdir=self.sample_dir, prog_cmd="test")
         variants_info, hap_info = vcf_generater.run_without_realign()
         assert hap_info == [
-            ["AMY2A_hap1", 103616000, 103631602, None],
-            ["AMY2A_hap1_cp2", 103616000, 103631602, None],
+            ["AMY2A_hap1", 103616000, 103631602, []],
+            ["AMY2A_hap1_cp2", 103616000, 103631602, []],
             ["AMY2A_hap2", 103619306, 103631602, ["5p"]],
             ["AMY2A_hap3", 103619306, 103631602, ["5p"]],
         ]
