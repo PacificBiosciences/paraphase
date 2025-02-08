@@ -990,7 +990,12 @@ class VcfGenerater:
             offset = self.offset_gene2
             nchr = self.nchr_gene2
 
-        if (gene2 is False or match_range is False) and final_haps == {}:
+        if (
+            (gene2 is False or match_range is False)
+            and final_haps == {}
+            and "heterozygous_sites" in call_sum
+            and call_sum["heterozygous_sites"] == []
+        ):
             hap_name = f"{self.gene}_homozygous_hap1"
             pileups_raw = {}
             read_names = {}
