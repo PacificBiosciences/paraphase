@@ -783,9 +783,12 @@ class VcfGenerater:
     def get_hap_bound(self, hap_name):
         """Get haplotype boundaries"""
         hap_bound = list(self.call_sum["haplotype_details"][hap_name]["boundary"])
+        is_truncated = self.call_sum["haplotype_details"][hap_name]["is_truncated"]
         # find the positions next to the existing boundaries
         confident_position = hap_bound[0]
-        if confident_position == self.left_boundary:
+        if confident_position == self.left_boundary or (
+            is_truncated is not None and "5p" in is_truncated
+        ):
             hap_bound.append(confident_position)
         else:
             for var in self.call_sum["sites_for_phasing"]:
@@ -794,7 +797,9 @@ class VcfGenerater:
                     break
             hap_bound.append(confident_position)
         confident_position = hap_bound[1]
-        if confident_position == self.right_boundary:
+        if confident_position == self.right_boundary or (
+            is_truncated is not None and "3p" in is_truncated
+        ):
             hap_bound.append(confident_position)
         else:
             for var in reversed(self.call_sum["sites_for_phasing"]):
