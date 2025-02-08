@@ -1,13 +1,13 @@
 # paraphase
 # Author: Xiao Chen <xchen@pacificbiosciences.com>
 
-
+import copy
 from collections import namedtuple
 from ..phaser import Phaser
 
 
 class Opn1lwPhaser(Phaser):
-    fields = (
+    new_fields = (
         "total_cn",
         "opn1lw_cn",
         "opn1mw_cn",
@@ -25,23 +25,13 @@ class Opn1lwPhaser(Phaser):
         "directional_links",
         "links_loose",
         "alleles_raw",
-        "highest_total_cn",
-        "assembled_haplotypes",
-        "sites_for_phasing",
-        "unique_supporting_reads",
-        "het_sites_not_used_in_phasing",
-        "homozygous_sites",
-        "haplotype_details",
-        "nonunique_supporting_reads",
-        "read_details",
-        "genome_depth",
-        "region_depth",
-        "sample_sex",
     )
+    # new_fields = copy.deepcopy(Phaser.fields)
+    new_fields += tuple(Phaser.fields[6:])
     GeneCall = namedtuple(
         "GeneCall",
-        fields,
-        defaults=(None,) * len(fields),
+        new_fields,
+        defaults=(None,) * len(new_fields),
     )
     pathogenic_haps = [
         "LIAVA",
@@ -189,6 +179,7 @@ class Opn1lwPhaser(Phaser):
         self.get_candidate_pos(min_vaf=0.08)
         self.het_sites = sorted(list(self.candidate_pos))
         self.remove_noisy_sites()
+        self.init_het_sites = [a for a in self.het_sites]
         homo_sites_to_add = self.add_homo_sites()
         raw_read_haps = self.get_haplotypes_from_reads(
             check_clip=True,
@@ -284,6 +275,7 @@ class Opn1lwPhaser(Phaser):
                 hap_links,
                 directional_links,
                 directional_links_loose,
+                linked_haps,
             ) = self.phase_alleles(
                 uniquely_supporting_reads,
                 nonuniquely_supporting_reads,
@@ -291,6 +283,7 @@ class Opn1lwPhaser(Phaser):
                 ass_haps,
                 reverse=self.is_reverse,
             )
+            alleles = linked_haps
 
             # incorrect phasing suggests haplotypes with cn > 1
             if (
@@ -455,4 +448,6 @@ class Opn1lwPhaser(Phaser):
             self.mdepth,
             self.region_avg_depth._asdict(),
             self.sample_sex,
+            self.init_het_sites,
+            alleles_1st_2nd,
         )

@@ -40,6 +40,7 @@ class NebPhaser(Phaser):
         self.get_candidate_pos()
         self.het_sites = sorted(list(self.candidate_pos))
         self.remove_noisy_sites()
+        self.init_het_sites = [a for a in self.het_sites]
         homo_sites_to_add = self.add_homo_sites()
         raw_read_haps = self.get_haplotypes_from_reads(
             kept_sites=homo_sites_to_add,
@@ -120,6 +121,7 @@ class NebPhaser(Phaser):
             tri3.append(tri3[0])
 
         alleles = []
+        linked_haps = []
         hap_links = {}
         if two_cp_haps == []:
             (
@@ -127,6 +129,7 @@ class NebPhaser(Phaser):
                 hap_links,
                 _,
                 _,
+                linked_haps,
             ) = self.phase_alleles(
                 uniquely_supporting_reads,
                 nonuniquely_supporting_reads,
@@ -139,6 +142,7 @@ class NebPhaser(Phaser):
         # incorrect phasing suggests haplotypes with cn > 1
         if len(alleles) == 1 and sorted(alleles[0]) == sorted(ass_haps.values()):
             alleles = []
+            linked_haps = []
             total_cn = None
         elif len(tri1) > 2 or len(tri3) > 2:
             total_cn = None
@@ -155,6 +159,7 @@ class NebPhaser(Phaser):
                     total_cn = 6
                     two_cp_haps = [tri2[0]]
                     alleles = []
+                    linked_haps = []
 
         # homozygous case
         if total_cn == 0:
@@ -181,4 +186,6 @@ class NebPhaser(Phaser):
             self.mdepth,
             self.region_avg_depth._asdict(),
             self.sample_sex,
+            self.init_het_sites,
+            linked_haps,
         )

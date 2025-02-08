@@ -42,6 +42,7 @@ class Pms2Phaser(Phaser):
         self.get_candidate_pos()
         self.het_sites = sorted(list(self.candidate_pos))
         self.remove_noisy_sites()
+        self.init_het_sites = [a for a in self.het_sites]
         homo_sites_to_add = self.add_homo_sites(min_no_var_region_size=6000)
         # for distinguishing pms2 from pms2cl
         raw_read_haps = self.get_haplotypes_from_reads(
@@ -149,5 +150,5 @@ class Pms2Phaser(Phaser):
             self.mdepth,
             self.region_avg_depth._asdict(),
             self.sample_sex,
-            None,
+            self.init_het_sites,
         )

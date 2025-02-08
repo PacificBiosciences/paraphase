@@ -231,6 +231,7 @@ class HbaPhaser(Phaser):
 
         # phase
         alleles = []
+        linked_haps = []
         hap_links = {}
         if self.to_phase is True:
             (
@@ -238,6 +239,7 @@ class HbaPhaser(Phaser):
                 hap_links,
                 _,
                 _,
+                linked_haps,
             ) = self.phase_alleles(
                 uniquely_supporting_reads,
                 nonuniquely_supporting_reads,
@@ -249,6 +251,7 @@ class HbaPhaser(Phaser):
             if len(alleles) == 1:
                 if len(alleles[0]) == len(ass_haps):
                     alleles = []
+                    linked_haps = []
         self.close_handle()
 
         return self.GeneCall(
@@ -272,4 +275,6 @@ class HbaPhaser(Phaser):
             self.mdepth,
             self.region_avg_depth._asdict(),
             self.sample_sex,
+            self.init_het_sites,
+            linked_haps,
         )

@@ -40,6 +40,8 @@ class Phaser:
         "genome_depth",
         "region_depth",
         "sample_sex",
+        "heterozygous_sites",
+        "linked_haplotypes",
         "fusions_called",
     ]
     GeneCall = namedtuple(
@@ -1670,11 +1672,24 @@ class Phaser:
             sorted(read_links.items(), key=lambda item: len(item[1]), reverse=True)
         )
         alleles = Phaser.get_alleles_from_links(read_links, ass_haps.values())
+        linked_haps = alleles
+        if len(alleles) > 2:
+            alleles = []
+
+        haps_in_alleles = []
+        for allele in alleles:
+            for hap in allele:
+                haps_in_alleles.append(hap)
+        # not all haplotypes are included in alleles
+        if len(set(haps_in_alleles)) < len(ass_haps):
+            alleles = []
+
         return (
             alleles,
             read_links,
             {a: len(b) for a, b in directed_links.items()},
             {a: Counter(b) for a, b in directed_links_loose.items()},
+            linked_haps,
         )
 
     def get_directed_links(self, new_reads, raw_read_haps, ass_haps, reverse):
@@ -1795,7 +1810,7 @@ class Phaser:
                     new_alleles.append(each_allele)
                 else:
                     merged += each_allele
-            merged = list(set(merged))
+            merged = sorted(list(set(merged)))
             new_alleles.append(merged)
             alleles = new_alleles
         return alleles
@@ -2210,6 +2225,7 @@ class Phaser:
 
         # phase
         alleles = []
+        linked_haps = []
         hap_links = {}
         if self.to_phase is True:
             (
@@ -2217,6 +2233,7 @@ class Phaser:
                 hap_links,
                 _,
                 _,
+                linked_haps,
             ) = self.phase_alleles(
                 uniquely_supporting_reads,
                 nonuniquely_supporting_reads,
@@ -2224,6 +2241,20 @@ class Phaser:
                 ass_haps,
                 reverse=self.is_reverse,
             )
+        # all haplotypes are phased into one allele
+        if (
+            len(alleles) == 1
+            and sorted(alleles[0]) == sorted(ass_haps.values())
+            and (
+                self.sample_sex is not None
+                and self.sample_sex == "male"
+                and ("X" in self.nchr or "Y" in self.nchr)
+            )
+            is False
+        ):
+            alleles = []
+            linked_haps = []
+
         self.close_handle()
 
         return self.GeneCall(
@@ -2245,6 +2276,8 @@ class Phaser:
             self.mdepth,
             self.region_avg_depth._asdict(),
             self.sample_sex,
+            self.init_het_sites,
+            linked_haps,
             fusions_called,
         )
 

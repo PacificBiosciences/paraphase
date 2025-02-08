@@ -11,8 +11,6 @@ from paraphase.prepare_bam_and_vcf import pysam_handle
 class F8Phaser(Phaser):
     new_fields = copy.deepcopy(Phaser.fields)
     new_fields.remove("gene_cn")
-    new_fields.remove("alleles_final")
-    new_fields.remove("hap_links")
     new_fields.insert(3, "sv_called")
     new_fields.insert(3, "flanking_summary")
     new_fields.insert(3, "exon1_to_exon22_depth")
@@ -118,6 +116,7 @@ class F8Phaser(Phaser):
 
         self.het_sites = sorted(list(self.candidate_pos))
         self.remove_noisy_sites()
+        self.init_het_sites = [a for a in self.het_sites]
 
         raw_read_haps = self.get_haplotypes_from_reads(
             check_clip=True,
@@ -219,6 +218,8 @@ class F8Phaser(Phaser):
             e1_e22_depth,
             flanking_sum,
             sv_hap,
+            None,
+            None,
             hcn,
             original_haps,
             self.het_sites,
@@ -231,4 +232,5 @@ class F8Phaser(Phaser):
             self.mdepth,
             self.region_avg_depth._asdict(),
             self.sample_sex,
+            self.init_het_sites,
         )
