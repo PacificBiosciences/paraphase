@@ -2212,7 +2212,7 @@ class Phaser:
                 if prob[0] < 0.75:
                     total_cn = 4
                     if two_cp_haps == [] and ass_haps != {}:
-                        two_cp_haps.append(list(ass_haps.values())[0])
+                        two_cp_haps = list(ass_haps.values())
 
         # correct CN for palindrome genes
         # if self.sample_sex is not None:
