@@ -5,15 +5,16 @@
 import numpy as np
 import pysam
 import logging
+from paraphase.prepare_bam_and_vcf import pysam_handle
 
 logging.basicConfig(level=logging.INFO)
 
 
 class GenomeDepth:
-    def __init__(self, bam, genome_depth_region_file):
+    def __init__(self, bam, genome_depth_region_file, reference_fasta):
         self.bam = bam
         self.genome_depth_region_file = genome_depth_region_file
-        self._bamh = pysam.AlignmentFile(bam, "rb")
+        self._bamh = pysam_handle(bam, reference_fasta)
         self.mdepth = None
         self.mad = None
         self.x = []

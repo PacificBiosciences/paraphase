@@ -40,6 +40,8 @@ class Phaser:
         "genome_depth",
         "region_depth",
         "sample_sex",
+        "heterozygous_sites",
+        "linked_haplotypes",
         "fusions_called",
     ]
     GeneCall = namedtuple(
@@ -1090,7 +1092,7 @@ class Phaser:
         for hap, hap_name in haps.items():
             # find boundary for confident variant calling
             hap_bound_start, hap_bound_end = self.get_hap_variant_ranges(hap)
-            is_truncated = None
+            is_truncated = []
             # het sites
             for i in range(len(hap)):
                 if hap[i] == "2":
@@ -1136,7 +1138,8 @@ class Phaser:
                 hap_bound_start = max(hap_bound_start, clip_position_5p)
                 haplotype_variants[hap_name].append(f"{clip_position_5p}_clip_5p")
                 if clip_position_5p > self.gene_start:
-                    is_truncated = ["5p"]
+                    if "5p" not in is_truncated:
+                        is_truncated.append("5p")
             clip_position_3p = self.get_3pclip_from_hap(hap)
             if clip_position_3p is not None and clip_position_3p != 0:
                 filtered_homo_sites = [
@@ -1147,9 +1150,7 @@ class Phaser:
                 hap_bound_end = min(hap_bound_end, clip_position_3p)
                 haplotype_variants[hap_name].append(f"{clip_position_3p}_clip_3p")
                 if clip_position_3p < self.gene_end:
-                    if is_truncated is None:
-                        is_truncated = ["3p"]
-                    else:
+                    if "3p" not in is_truncated:
                         is_truncated.append("3p")
 
             haplotype_variants[hap_name] += filtered_homo_sites
@@ -1439,7 +1440,9 @@ class Phaser:
             for read_hap in uniquely_supporting_haps[hap]:
                 uniquely_supporting_reads[hap] += haplotypes_to_reads[read_hap]
         for hap in uniquely_supporting_haps:
-            uniquely_supporting_reads[hap] = list(set(uniquely_supporting_reads[hap]))
+            uniquely_supporting_reads[hap] = sorted(
+                list(set(uniquely_supporting_reads[hap]))
+            )
 
         nonuniquely_supporting_reads = {}
         for read in read_support.by_read:
@@ -1668,11 +1671,24 @@ class Phaser:
             sorted(read_links.items(), key=lambda item: len(item[1]), reverse=True)
         )
         alleles = Phaser.get_alleles_from_links(read_links, ass_haps.values())
+        linked_haps = alleles
+        if len(alleles) > 2:
+            alleles = []
+
+        haps_in_alleles = []
+        for allele in alleles:
+            for hap in allele:
+                haps_in_alleles.append(hap)
+        # not all haplotypes are included in alleles
+        if len(set(haps_in_alleles)) < len(ass_haps):
+            alleles = []
+
         return (
             alleles,
             read_links,
             {a: len(b) for a, b in directed_links.items()},
             {a: Counter(b) for a, b in directed_links_loose.items()},
+            linked_haps,
         )
 
     def get_directed_links(self, new_reads, raw_read_haps, ass_haps, reverse):
@@ -1793,7 +1809,7 @@ class Phaser:
                     new_alleles.append(each_allele)
                 else:
                     merged += each_allele
-            merged = list(set(merged))
+            merged = sorted(list(set(merged)))
             new_alleles.append(merged)
             alleles = new_alleles
         return alleles
@@ -2195,6 +2211,8 @@ class Phaser:
                 prob = self.depth_prob(int(self.region_avg_depth.median), self.mdepth)
                 if prob[0] < 0.75:
                     total_cn = 4
+                    if two_cp_haps == [] and ass_haps != {}:
+                        two_cp_haps = list(ass_haps.values())
 
         # correct CN for palindrome genes
         # if self.sample_sex is not None:
@@ -2208,6 +2226,7 @@ class Phaser:
 
         # phase
         alleles = []
+        linked_haps = []
         hap_links = {}
         if self.to_phase is True:
             (
@@ -2215,6 +2234,7 @@ class Phaser:
                 hap_links,
                 _,
                 _,
+                linked_haps,
             ) = self.phase_alleles(
                 uniquely_supporting_reads,
                 nonuniquely_supporting_reads,
@@ -2222,6 +2242,20 @@ class Phaser:
                 ass_haps,
                 reverse=self.is_reverse,
             )
+        # all haplotypes are phased into one allele
+        if (
+            len(alleles) == 1
+            and sorted(alleles[0]) == sorted(ass_haps.values())
+            and (
+                self.sample_sex is not None
+                and self.sample_sex == "male"
+                and ("X" in self.nchr or "Y" in self.nchr)
+            )
+            is False
+        ):
+            alleles = []
+            linked_haps = []
+
         self.close_handle()
 
         return self.GeneCall(
@@ -2243,6 +2277,8 @@ class Phaser:
             self.mdepth,
             self.region_avg_depth._asdict(),
             self.sample_sex,
+            self.init_het_sites,
+            linked_haps,
             fusions_called,
         )
 

@@ -215,7 +215,7 @@
                     103631602
                 ],
                 "boundary_gene2": null,
-                "is_truncated": null
+                "is_truncated": []
             },
             "AMY2A_hap2": {
                 "variants": [
@@ -530,6 +530,7 @@
             "percentile80": 28.0
         },
         "sample_sex": "female",
+        "heterozygous_sites": [],
         "fusions_called": null
     },
     "ikbkg": {
@@ -699,7 +700,7 @@
                     154634732,
                     154648767
                 ],
-                "is_truncated": null
+                "is_truncated": []
             },
             "ikbkg_hap2": {
                 "variants": [
@@ -724,7 +725,7 @@
                     154634732,
                     154648767
                 ],
-                "is_truncated": null
+                "is_truncated": []
             },
             "ikbkg_pseudo_hap1": {
                 "variants": [
@@ -761,7 +762,7 @@
                     154634732,
                     154648767
                 ],
-                "is_truncated": null
+                "is_truncated": []
             },
             "ikbkg_pseudo_hap2": {
                 "variants": [
@@ -807,7 +808,7 @@
                     154634732,
                     154648767
                 ],
-                "is_truncated": null
+                "is_truncated": []
             }
         },
         "nonunique_supporting_reads": {

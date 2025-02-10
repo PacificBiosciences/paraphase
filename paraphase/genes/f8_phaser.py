@@ -5,13 +5,12 @@ import copy
 from collections import namedtuple
 import pysam
 from ..phaser import Phaser
+from paraphase.prepare_bam_and_vcf import pysam_handle
 
 
 class F8Phaser(Phaser):
     new_fields = copy.deepcopy(Phaser.fields)
     new_fields.remove("gene_cn")
-    new_fields.remove("alleles_final")
-    new_fields.remove("hap_links")
     new_fields.insert(3, "sv_called")
     new_fields.insert(3, "flanking_summary")
     new_fields.insert(3, "exon1_to_exon22_depth")
@@ -33,6 +32,9 @@ class F8Phaser(Phaser):
         Phaser.__init__(
             self, sample_id, outdir, args, genome_depth, genome_bam, sample_sex
         )
+        self.reference_fasta = None
+        if args is not None:
+            self.reference_fasta = args.reference
 
     def set_parameter(self, config):
         super().set_parameter(config)
@@ -41,11 +43,11 @@ class F8Phaser(Phaser):
             "extract_regions"
         ].split()
 
-    def get_read_positions(self, min_extension=5000):
+    def get_read_positions(self, genome_bamh, min_extension=5000):
         """Get mapped region of the part of reads not overlapping repeat"""
         dpos5 = {}
         dpos3 = {}
-        genome_bamh = pysam.AlignmentFile(self.genome_bam, "rb")
+
         for i, extract_region in enumerate(
             [self.extract_region1, self.extract_region2, self.extract_region3]
         ):
@@ -79,18 +81,17 @@ class F8Phaser(Phaser):
                             dpos3.setdefault(read_name, []).append(pos_name)
                         else:
                             dpos5.setdefault(read_name, []).append(pos_name)
-        genome_bamh.close()
         return dpos5, dpos3
 
     def call(self):
         if self.check_coverage_before_analysis() is False:
             return self.GeneCall()
 
-        genome_bamh = pysam.AlignmentFile(self.genome_bam, "rb")
+        genome_bamh = pysam_handle(self.genome_bam, self.reference_fasta)
         e1_e22_depth = self.get_regional_depth(genome_bamh, self.depth_region)[0].median
-        genome_bamh.close()
 
-        dpos5, dpos3 = self.get_read_positions()
+        dpos5, dpos3 = self.get_read_positions(genome_bamh)
+        genome_bamh.close()
         self.get_homopolymer()
         self.get_candidate_pos()
 
@@ -114,6 +115,7 @@ class F8Phaser(Phaser):
 
         self.het_sites = sorted(list(self.candidate_pos))
         self.remove_noisy_sites()
+        self.init_het_sites = [a for a in self.het_sites]
 
         raw_read_haps = self.get_haplotypes_from_reads(
             check_clip=True,
@@ -215,6 +217,8 @@ class F8Phaser(Phaser):
             e1_e22_depth,
             flanking_sum,
             sv_hap,
+            None,
+            None,
             hcn,
             original_haps,
             self.het_sites,
@@ -227,4 +231,5 @@ class F8Phaser(Phaser):
             self.mdepth,
             self.region_avg_depth._asdict(),
             self.sample_sex,
+            self.init_het_sites,
         )

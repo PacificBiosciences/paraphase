@@ -1,14 +1,14 @@
 # paraphase
 # Author: Xiao Chen <xchen@pacificbiosciences.com>
 
-
+import copy
 from collections import namedtuple
 import copy
 from ..phaser import Phaser
 
 
 class RccxPhaser(Phaser):
-    fields = (
+    new_fields = (
         "total_cn",
         "final_haplotypes",
         "two_copy_haplotypes",
@@ -19,23 +19,12 @@ class RccxPhaser(Phaser):
         "alleles_final",
         "annotated_alleles",
         "hap_variants",
-        "hap_links",
-        "highest_total_cn",
-        "assembled_haplotypes",
-        "sites_for_phasing",
-        "unique_supporting_reads",
-        "het_sites_not_used_in_phasing",
-        "homozygous_sites",
-        "haplotype_details",
-        "nonunique_supporting_reads",
-        "read_details",
-        "genome_depth",
-        "region_depth",
     )
+    new_fields += tuple(Phaser.fields[5:])
     GeneCall = namedtuple(
         "GeneCall",
-        fields,
-        defaults=(None,) * len(fields),
+        new_fields,
+        defaults=(None,) * len(new_fields),
     )
 
     def __init__(
@@ -477,6 +466,7 @@ class RccxPhaser(Phaser):
             hap_links,
             _,
             _,
+            linked_haps,
         ) = self.phase_alleles(
             uniquely_supporting_reads,
             nonuniquely_supporting_reads,
@@ -486,7 +476,7 @@ class RccxPhaser(Phaser):
         )
 
         successful_phasing, alleles, two_cp_haplotypes = self.update_alleles(
-            alleles,
+            linked_haps,
             haplotypes,
             final_haps,
             single_copies,
@@ -546,4 +536,7 @@ class RccxPhaser(Phaser):
             raw_read_haps,
             self.mdepth,
             self.region_avg_depth._asdict(),
+            self.sample_sex,
+            self.init_het_sites,
+            alleles,
         )

@@ -1,35 +1,20 @@
 # paraphase
 # Author: Xiao Chen <xchen@pacificbiosciences.com>
 
-
+import copy
 from collections import namedtuple
 import pysam
 from ..phaser import Phaser
+from paraphase.prepare_bam_and_vcf import pysam_handle
 
 
 class StrcPhaser(Phaser):
-    fields = (
-        "total_cn",
-        "gene_cn",
-        "final_haplotypes",
-        "two_copy_haplotypes",
-        "intergenic_depth",
-        "highest_total_cn",
-        "assembled_haplotypes",
-        "sites_for_phasing",
-        "unique_supporting_reads",
-        "het_sites_not_used_in_phasing",
-        "homozygous_sites",
-        "haplotype_details",
-        "nonunique_supporting_reads",
-        "read_details",
-        "genome_depth",
-        "region_depth",
-    )
+    new_fields = copy.deepcopy(Phaser.fields)
+    new_fields.insert(4, "intergenic_depth")
     GeneCall = namedtuple(
         "GeneCall",
-        fields,
-        defaults=(None,) * len(fields),
+        new_fields,
+        defaults=(None,) * len(new_fields),
     )
 
     def __init__(
@@ -46,6 +31,9 @@ class StrcPhaser(Phaser):
         )
         self.del1_reads = set()
         self.del1_reads_partial = set()
+        self.reference_fasta = None
+        if args is not None:
+            self.reference_fasta = args.reference
 
     def set_parameter(self, config):
         super().set_parameter(config)
@@ -60,7 +48,7 @@ class StrcPhaser(Phaser):
     def call(self):
         if self.check_coverage_before_analysis() is False:
             return self.GeneCall()
-        genome_bamh = pysam.AlignmentFile(self.genome_bam, "rb")
+        genome_bamh = pysam_handle(self.genome_bam, self.reference_fasta)
         intergenic_depth = self.get_regional_depth(genome_bamh, self.depth_region)[
             0
         ].median
@@ -76,6 +64,7 @@ class StrcPhaser(Phaser):
         self.get_candidate_pos()
         self.het_sites = sorted(list(self.candidate_pos))
         self.remove_noisy_sites()
+        self.init_het_sites = [a for a in self.het_sites]
 
         raw_read_haps = self.get_haplotypes_from_reads(add_sites=self.add_sites)
         het_sites = self.het_sites
@@ -172,6 +161,8 @@ class StrcPhaser(Phaser):
             ass_haps,
             two_cp_haps,
             intergenic_depth,
+            None,
+            None,
             hcn,
             original_haps,
             self.het_sites,
@@ -183,4 +174,6 @@ class StrcPhaser(Phaser):
             raw_read_haps,
             self.mdepth,
             self.region_avg_depth._asdict(),
+            self.sample_sex,
+            self.init_het_sites,
         )

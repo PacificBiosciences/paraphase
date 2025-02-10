@@ -45,7 +45,6 @@ class BamRealigner:
         self.use_r2k = ""
         if "use_r2k" in config:
             self.use_r2k = "-r2k"
-        self._bamh = pysam.AlignmentFile(bam, "rb")
         self.realign_bam = os.path.join(
             self.outdir, self.sample_id + f"_{self.gene}_realigned_old.bam"
         )
@@ -95,20 +94,21 @@ class BamRealigner:
             nchr = self.nchr_gene2
             nchr_length = self.nchr_length_gene2
 
+        wgs_bamh = pysam_handle(self.bam, reference_fasta=self.genome_reference)
         has_rq = False
         ext_region_first = self.extract_regions.split()[0].split(":")
         i = 0
-        with pysam.AlignmentFile(self.bam) as wgs:
-            for read in wgs.fetch(
-                ext_region_first[0],
-                int(ext_region_first[1].split("-")[0]),
-                int(ext_region_first[1].split("-")[1]),
-            ):
-                i += 1
-                if read.has_tag("rq"):
-                    has_rq = True
-                if i > 0:
-                    break
+        for read in wgs_bamh.fetch(
+            ext_region_first[0],
+            int(ext_region_first[1].split("-")[0]),
+            int(ext_region_first[1].split("-")[1]),
+        ):
+            i += 1
+            if read.has_tag("rq"):
+                has_rq = True
+            if i > 0:
+                break
+        wgs_bamh.close()
         if has_rq:
             realign_cmd = (
                 f"{self.samtools} view -F 0x100 -F 0x200 -F 0x800 -e '[rq]>=0.99' -T {self.genome_reference} {self.bam} {self.extract_regions} | sort | uniq | "
@@ -249,6 +249,7 @@ class BamTagger:
         nonuniquelly matching. The randomly assigned reads are in gray
         while unique reads are in blue.
         """
+        read.set_tag("RN", self.gene, "Z")
         hp_found = False
         read_name = read.qname
         if (
@@ -340,7 +341,7 @@ class BamTagger:
         if nonunique_reads is None:
             nonunique_reads = {}
         read_details = call_sum.get("read_details")
-        alleles = call_sum.get("alleles_final")
+        alleles = call_sum.get("linked_haplotypes")
         if alleles is None:
             alleles = []
 
@@ -467,13 +468,12 @@ class VcfGenerater:
     def modify_hapbound(bound1, bound2, truncated):
         """Get haplotype boundaries to appear in vcf"""
         hap_bound = f"{bound1}-{bound2}"
-        if truncated is not None:
-            if truncated == ["5p"]:
-                hap_bound = f"{bound1}truncated-{bound2}"
-            elif truncated == ["3p"]:
-                hap_bound = f"{bound1}-{bound2}truncated"
-            elif truncated == ["5p", "3p"]:
-                hap_bound = f"{bound1}truncated-{bound2}truncated"
+        if truncated == ["5p"]:
+            hap_bound = f"{bound1}truncated-{bound2}"
+        elif truncated == ["3p"]:
+            hap_bound = f"{bound1}-{bound2}truncated"
+        elif truncated == ["5p", "3p"]:
+            hap_bound = f"{bound1}truncated-{bound2}truncated"
         return hap_bound
 
     @staticmethod
@@ -577,10 +577,7 @@ class VcfGenerater:
                                     hap_info_bound2,
                                     hap_info_truncated,
                                 ) = hap_info
-                                if (
-                                    hap_info_truncated is None
-                                    or hap_info_truncated is False
-                                ):
+                                if hap_info_truncated == []:
                                     valid_gts.append(".")
                                 elif hap_info_truncated == ["5p"]:
                                     if pos > hap_info_bound1:
@@ -782,9 +779,10 @@ class VcfGenerater:
     def get_hap_bound(self, hap_name):
         """Get haplotype boundaries"""
         hap_bound = list(self.call_sum["haplotype_details"][hap_name]["boundary"])
+        is_truncated = self.call_sum["haplotype_details"][hap_name]["is_truncated"]
         # find the positions next to the existing boundaries
         confident_position = hap_bound[0]
-        if confident_position == self.left_boundary:
+        if confident_position == self.left_boundary or "5p" in is_truncated:
             hap_bound.append(confident_position)
         else:
             for var in self.call_sum["sites_for_phasing"]:
@@ -793,7 +791,7 @@ class VcfGenerater:
                     break
             hap_bound.append(confident_position)
         confident_position = hap_bound[1]
-        if confident_position == self.right_boundary:
+        if confident_position == self.right_boundary or "3p" in is_truncated:
             hap_bound.append(confident_position)
         else:
             for var in reversed(self.call_sum["sites_for_phasing"]):
@@ -984,7 +982,12 @@ class VcfGenerater:
             offset = self.offset_gene2
             nchr = self.nchr_gene2
 
-        if (gene2 is False or match_range is False) and final_haps == {}:
+        if (
+            (gene2 is False or match_range is False)
+            and final_haps == {}
+            and "heterozygous_sites" in call_sum
+            and call_sum["heterozygous_sites"] == []
+        ):
             hap_name = f"{self.gene}_homozygous_hap1"
             pileups_raw = {}
             read_names = {}
@@ -1253,3 +1256,10 @@ class TwoGeneVcfGenerater(VcfGenerater):
                     (vars_gene1, gene1_hap_info),
                 ]
             )
+
+
+def pysam_handle(input_file, reference_fasta=None):
+    """Get pysam handle for bam/cram files"""
+    if input_file.lower().endswith("cram"):
+        return pysam.AlignmentFile(input_file, "rc", reference_filename=reference_fasta)
+    return pysam.AlignmentFile(input_file, "rb")

@@ -72,5 +72,7 @@ class CfhClust(Phaser):
             None,
             None,
             None,
+            None,
+            None,
             fusions,
         )

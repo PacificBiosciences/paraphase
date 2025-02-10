@@ -9,7 +9,7 @@ from ..phaser import Phaser
 
 
 class Smn1Phaser(Phaser):
-    fields = (
+    new_fields = (
         "smn1_cn",
         "smn2_cn",
         "smn2_del78_cn",
@@ -30,13 +30,12 @@ class Smn1Phaser(Phaser):
         "nonunique_supporting_reads",
         "read_details",
         "final_haplotypes",
-        "genome_depth",
-        "region_depth",
     )
+    new_fields += tuple(Phaser.fields[15:])
     GeneCall = namedtuple(
         "GeneCall",
-        fields,
-        defaults=(None,) * len(fields),
+        new_fields,
+        defaults=(None,) * len(new_fields),
     )
     HaplotypeInfo = namedtuple(
         "HaplotypeInfo", "variants boundary boundary_gene2 haplogroup is_truncated"
@@ -269,7 +268,7 @@ class Smn1Phaser(Phaser):
                         ),
                     ],
                     haplogroup,
-                    False,
+                    [],
                 )._asdict(),
             )
 
@@ -651,4 +650,6 @@ class Smn1Phaser(Phaser):
             {**smn1_haps, **smn2_haps, **smn2_del_haps},
             self.mdepth,
             self.region_avg_depth._asdict(),
+            self.sample_sex,
+            self.init_het_sites,
         )

@@ -102,5 +102,5 @@ class Cfc1Phaser(Phaser):
             self.mdepth,
             self.region_avg_depth._asdict(),
             self.sample_sex,
-            None,
+            self.init_het_sites,
         )

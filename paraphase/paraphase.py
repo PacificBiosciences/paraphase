@@ -23,6 +23,7 @@ from paraphase.prepare_bam_and_vcf import (
     BamTagger,
     VcfGenerater,
     TwoGeneVcfGenerater,
+    pysam_handle,
 )
 import paraphase
 from paraphase import genes
@@ -225,7 +226,9 @@ class Paraphase:
                 if args.prefix is not None and args.bam is not None:
                     sample_id = args.prefix
                 else:
-                    sample_id_from_header = self.get_sample_id_from_header(bam)
+                    sample_id_from_header = self.get_sample_id_from_header(
+                        bam, args.reference
+                    )
                     if sample_id_from_header is not None:
                         sample_id = sample_id_from_header
                     else:
@@ -257,6 +260,7 @@ class Paraphase:
                             genome_build,
                             "genome_region.bed",
                         ),
+                        args.reference,
                     )
                     gdepth, gmad = depth.call()
                     if gdepth < 10 or gmad > 0.25:
@@ -276,6 +280,7 @@ class Paraphase:
                             genome_build,
                             "sex_region.bed",
                         ),
+                        args.reference,
                     )
                     sample_sex = depth.check_sex()
 
@@ -377,9 +382,9 @@ class Paraphase:
         return sample_out
 
     @staticmethod
-    def get_sample_id_from_header(bam):
+    def get_sample_id_from_header(bam, reference):
         """Get sample ID from RG SM from the bam header"""
-        bam_handle = pysam.AlignmentFile(bam, "rb")
+        bam_handle = pysam_handle(bam, reference_fasta=reference)
         header = bam_handle.header
         header = header.to_dict()
         sample_ids = []
@@ -389,7 +394,7 @@ class Paraphase:
         bam_handle.close()
         sample_ids = [a for a in sample_ids if a is not None]
         if len(set(sample_ids)) == 1:
-            return sample_ids[0]
+            return "_".join(sample_ids[0].split())
         else:
             return None
 

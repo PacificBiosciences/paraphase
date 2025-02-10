@@ -52,6 +52,7 @@ class Ncf1Phaser(Phaser):
         self.get_candidate_pos()
         self.het_sites = sorted(list(self.candidate_pos))
         self.remove_noisy_sites()
+        self.init_het_sites = [a for a in self.het_sites]
 
         raw_read_haps = self.get_haplotypes_from_reads(add_sites=self.add_sites)
 
@@ -155,4 +156,5 @@ class Ncf1Phaser(Phaser):
             self.mdepth,
             self.region_avg_depth._asdict(),
             self.sample_sex,
+            self.init_het_sites,
         )

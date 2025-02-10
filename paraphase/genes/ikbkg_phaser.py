@@ -71,6 +71,7 @@ class IkbkgPhaser(Phaser):
         kept_sites = [self.add_sites[1]]
         self.het_sites = sorted(self.het_sites)
         self.remove_noisy_sites()
+        self.init_het_sites = [a for a in self.het_sites]
         homo_sites_to_add = self.add_homo_sites(min_no_var_region_size=6000)
         # print(homo_sites_to_add)
         kept_sites += homo_sites_to_add
@@ -189,6 +190,7 @@ class IkbkgPhaser(Phaser):
             hap_links,
             _,
             _,
+            linked_haps,
         ) = self.phase_alleles(
             uniquely_supporting_reads,
             nonuniquely_supporting_reads,
@@ -196,6 +198,15 @@ class IkbkgPhaser(Phaser):
             ass_haps,
             reverse=self.is_reverse,
         )
+        # all haplotypes are phased into one allele
+        if (
+            len(alleles) == 1
+            and sorted(alleles[0]) == sorted(ass_haps.values())
+            and self.sample_sex is not None
+            and self.sample_sex == "female"
+        ):
+            alleles = []
+            linked_haps = []
 
         if gene_counter == 0 or pseudo_counter == 0:
             total_cn = None
@@ -228,4 +239,6 @@ class IkbkgPhaser(Phaser):
             self.mdepth,
             self.region_avg_depth._asdict(),
             self.sample_sex,
+            self.init_het_sites,
+            linked_haps,
         )
