@@ -81,7 +81,6 @@ class F8Phaser(Phaser):
                             dpos3.setdefault(read_name, []).append(pos_name)
                         else:
                             dpos5.setdefault(read_name, []).append(pos_name)
-        genome_bamh.close()
         return dpos5, dpos3
 
     def call(self):
