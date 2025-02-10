@@ -394,7 +394,7 @@ class Paraphase:
         bam_handle.close()
         sample_ids = [a for a in sample_ids if a is not None]
         if len(set(sample_ids)) == 1:
-            return sample_ids[0]
+            return "_".join(sample_ids[0].split())
         else:
             return None
 
