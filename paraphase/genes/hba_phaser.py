@@ -233,6 +233,7 @@ class HbaPhaser(Phaser):
         alleles = []
         linked_haps = []
         hap_links = {}
+        haps_to_exclude = [a for a in ass_haps if "homology" in ass_haps[a]]
         if self.to_phase is True:
             (
                 alleles,
@@ -246,6 +247,7 @@ class HbaPhaser(Phaser):
                 raw_read_haps,
                 ass_haps,
                 reverse=self.is_reverse,
+                haps_to_exclude=haps_to_exclude,
             )
             # case where all haplotypes are phased into one allele
             if len(alleles) == 1:

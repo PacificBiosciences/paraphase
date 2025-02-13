@@ -1640,6 +1640,7 @@ class Phaser:
         ass_haps,
         reverse=False,
         min_read=2,
+        haps_to_exclude=[],
     ):
         """
         Phase haplotypes into alleles using read evidence
@@ -1647,13 +1648,15 @@ class Phaser:
         new_reads = {}
         # unique
         for hap in uniq_reads:
-            for read in uniq_reads[hap]:
-                short_name = read.split("_sup")[0]
-                new_reads.setdefault(short_name, []).append({read: [hap]})
+            if hap not in haps_to_exclude:
+                for read in uniq_reads[hap]:
+                    short_name = read.split("_sup")[0]
+                    new_reads.setdefault(short_name, []).append({read: [hap]})
         # nonunique
         for read, supported_haps in nonuniquely_supporting_reads.items():
+            new_supported_haps = [a for a in supported_haps if a not in haps_to_exclude]
             short_name = read.split("_sup")[0]
-            new_reads.setdefault(short_name, []).append({read: supported_haps})
+            new_reads.setdefault(short_name, []).append({read: new_supported_haps})
 
         (
             nondirected_links,
@@ -1680,7 +1683,8 @@ class Phaser:
             for hap in allele:
                 haps_in_alleles.append(hap)
         # not all haplotypes are included in alleles
-        if len(set(haps_in_alleles)) < len(ass_haps):
+        haps_considered = [a for a in ass_haps if a not in haps_to_exclude]
+        if len(set(haps_in_alleles)) < len(haps_considered):
             alleles = []
 
         return (
