@@ -1529,7 +1529,7 @@ class Phaser:
             for n1, n2 in counts:
                 this_site_prob = self.depth_prob(n1, n2 / other_cn)
                 probs.append(this_site_prob)
-            probs_fil = [a for a in probs if a[0] < 0.25]
+            probs_fil = [a for a in probs if a is not None and a[0] < 0.25]
             if stringent is True:
                 if len(probs_fil) >= nsites * 0.8 and nsites >= 5:
                     two_cp_haps.append(hap)
