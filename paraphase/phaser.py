@@ -2210,7 +2210,12 @@ class Phaser:
             total_cn = 2
 
         # two pairs of identical copies
-        if total_cn == 2 and self.expect_cn2 is False and self.gene != "BPY2":
+        if (
+            total_cn == 2
+            and self.expect_cn2 is False
+            and self.gene != "BPY2"
+            and self.call_fusion is None
+        ):
             if self.mdepth is not None:
                 prob = self.depth_prob(int(self.region_avg_depth.median), self.mdepth)
                 if prob[0] < 0.75:
