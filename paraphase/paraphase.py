@@ -685,20 +685,24 @@ class Paraphase:
             default=1,
         )
         parser.add_argument(
-            "--min-read-variant",
-            help="Optional. Partially controls the number of supporting reads for a variant to be used for phasing.\n"
-            + "The cutoff for variant-supporting reads is determined by min(this number, max(5, depth*0.11)).\n"
-            + "Default is 20 (at standard WGS depth, it is overwritten by max(5, depth*0.11)).",
+            "--min-variant-frequency",
+            help="Optional. Minimum frequency for a variant to be used for phasing.\n"
+            + "The cutoff for variant-supporting reads is determined by max(5, total_depth * min_frequency).\n"
+            + "Note that total_depth is the combined depth of all paralogs for a paralog group.\n"
+            + "Default is 0.11.",
             required=False,
-            type=int,
-            default=20,
+            type=float,
+            default=0.11,
         )
         parser.add_argument(
-            "--min-read-haplotype",
-            help="Optional. Minimum number of unique supporting reads for a haplotype. Default is 4.",
+            "--min-haplotype-frequency",
+            help="Optional. Minimum frequency of unique supporting reads for a haplotype.\n"
+            + "The cutoff for haplotype-supporting reads is determined by max(4, total_depth * min_frequency).\n"
+            + "Note that total_depth is the combined depth of all paralogs for a paralog group.\n"
+            + "Default is 0.03.",
             required=False,
-            type=int,
-            default=4,
+            type=float,
+            default=0.03,
         )
         parser.add_argument(
             "--genome",

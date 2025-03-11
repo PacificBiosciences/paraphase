@@ -72,12 +72,13 @@ class Phaser:
         self.mdepth = wgs_depth
         self.genome_bam = genome_bam
         self.sample_sex = sample_sex
-        self.trusted_read_support = 20
+        # self.trusted_read_support = 20
+        self.min_vaf = None
         if args is not None:
-            self.trusted_read_support = args.min_read_variant
-        self.min_read_haplotype = 4
+            self.min_vaf = args.min_variant_frequency
+        self.min_haplotype_frequency = None
         if args is not None:
-            self.min_read_haplotype = args.min_read_haplotype
+            self.min_haplotype_frequency = args.min_haplotype_frequency
 
     def set_parameter(self, config):
         self.gene = config["gene"]
@@ -839,6 +840,9 @@ class Phaser:
         """
         Get all polymorphic sites in the region, update self.candidate_pos
         """
+        min_variant_frequency = min_vaf
+        if self.min_vaf is not None:
+            min_variant_frequency = min(min_variant_frequency, self.min_vaf)
         bamh = self._bamh
         pileups_raw = {}
         for pileupcolumn in bamh.pileup(
@@ -914,9 +918,9 @@ class Phaser:
                             if var_seq != ref_seq and (
                                 (
                                     var_count >= min_read_support
-                                    and var_count / total_depth > min_vaf
+                                    and var_count >= total_depth * min_variant_frequency
                                 )
-                                or var_count >= self.trusted_read_support
+                                # or var_count >= self.trusted_read_support
                             ):
                                 # SNV
                                 if "-" not in var_seq and "+" not in var_seq:
@@ -1352,7 +1356,10 @@ class Phaser:
         """
         Assemble and evaluate haplotypes
         """
-        min_support = self.min_read_haplotype
+        total_depth = self.region_avg_depth.median
+        min_support = 4
+        if self.min_haplotype_frequency is not None and total_depth is not None:
+            min_support = max(min_support, total_depth * self.min_haplotype_frequency)
         het_sites = self.het_sites
         haplotypes_to_reads, raw_read_haps = self.simplify_read_haps(raw_read_haps)
 
