@@ -54,7 +54,7 @@ class HbaPhaser(Phaser):
         self.het_sites = sorted(list(self.candidate_pos))
         self.remove_noisy_sites()
         self.init_het_sites = [a for a in self.het_sites]
-        raw_read_haps = self.get_haplotypes_from_reads(check_clip=True)
+        raw_read_haps = self.get_haplotypes_from_reads(check_clip=True, min_clip_len=9)
 
         (
             ass_haps,
@@ -95,7 +95,7 @@ class HbaPhaser(Phaser):
                 if clip_5p == self.clip_5p_positions[0]:
                     count_3p7dup += 1
                     new_hap_name = f"{self.gene}_3p7duphap{count_3p7dup}"
-                elif clip_5p == self.clip_5p_positions[1]:
+                else:
                     count_4p2del += 1
                     new_hap_name = f"{self.gene}_4p2delhap{count_4p2del}"
             else:
@@ -106,7 +106,7 @@ class HbaPhaser(Phaser):
                     count_hba1 += 1
                     new_hap_name = f"{self.gene}_hba1hap{count_hba1}"
                 if (
-                    clip_5p == self.clip_5p_positions[1]
+                    clip_5p != self.clip_5p_positions[0]
                     and clip_3p == self.clip_3p_positions[1]
                 ):
                     count_homology += 1
@@ -233,7 +233,9 @@ class HbaPhaser(Phaser):
         alleles = []
         linked_haps = []
         hap_links = {}
-        haps_to_exclude = [a for a in ass_haps if "homology" in ass_haps[a]]
+        haps_to_exclude = [
+            a for a in ass_haps if "homology" in ass_haps[a] or "unknown" in ass_haps[a]
+        ]
         if self.to_phase is True:
             (
                 alleles,
