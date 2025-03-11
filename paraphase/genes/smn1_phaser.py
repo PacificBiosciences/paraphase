@@ -12,14 +12,14 @@ class Smn1Phaser(Phaser):
     new_fields = (
         "smn1_cn",
         "smn2_cn",
-        "smn2_del78_cn",
+        "smn_del78_cn",
         "smn1_read_number",
         "smn2_read_number",
-        "smn2_del78_read_number",
+        "smn_del78_read_number",
         "highest_total_cn",
         "smn1_haplotypes",
         "smn2_haplotypes",
-        "smn2_del78_haplotypes",
+        "smn_del78_haplotypes",
         "assembled_haplotypes",
         "two_copy_haplotypes",
         "sites_for_phasing",
@@ -248,12 +248,12 @@ class Smn1Phaser(Phaser):
             haplogroup = None
             if "del" not in hap_name:
                 query_hap = haplotype_variants[hap_name]
-                gene = hap_name[:4]
+                gene = hap_name.split("_")[1][:4]
                 haplogroup, candidates1, candidates2 = self.assign_hap_to_group(
                     query_hap, gene
                 )
             else:
-                haplogroup = "smn2_del_exon78"
+                haplogroup = "smn_del_exon78"
             haplotype_info.setdefault(
                 hap_name,
                 self.HaplotypeInfo(
@@ -602,7 +602,7 @@ class Smn1Phaser(Phaser):
         smn2_haps = tmp
         tmp = {}
         for i, hap in enumerate(smn2_del_haps):
-            tmp.setdefault(hap, f"{self.gene}_smn2del78hap{i+1}")
+            tmp.setdefault(hap, f"{self.gene}_smndel78hap{i+1}")
         smn2_del_haps = tmp
 
         # update cn based on depth

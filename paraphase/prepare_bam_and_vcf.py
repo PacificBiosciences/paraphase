@@ -1192,7 +1192,7 @@ class TwoGeneVcfGenerater(VcfGenerater):
         if self.gene == "smn1":
             return self.call_sum["smn1_haplotypes"], {
                 **self.call_sum["smn2_haplotypes"],
-                **self.call_sum["smn2_del78_haplotypes"],
+                **self.call_sum["smn_del78_haplotypes"],
             }
         elif self.gene == "pms2":
             for hap, hap_name in all_haps.items():
