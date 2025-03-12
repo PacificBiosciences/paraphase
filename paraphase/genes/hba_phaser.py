@@ -39,6 +39,8 @@ class HbaPhaser(Phaser):
     def set_parameter(self, config):
         super().set_parameter(config)
         self.depth_region = config["depth_region"]
+        self.coordinate_4p2 = config["4p2_coordinate"]
+        self.coordinate_3p7 = config["3p7_coordinate"]
 
     def call(self):
         if self.check_coverage_before_analysis() is False:
@@ -122,10 +124,20 @@ class HbaPhaser(Phaser):
                 nonuniquely_supporting_reads,
             )
 
-        sv_called = []
+        sv_called = {}
         for hap in ass_haps.values():
             if "del" in hap or "dup" in hap:
-                sv_called.append(hap)
+                sv_name = hap.strip("hba_").split("hap")[0]
+                sv_type = None
+                if "del" in hap:
+                    sv_type = sv_name.split("del")[0]
+                elif "dup" in hap:
+                    sv_type = sv_name.split("dup")[0]
+                if sv_type is not None:
+                    if sv_type == "3p7":
+                        sv_called.setdefault(hap, f"{sv_name},{self.coordinate_3p7}")
+                    elif sv_type == "4p2":
+                        sv_called.setdefault(hap, f"{sv_name},{self.coordinate_4p2}")
 
         two_cp_haps = []
         if count_3p7del == 0 and count_4p2del == 1:

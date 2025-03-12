@@ -165,6 +165,8 @@ hba:
   clip_5p_positions: [171989, 172890]
   clip_3p_positions: [173729, 175046]
   is_tandem: True
+  4p2_coordinate: chr16:169742-174000
+  3p7_coordinate: chr16:172240-176044
   depth_region: [[160000, 190000]]
   noisy_region: [[172417, 172418]]
 TNXB:
