@@ -983,7 +983,7 @@ class VcfGenerater:
             nchr = self.nchr_gene2
 
         if (
-            (gene2 is False or match_range is False)
+            gene2 is False
             and final_haps == {}
             and "heterozygous_sites" in call_sum
             and call_sum["heterozygous_sites"] == []

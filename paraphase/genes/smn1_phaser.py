@@ -580,17 +580,9 @@ class Smn1Phaser(Phaser):
         smn2_cn = None
         smn2_del_cn = 0
         smn1_haps, smn2_haps, smn2_del_haps = self.assign_haps_to_gene(ass_haps)
-        if ass_haps == [] and self.init_het_sites == []:
-            if self.has_smn1 is True and self.has_smn2 is False:
-                smn1_cn = 2
-                smn2_cn = 0
-            elif self.has_smn1 is False and self.has_smn2 is True:
-                smn1_cn = 0
-                smn2_cn = 2
-        else:
-            smn1_cn = len(smn1_haps)
-            smn2_cn = len(smn2_haps)
-            smn2_del_cn = len(smn2_del_haps)
+        smn1_cn = len(smn1_haps)
+        smn2_cn = len(smn2_haps)
+        smn2_del_cn = len(smn2_del_haps)
 
         tmp = {}
         for i, hap in enumerate(smn1_haps):
@@ -612,6 +604,19 @@ class Smn1Phaser(Phaser):
         )
         smn2_cn, two_cp_haps_smn2 = self.adjust_smn2_cn(smn1_cn_old, smn2_cn, smn2_haps)
         two_cp_haps += two_cp_haps_smn2
+
+        # homozygous case
+        if len(ass_haps) == 1 and self.init_het_sites == []:
+            if self.has_smn1 is True and self.has_smn2 is False:
+                smn1_cn = 2
+                two_cp_haps = list(smn1_haps.values())
+            elif self.has_smn1 is False and self.has_smn2 is True:
+                if self.smn2_reads_splice > 0:
+                    two_cp_haps = list(smn2_haps.values())
+                    smn2_cn = 2
+                else:
+                    two_cp_haps = list(smn2_del_haps.values())
+                    smn2_del_cn = 2
 
         # summarize variants
         haplotypes = None
