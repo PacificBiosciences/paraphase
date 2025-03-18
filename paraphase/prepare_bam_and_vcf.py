@@ -673,6 +673,8 @@ class VcfGenerater:
                                     + ",".join(["+".join(a) for a in alleles_rename])
                                 )
                             if alt.isdigit() is False:
+                                if alt == ref:
+                                    alt = "."
                                 merged_entry = [
                                     self.nchr,
                                     str(pos),
