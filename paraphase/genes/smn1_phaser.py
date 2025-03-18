@@ -128,7 +128,7 @@ class Smn1Phaser(Phaser):
         return False
 
     def output_variants_in_haplotypes(
-        self, smn1_haps, smn2_haps, smn2_del_haps, reads, nonunique, two_cp_haps
+        self, smn1_haps, smn2_haps, smn2_del_haps, reads, nonunique
     ):
         """
         Summarize all variants in each haplotype.
@@ -145,7 +145,6 @@ class Smn1Phaser(Phaser):
         # het sites not used in phasing
         if reads != {}:
             for var in var_no_phasing:
-                genotypes = []
                 var_reads = self.check_variants_in_haplotypes(var)
                 haps_with_variant = []
                 for smn_haps in [smn1_haps, smn2_haps, smn2_del_haps]:
@@ -157,9 +156,6 @@ class Smn1Phaser(Phaser):
                         genotype = self.get_genotype_in_hap(
                             var_reads, hap_reads, hap_reads_nonunique
                         )
-                        genotypes.append(genotype)
-                        if hap_name in two_cp_haps:
-                            genotypes.append(genotype)
                         if genotype == "1":
                             haps_with_variant.append(hap_name)
                 if haps_with_variant == []:
@@ -330,18 +326,18 @@ class Smn1Phaser(Phaser):
                 if copy_four_prob > 0.75:
                     two_cp_haps = list(smn1_haps.values())
                     return 4, two_cp_haps
-            if smn1_cn in [2, 3] and read_counts is not None:
-                # check if one smn1 haplotype has more reads than others
-                haps = list(read_counts.keys())
-                counts = list(read_counts.values())
-                max_count = max(counts)
-                cp2_hap = haps[counts.index(max_count)]
-                if cp2_hap in smn1_haps:
-                    others_max = sorted(counts, reverse=True)[1]
-                    probs = self.depth_prob(max_count, others_max)
-                    if probs[0] < 0.0005 and others_max >= 10:
-                        two_cp_haps.append(smn1_haps[cp2_hap])
-                        return smn1_cn + 1, two_cp_haps
+        if smn1_cn in [2, 3] and read_counts is not None and self.targeted is False:
+            # check if one smn1 haplotype has more reads than others
+            haps = list(read_counts.keys())
+            counts = list(read_counts.values())
+            max_count = max(counts)
+            cp2_hap = haps[counts.index(max_count)]
+            if cp2_hap in smn1_haps:
+                others_max = sorted(counts, reverse=True)[1]
+                probs = self.depth_prob(max_count, others_max)
+                if probs[0] < 0.0005 and others_max >= 10:
+                    two_cp_haps.append(smn1_haps[cp2_hap])
+                    return smn1_cn + 1, two_cp_haps
 
         if smn1_cn == 1 and smn2_cn >= 1:
             haploid_depth = self.smn2_reads_splice / smn2_cn
@@ -597,13 +593,63 @@ class Smn1Phaser(Phaser):
             tmp.setdefault(hap, f"{self.gene}_smndel78hap{i+1}")
         smn2_del_haps = tmp
 
+        # summarize variants
+        haplotypes = None
+        if self.het_sites != []:
+            haplotypes = self.output_variants_in_haplotypes(
+                smn1_haps,
+                smn2_haps,
+                smn2_del_haps,
+                uniquely_supporting_reads,
+                nonuniquely_supporting_reads,
+            )
+
+        two_cp_haps = []
+        if self.targeted:
+            haps_to_compare = {**smn1_haps, **smn2_haps}
+            # exclude exon7-8 deletion
+            two_cp_haps = self.compare_depth(
+                {k: v for k, v in haplotypes.items() if "del" not in k},
+                haps_to_compare,
+                stringent=True,
+            )
+            if two_cp_haps == [] and read_counts is not None:
+                # check if one haplotype has more reads than others
+                haps = []
+                counts = []
+                for hap_seq, hap_count in read_counts.items():
+                    # exclude exon7-8 deletion
+                    if "3" not in hap_seq:
+                        haps.append(hap_seq)
+                        counts.append(hap_count)
+                # haps = list(read_counts.keys())
+                # counts = list(read_counts.values())
+                if len(haps) >= 2:
+                    max_count = max(counts)
+                    cp2_hap = haps[counts.index(max_count)]
+                    others_max = sorted(counts, reverse=True)[1]
+                    probs = self.depth_prob(max_count, others_max)
+                    # print(counts, probs)
+                    if probs[0] < 0.05 and others_max >= 10:
+                        two_cp_haps.append(haps_to_compare[cp2_hap])
+        for hap in two_cp_haps:
+            if "smn1hap" in hap:
+                smn1_cn += 1
+            elif "smn2hap" in hap:
+                smn2_cn += 1
+
         # update cn based on depth
         smn1_cn_old = smn1_cn
-        smn1_cn, two_cp_haps = self.adjust_smn1_cn(
+        smn1_cn, two_cp_haps_smn1 = self.adjust_smn1_cn(
             smn1_cn, smn2_cn, hcn, ass_haps, read_counts, smn1_haps
         )
+        for hap in two_cp_haps_smn1:
+            if hap not in two_cp_haps:
+                two_cp_haps.append(hap)
         smn2_cn, two_cp_haps_smn2 = self.adjust_smn2_cn(smn1_cn_old, smn2_cn, smn2_haps)
-        two_cp_haps += two_cp_haps_smn2
+        for hap in two_cp_haps_smn2:
+            if hap not in two_cp_haps:
+                two_cp_haps.append(hap)
 
         # homozygous case
         if len(ass_haps) == 1 and self.init_het_sites == []:
@@ -617,18 +663,6 @@ class Smn1Phaser(Phaser):
                 else:
                     two_cp_haps = list(smn2_del_haps.values())
                     smn2_del_cn = 2
-
-        # summarize variants
-        haplotypes = None
-        if self.het_sites != []:
-            haplotypes = self.output_variants_in_haplotypes(
-                smn1_haps,
-                smn2_haps,
-                smn2_del_haps,
-                uniquely_supporting_reads,
-                nonuniquely_supporting_reads,
-                two_cp_haps,
-            )
 
         self.close_handle()
 

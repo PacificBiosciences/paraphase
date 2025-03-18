@@ -73,6 +73,9 @@ class Phaser:
         self.genome_bam = genome_bam
         self.sample_sex = sample_sex
         # self.trusted_read_support = 20
+        self.targeted = False
+        if args is not None:
+            self.targeted = args.targeted
         self.min_vaf = None
         if args is not None:
             self.min_vaf = args.min_variant_frequency
@@ -2190,10 +2193,12 @@ class Phaser:
         if len(ass_haps) == 1 and self.init_het_sites == []:
             two_cp_haps.append(list(ass_haps.values())[0])
         elif (
-            len(ass_haps) == 3 and self.expect_cn2 is False and self.gene != "BPY2"
-        ) or (self.gene == "BPY2" and len(ass_haps) < 3):
+            (len(ass_haps) == 3 and self.expect_cn2 is False and self.gene != "BPY2")
+            or (self.gene == "BPY2" and len(ass_haps) < 3)
+            or self.targeted
+        ):
             two_cp_haps = self.compare_depth(haplotypes, ass_haps, stringent=True)
-            if two_cp_haps == [] and read_counts is not None:
+            if two_cp_haps == [] and read_counts is not None and len(read_counts) >= 2:
                 # check if one haplotype has more reads than others
                 haps = list(read_counts.keys())
                 counts = list(read_counts.values())
