@@ -2047,6 +2047,22 @@ class Phaser:
             return bp_index
         return None
 
+    def get_cn2_haplotype(self, read_counts, ass_haps, min_cn1_read_count=10):
+        """
+        Check if the haplotype with the highest depth has twice the reads
+        of the haplotype with the second highest depth
+        """
+        two_cp_haps = []
+        haps = list(read_counts.keys())
+        counts = list(read_counts.values())
+        max_count = max(counts)
+        cp2_hap = haps[counts.index(max_count)]
+        others_max = sorted(counts, reverse=True)[1]
+        probs = self.depth_prob(max_count, others_max)
+        if probs[0] < 0.05 and others_max >= min_cn1_read_count:
+            two_cp_haps.append(ass_haps[cp2_hap])
+        return two_cp_haps
+
     def call(self):
         """Main function to phase haplotypes and call copy numbers"""
         if self.check_coverage_before_analysis() is False:
@@ -2192,23 +2208,35 @@ class Phaser:
         two_cp_haps = []
         if len(ass_haps) == 1 and self.init_het_sites == []:
             two_cp_haps.append(list(ass_haps.values())[0])
-        elif (
-            (len(ass_haps) == 3 and self.expect_cn2 is False and self.gene != "BPY2")
-            or (self.gene == "BPY2" and len(ass_haps) < 3)
-            or self.targeted
-        ):
-            two_cp_haps = self.compare_depth(haplotypes, ass_haps, stringent=True)
-            if two_cp_haps == [] and read_counts is not None and len(read_counts) >= 2:
-                # check if one haplotype has more reads than others
-                haps = list(read_counts.keys())
-                counts = list(read_counts.values())
-                max_count = max(counts)
-                cp2_hap = haps[counts.index(max_count)]
-                others_max = sorted(counts, reverse=True)[1]
-                probs = self.depth_prob(max_count, others_max)
-                # print(counts, probs)
-                if probs[0] < 0.05 and others_max >= 10:
-                    two_cp_haps.append(ass_haps[cp2_hap])
+        else:
+            if self.targeted:
+                if (
+                    two_cp_haps == []
+                    and read_counts is not None
+                    and len(read_counts) >= 2
+                ):
+                    # check if one haplotype has more reads than others
+                    two_cp_haps = self.get_cn2_haplotype(
+                        read_counts, ass_haps, min_cn1_read_count=15
+                    )
+            else:
+                if (
+                    len(ass_haps) == 3
+                    and self.expect_cn2 is False
+                    and self.gene != "BPY2"
+                ) or (self.gene == "BPY2" and len(ass_haps) < 3):
+                    # check if one haplotype has twice the depth of others
+                    # at variant sites unique to it
+                    two_cp_haps = self.compare_depth(
+                        haplotypes, ass_haps, stringent=True
+                    )
+                    if (
+                        two_cp_haps == []
+                        and read_counts is not None
+                        and len(read_counts) >= 2
+                    ):
+                        # check if one haplotype has more reads than others
+                        two_cp_haps = self.get_cn2_haplotype(read_counts, ass_haps)
 
         # call fusion
         fusions_called = None

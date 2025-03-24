@@ -607,13 +607,7 @@ class Smn1Phaser(Phaser):
         two_cp_haps = []
         if self.targeted:
             haps_to_compare = {**smn1_haps, **smn2_haps}
-            # exclude exon7-8 deletion
-            two_cp_haps = self.compare_depth(
-                {k: v for k, v in haplotypes.items() if "del" not in k},
-                haps_to_compare,
-                stringent=True,
-            )
-            if two_cp_haps == [] and read_counts is not None:
+            if read_counts is not None:
                 # check if one haplotype has more reads than others
                 haps = []
                 counts = []
@@ -622,14 +616,11 @@ class Smn1Phaser(Phaser):
                     if "3" not in hap_seq:
                         haps.append(hap_seq)
                         counts.append(hap_count)
-                # haps = list(read_counts.keys())
-                # counts = list(read_counts.values())
                 if len(haps) >= 2:
                     max_count = max(counts)
                     cp2_hap = haps[counts.index(max_count)]
                     others_max = sorted(counts, reverse=True)[1]
                     probs = self.depth_prob(max_count, others_max)
-                    # print(counts, probs)
                     if probs[0] < 0.05 and others_max >= 10:
                         two_cp_haps.append(haps_to_compare[cp2_hap])
         for hap in two_cp_haps:
