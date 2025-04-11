@@ -2059,7 +2059,7 @@ class Phaser:
         cp2_hap = haps[counts.index(max_count)]
         others_max = sorted(counts, reverse=True)[1]
         probs = self.depth_prob(max_count, others_max)
-        if probs[0] < 0.05 and others_max >= min_cn1_read_count:
+        if probs is not None and probs[0] < 0.05 and others_max >= min_cn1_read_count:
             two_cp_haps.append(ass_haps[cp2_hap])
         return two_cp_haps
 
@@ -2068,7 +2068,6 @@ class Phaser:
         if self.check_coverage_before_analysis() is False:
             return self.GeneCall()
         self.get_homopolymer()
-        # self.get_homopolymer_old()
         self.find_big_deletion()
 
         if self.deletion1_size is not None:
