@@ -11,7 +11,7 @@ class Ncf1Phaser(Phaser):
     new_fields.insert(4, "pseudo_reads")
     new_fields.insert(4, "gene_reads")
     new_fields.remove("alleles_final")
-    new_fields.remove("hap_links")
+    new_fields.remove("haplotype_links")
     GeneCall = namedtuple(
         "GeneCall",
         new_fields,

@@ -225,7 +225,7 @@ class IkbkgPhaser(Phaser):
             deletion_haplotypes,
             len(self.del1_reads_partial),
             two_cp_haps,
-            alleles,
+            [],
             hap_links,
             hcn,
             original_haps,

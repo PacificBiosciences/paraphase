@@ -341,7 +341,7 @@ class BamTagger:
         if nonunique_reads is None:
             nonunique_reads = {}
         read_details = call_sum.get("read_details")
-        alleles = call_sum.get("linked_haplotypes")
+        alleles = call_sum.get("raw_alleles")
         if alleles is None:
             alleles = []
 

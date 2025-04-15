@@ -243,7 +243,6 @@ class HbaPhaser(Phaser):
 
         # phase
         alleles = []
-        linked_haps = []
         hap_links = {}
         haps_to_exclude = [
             a for a in ass_haps if "homology" in ass_haps[a] or "unknown" in ass_haps[a]
@@ -254,7 +253,7 @@ class HbaPhaser(Phaser):
                 hap_links,
                 _,
                 _,
-                linked_haps,
+                _,
             ) = self.phase_alleles(
                 uniquely_supporting_reads,
                 nonuniquely_supporting_reads,
@@ -265,9 +264,13 @@ class HbaPhaser(Phaser):
             )
             # case where all haplotypes are phased into one allele
             if len(alleles) == 1:
-                if len(alleles[0]) == len(ass_haps):
+                haps_to_consider = [
+                    a
+                    for a in ass_haps.values()
+                    if "homology" not in a and "unknown" not in a
+                ]
+                if sorted(alleles[0]) == sorted(haps_to_consider):
                     alleles = []
-                    linked_haps = []
         self.close_handle()
 
         return self.GeneCall(
@@ -292,5 +295,5 @@ class HbaPhaser(Phaser):
             self.region_avg_depth._asdict(),
             self.sample_sex,
             self.init_het_sites,
-            linked_haps,
+            alleles,
         )

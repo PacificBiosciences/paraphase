@@ -27,7 +27,7 @@ class Phaser:
         "final_haplotypes",
         "two_copy_haplotypes",
         "alleles_final",
-        "hap_links",
+        "haplotype_links",
         "highest_total_cn",
         "assembled_haplotypes",
         "sites_for_phasing",
@@ -41,7 +41,7 @@ class Phaser:
         "region_depth",
         "sample_sex",
         "heterozygous_sites",
-        "linked_haplotypes",
+        "raw_alleles",
         "fusions_called",
     ]
     GeneCall = namedtuple(
@@ -1684,18 +1684,8 @@ class Phaser:
             sorted(read_links.items(), key=lambda item: len(item[1]), reverse=True)
         )
         alleles = Phaser.get_alleles_from_links(read_links, ass_haps.values())
-        linked_haps = alleles
-        if len(alleles) > 2:
-            alleles = []
-
-        haps_in_alleles = []
-        for allele in alleles:
-            for hap in allele:
-                haps_in_alleles.append(hap)
-        # not all haplotypes are included in alleles
-        haps_considered = [a for a in ass_haps if a not in haps_to_exclude]
-        if len(set(haps_in_alleles)) < len(haps_considered):
-            alleles = []
+        linked_haps = [a for a in alleles]
+        alleles = self.filter_alleles(alleles, ass_haps, haps_to_exclude)
 
         return (
             alleles,
@@ -1704,6 +1694,39 @@ class Phaser:
             {a: Counter(b) for a, b in directed_links_loose.items()},
             linked_haps,
         )
+
+    @staticmethod
+    def filter_alleles(alleles, ass_haps, haps_to_exclude):
+        """Filter out possibly incorrectly phased alleles"""
+        # scenarios to filter out
+        # 1. more than two alleles
+        if len(alleles) > 2:
+            alleles = []
+        # 2. two alleles sharing haplotypes
+        if len(alleles) == 2:
+            if set(alleles[0]).intersection(set(alleles[1])) != set():
+                alleles = []
+        # 3. not all haplotypes are included in alleles
+        haps_in_alleles = []
+        for allele in alleles:
+            for hap in allele:
+                haps_in_alleles.append(hap)
+        haps_considered = [
+            hap_name
+            for (hap_seq, hap_name) in ass_haps.items()
+            if hap_seq not in haps_to_exclude
+        ]
+        if len(alleles) == 2 and len(haps_in_alleles) < len(haps_considered):
+            alleles = []
+        if len(alleles) == 1 and len(haps_in_alleles) < len(haps_considered):
+            if len(haps_in_alleles) == len(haps_considered) - 1 and len(
+                haps_in_alleles
+            ) in [2, 3]:
+                # 1/2 or 1/3 are okay, add the single haplotype as the second allele
+                alleles.append([a for a in haps_considered if a not in haps_in_alleles])
+            else:
+                alleles = []
+        return alleles
 
     def get_directed_links(self, new_reads, raw_read_haps, ass_haps, reverse):
         """Get links between haplotypes from reads"""

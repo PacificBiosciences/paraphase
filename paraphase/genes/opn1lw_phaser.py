@@ -20,11 +20,10 @@ class Opn1lwPhaser(Phaser):
         "phasing_success",
         "annotated_alleles",
         "alleles_final",
-        "alleles_full",
-        "hap_links",
+        "alleles_all_haplotypes",
+        "haplotype_links",
         "directional_links",
         "links_loose",
-        "alleles_raw",
     )
     # new_fields = copy.deepcopy(Phaser.fields)
     new_fields += tuple(Phaser.fields[6:])
@@ -435,7 +434,6 @@ class Opn1lwPhaser(Phaser):
             hap_links,
             directional_links,
             directional_links_loose,
-            alleles,
             hcn,
             original_haps,
             self.het_sites,
