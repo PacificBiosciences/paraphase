@@ -1364,7 +1364,11 @@ class Phaser:
         """
         total_depth = self.region_avg_depth.median
         min_support = 4
-        if self.min_haplotype_frequency is not None and total_depth is not None:
+        if (
+            self.targeted
+            and self.min_haplotype_frequency is not None
+            and total_depth is not None
+        ):
             min_support = max(min_support, total_depth * self.min_haplotype_frequency)
         het_sites = self.het_sites
         haplotypes_to_reads, raw_read_haps = self.simplify_read_haps(raw_read_haps)
