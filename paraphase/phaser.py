@@ -72,7 +72,7 @@ class Phaser:
         self.mdepth = wgs_depth
         self.genome_bam = genome_bam
         self.sample_sex = sample_sex
-        # self.trusted_read_support = 20
+        self.trusted_read_support = 20
         self.targeted = False
         if args is not None:
             self.targeted = args.targeted
@@ -923,7 +923,10 @@ class Phaser:
                                     var_count >= min_read_support
                                     and var_count >= total_depth * min_variant_frequency
                                 )
-                                # or var_count >= self.trusted_read_support
+                                or (
+                                    self.targeted is False
+                                    and var_count >= self.trusted_read_support
+                                )
                             ):
                                 # SNV
                                 if "-" not in var_seq and "+" not in var_seq:
