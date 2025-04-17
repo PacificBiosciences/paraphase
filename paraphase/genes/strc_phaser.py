@@ -137,7 +137,7 @@ class StrcPhaser(Phaser):
             # check depth between STRC and pseudogene
             if self.mdepth is not None:
                 prob = self.depth_prob(int(intergenic_depth), self.mdepth / 2)
-                if prob[0] < 0.9 and counter_gene == 1:
+                if prob[0] < 0.9 and counter_gene == 1 and counter_pseudo == 2:
                     counter_gene = None
                     total_cn = None
                 if prob[0] > 0.95 and counter_gene > 1 and counter_pseudo > 1:
