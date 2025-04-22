@@ -829,7 +829,7 @@ class Phaser:
                 self.nchr_old,
                 offset_pos - 1,
                 offset_pos + del_len,
-            )
+            ).upper()
         return ref_seq, var_seq, indel_size
 
     def get_candidate_pos(

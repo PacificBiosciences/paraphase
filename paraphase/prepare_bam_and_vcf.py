@@ -728,7 +728,7 @@ class VcfGenerater:
                 ref_name,
                 pos - 1,
                 pos + del_len,
-            )
+            ).upper()
         return ref_seq, var_seq
 
     @staticmethod
@@ -845,7 +845,7 @@ class VcfGenerater:
             else:
                 true_pos = pos + offset
                 refh_pos = pos
-            ref_seq = refh.fetch(ref_name, refh_pos - 1, refh_pos)
+            ref_seq = refh.fetch(ref_name, refh_pos - 1, refh_pos).upper()
             alt_all_reads = self.get_var(all_bases, ref_seq)
             var_seq, dp, ad, gt, qual, counter = alt_all_reads
             if (
