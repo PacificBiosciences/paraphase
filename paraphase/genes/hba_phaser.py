@@ -42,6 +42,21 @@ class HbaPhaser(Phaser):
         self.coordinate_4p2 = config["4p2_coordinate"]
         self.coordinate_3p7 = config["3p7_coordinate"]
 
+    @staticmethod
+    def check_two_haps_in_cis(alleles, name1, name2):
+        in_cis = False
+        for allele in alleles:
+            found1 = False
+            found2 = False
+            for hap in allele:
+                if name1 in hap:
+                    found1 = True
+                if name2 in hap:
+                    found2 = True
+            if found1 and found2:
+                in_cis = True
+        return in_cis
+
     def call(self):
         if self.check_coverage_before_analysis() is False:
             return self.GeneCall()
@@ -196,6 +211,34 @@ class HbaPhaser(Phaser):
         if total_cn <= 1:
             total_cn = None
 
+        # phase
+        haps_to_exclude = [
+            a for a in ass_haps if "homology" in ass_haps[a] or "unknown" in ass_haps[a]
+        ]
+        (
+            alleles,
+            hap_links,
+            _,
+            _,
+            _,
+        ) = self.phase_alleles(
+            uniquely_supporting_reads,
+            nonuniquely_supporting_reads,
+            raw_read_haps,
+            ass_haps,
+            reverse=self.is_reverse,
+            haps_to_exclude=haps_to_exclude,
+        )
+        # case where all haplotypes are phased into one allele
+        if len(alleles) == 1:
+            haps_to_consider = [
+                a
+                for a in ass_haps.values()
+                if "homology" not in a and "unknown" not in a
+            ]
+            if sorted(alleles[0]) == sorted(haps_to_consider):
+                alleles = []
+
         genotype = None
         if count_4p2del == 0 and count_4p2dup == 0:
             if count_3p7del == 1 and total_cn == 3:
@@ -222,55 +265,34 @@ class HbaPhaser(Phaser):
                     genotype = "-a/aa"
                 else:
                     # anti3.7/4.2
-                    genotype = "-a/aaa"
+                    if self.check_two_haps_in_cis(alleles, "4p2del", "3p7dup"):
+                        genotype = "aa/aa"
+                    else:
+                        genotype = "-a/aaa"
             elif count_hba2 == 0 and count_hba1 == 2:
                 genotype = "-a/-a"
         elif count_4p2del == 0 and count_4p2dup > 0:
             # we dont consider anti4.2/anti4.2 for now. Should be very rare
             if count_3p7del == 1 and count_hba1 == 1 and count_hba2 == 1:
                 # 3.7/anti4.2
-                genotype = "aaa/-a"
+                if self.check_two_haps_in_cis(alleles, "4p2dup", "3p7del"):
+                    genotype = "aa/aa"
+                else:
+                    genotype = "aaa/-a"
             elif count_hba2 == 2 and count_hba1 == 2:
                 if count_3p7dup == 0:
                     genotype = "aaa/aa"
                 else:
                     # anti3.7/anti4.2
-                    genotype = "aaa/aaa"
+                    if self.check_two_haps_in_cis(alleles, "4p2dup", "3p7dup"):
+                        genotype = "aaaa/aa"
+                    else:
+                        genotype = "aaa/aaa"
         elif count_4p2del > 0 and count_4p2dup > 0:
             # 4.2/anti4.2
             if count_hba1 == 2 and count_hba2 == 1:
                 genotype = "aaa/-a"
 
-        # phase
-        alleles = []
-        hap_links = {}
-        haps_to_exclude = [
-            a for a in ass_haps if "homology" in ass_haps[a] or "unknown" in ass_haps[a]
-        ]
-        if self.to_phase is True:
-            (
-                alleles,
-                hap_links,
-                _,
-                _,
-                _,
-            ) = self.phase_alleles(
-                uniquely_supporting_reads,
-                nonuniquely_supporting_reads,
-                raw_read_haps,
-                ass_haps,
-                reverse=self.is_reverse,
-                haps_to_exclude=haps_to_exclude,
-            )
-            # case where all haplotypes are phased into one allele
-            if len(alleles) == 1:
-                haps_to_consider = [
-                    a
-                    for a in ass_haps.values()
-                    if "homology" not in a and "unknown" not in a
-                ]
-                if sorted(alleles[0]) == sorted(haps_to_consider):
-                    alleles = []
         self.close_handle()
 
         return self.GeneCall(
