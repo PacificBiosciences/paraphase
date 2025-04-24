@@ -2077,11 +2077,17 @@ class Phaser:
             return bp_index
         return None
 
-    def get_cn2_haplotype(self, read_counts, ass_haps, min_cn1_read_count=10):
+    def get_cn2_haplotype(
+        self, read_counts, ass_haps, min_cn1_read_count=10, prob_cutoff=0.05
+    ):
         """
         Check if the haplotype with the highest depth has twice the reads
         of the haplotype with the second highest depth
         """
+        if read_counts is None:
+            return []
+        if len(read_counts) < 2:
+            return []
         two_cp_haps = []
         haps = list(read_counts.keys())
         counts = list(read_counts.values())
@@ -2089,7 +2095,11 @@ class Phaser:
         cp2_hap = haps[counts.index(max_count)]
         others_max = sorted(counts, reverse=True)[1]
         probs = self.depth_prob(max_count, others_max)
-        if probs is not None and probs[0] < 0.05 and others_max >= min_cn1_read_count:
+        if (
+            probs is not None
+            and probs[0] < prob_cutoff
+            and others_max >= min_cn1_read_count
+        ):
             two_cp_haps.append(ass_haps[cp2_hap])
         return two_cp_haps
 
@@ -2239,11 +2249,7 @@ class Phaser:
             two_cp_haps.append(list(ass_haps.values())[0])
         else:
             if self.targeted:
-                if (
-                    two_cp_haps == []
-                    and read_counts is not None
-                    and len(read_counts) >= 2
-                ):
+                if two_cp_haps == []:
                     # check if one haplotype has more reads than others
                     two_cp_haps = self.get_cn2_haplotype(
                         read_counts, ass_haps, min_cn1_read_count=15

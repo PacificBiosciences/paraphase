@@ -113,13 +113,11 @@ class Ncf1Phaser(Phaser):
         two_cp_haps = []
         if counter_gene == 1:
             two_cp_hap_candidate = self.compare_depth(haplotypes, ass_haps)
-            if (
-                two_cp_hap_candidate == []
-                and read_counts is not None
-                and len(read_counts) >= 2
-            ):
+            if two_cp_hap_candidate == []:
                 # check if one haplotype has more reads than others
-                two_cp_hap_candidate = self.get_cn2_haplotype(read_counts, ass_haps)
+                two_cp_hap_candidate = self.get_cn2_haplotype(
+                    read_counts, ass_haps, prob_cutoff=0.15
+                )
             if "ncf1_hap1" in two_cp_hap_candidate:
                 two_cp_haps = two_cp_hap_candidate
                 counter_gene += 1
