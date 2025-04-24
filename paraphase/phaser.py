@@ -150,6 +150,9 @@ class Phaser:
         self.add_sites = []
         if "add_sites" in config:
             self.add_sites = config["add_sites"]
+        self.gene1_cn2 = False
+        if "gene1_cn2" in config:
+            self.gene1_cn2 = True
         self.match = {}
         self.gene2_region = config.get("gene2_region")
         if self.gene2_region is not None:
@@ -2277,6 +2280,20 @@ class Phaser:
         fusions_called = None
         if self.call_fusion is not None:
             two_cp_haps, fusions_called = self.find_fusion(ass_haps)
+
+        # check gene1 haplotypes and update to cn2 if assume gene1 is never cn1
+        # only for targeted mode
+        if self.targeted and self.gene1_cn2 and two_cp_haps == []:
+            gene1_haps = []
+            gene2_haps = []
+            for hap_seq, hap_name in ass_haps.items():
+                # this is assuming gene2 is very different from gene1
+                if hap_seq.count("2") > len(hap_seq) * 0.7:
+                    gene2_haps.append(hap_name)
+                else:
+                    gene1_haps.append(hap_name)
+            if len(gene1_haps) == 1:
+                two_cp_haps.append(gene1_haps[0])
 
         total_cn = len(ass_haps) + len(two_cp_haps)
 
