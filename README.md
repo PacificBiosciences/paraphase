@@ -29,8 +29,9 @@ Paraphase supports 160 segmental duplication [regions](docs/regions.md) in GRCh3
 - CYP11B1/CYP11B2 (Glucocorticoid-remediable aldosteronism)
 - CFH/CFHR1/CFHR2/CFHR3/CFHR4 (large deletions/duplications, atypical hemolytic uremic syndrome and age-related macular degeneration)
 
-Please check out our latest [preprint](https://www.biorxiv.org/content/10.1101/2024.04.19.590294) and our earlier [paper](https://www.cell.com/ajhg/fulltext/S0002-9297(23)00001-0) on its application to the gene SMN1 for more details about Paraphase.   
-Chen X, Harting J, Farrow E, et al. Comprehensive SMN1 and SMN2 profiling for spinal muscular atrophy analysis using long-read PacBio HiFi sequencing. The American Journal of Human Genetics. 2023;0(0). doi:10.1016/j.ajhg.2023.01.001
+For more details about Paraphase, please check out our latest [paper](https://www.nature.com/articles/s41467-025-57505-2) and our earlier [paper](https://www.cell.com/ajhg/fulltext/S0002-9297(23)00001-0) on its application to the gene SMN1.
+Chen X, Baker D, Dolzhenko E, et al. Genome-wide profiling of highly similar paralogous genes using HiFi sequencing. Nature Communications. 2025. doi:10.1038/s41467-025-57505-2
+Chen X, Harting J, Farrow E, et al. Comprehensive SMN1 and SMN2 profiling for spinal muscular atrophy analysis using long-read PacBio HiFi sequencing. The American Journal of Human Genetics. 2023. doi:10.1016/j.ajhg.2023.01.001
 
 For whole-genome sequencing (WGS) data, we recommend >20X, ideally 30X, genome coverage. Low coverage or short read length could result in less accurate phasing, especially when gene copies are highly similar to each other. For hybrid capture-based enrichment data, a higher read depth (>50X) is recommended as the read length is generally shorter than WGS.
 
@@ -88,8 +89,8 @@ Optional parameters:
 - `--novcf`: If specified, no VCF files will be produced.
 - `--write-nocalls-in-vcf`: If specified, Paraphase will write no-call sites in the VCFs, marked with LowQual filter.
 - `--targeted`: If specified, paraphase will not assume depth is uniform across the genome. See more information on running targeted data [here](docs/targeted_data.md).
-- `--min-read-variant`: Partially controls the number of supporting reads for a variant to be used for phasing. The cutoff for variant-supporting reads is determined by min(this number, max(5, depth\*0.11)). Default is 20 (at standard WGS depth, it is overwritten by max(5, depth*0.11)).
-- `--min-read-haplotype`: Minimum number of unique supporting reads for a haplotype. Default is 4.
+- `--min-variant-frequency`:  Minimum frequency for a variant to be used for phasing. The cutoff for variant-supporting reads is determined by max(5, total_depth * min_frequency). Note that total_depth is the combined depth of all paralogs for a paralog group. Default is 0.11.
+- `--min-haplotype-frequency`: Minimum frequency of unique supporting reads for a haplotype. The cutoff for haplotype-supporting reads is determined by max(4, total_depth * min_frequency). Note that total_depth is the combined depth of all paralogs for a paralog group. Default is 0.03.
 - `--samtools`: path to samtools. If the paths to samtools or minimap2 are not already in the PATH environment variable, they can be provided through the `--samtools` and `--minimap2` parameters.
 - `--minimap2`: path to minimap2
 

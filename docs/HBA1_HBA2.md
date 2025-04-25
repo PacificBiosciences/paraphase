@@ -6,6 +6,7 @@ For this [region](https://www.ncbi.nlm.nih.gov/books/NBK1435/), Paraphase calls 
 
 - `genotype`: reports the genotype of this family. Possible alleles include `aa`, `aaa` (duplication), `-a` (deletion) or `--` (double deletion).
 - `alleles_final`: when possible, different copies of HBA are phased into alleles with read based phasing. 
+- `sv_called`: reports SVs (3p7del, 3p7dup, 4p2del or 4p2dup) and their coordinates.
 
 ## Visualizing haplotypes
 

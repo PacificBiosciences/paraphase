@@ -118,19 +118,24 @@ class StrcPhaser(Phaser):
             # one haplotype, identical on both alleles
             if len(ass_haps) == 1 and self.init_het_sites == []:
                 two_cp_haps.append(list(ass_haps.values())[0])
-            # two haplotypes, identical on both alleles
-            elif intergenic_depth > 5 and counter_gene == 1 and counter_pseudo == 1:
-                two_cp_haps = list(ass_haps.values())
-            # identify cn2 haplotypes
-            elif (counter_gene > 1 and counter_pseudo == 1) or (
-                counter_gene == 1 and counter_pseudo > 1
-            ):
+            # identify cn2 haplotypes, stringent
+            elif counter_gene == 1 or counter_pseudo == 1:
                 two_cp_haps = self.compare_depth(haplotypes, ass_haps)
-                if two_cp_haps == []:
-                    # check if one haplotype has more reads than others
-                    two_cp_haps = self.get_cn2_haplotype(
-                        read_counts, ass_haps, prob_cutoff=0.15
-                    )
+            # two haplotypes, identical on both alleles
+            if (
+                intergenic_depth > 5
+                and counter_gene == 1
+                and counter_pseudo == 1
+                and two_cp_haps == []
+            ):
+                two_cp_haps = list(ass_haps.values())
+            # identify cn2 haplotypes, loose
+            elif two_cp_haps == [] and counter_gene == 1 and counter_pseudo > 1:
+                # check if the strc haplotype has more reads than others
+                two_cp_haps = self.get_cn2_haplotype(
+                    read_counts, ass_haps, prob_cutoff=0.15
+                )
+                two_cp_haps = [a for a in two_cp_haps if "strcp1" not in a]
 
             for hap in two_cp_haps:
                 if "strcp1" not in hap:
