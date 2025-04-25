@@ -138,19 +138,39 @@ class F8Phaser(Phaser):
         h2_count = 0
         h3_count = 0
         unknown_count = 0
+        inversion_count = 0
+        deletion_count = 0
+        invdup_count = 0
         for i, hap in enumerate(ass_haps):
-            if len(hap) < 3:
+            clip_5p = self.get_5pclip_from_hap(hap)
+            clip_3p = self.get_3pclip_from_hap(hap)
+            if clip_3p is None or clip_5p is None:
                 unknown_count += 1
                 hap_name = f"{self.gene}_unknownhap{unknown_count}"
-            elif hap[-2:] == "00":
-                h1_count += 1
-                hap_name = f"{self.gene}_int22h1hap{h1_count}"
-            elif hap[-1] == "0" and hap[-2] != "x":
-                h3_count += 1
-                hap_name = f"{self.gene}_int22h3hap{h3_count}"
-            elif "x" not in hap[-2:] and "0" not in hap[-2:]:
+            elif clip_5p == 0 and clip_3p == 0:
                 h2_count += 1
                 hap_name = f"{self.gene}_int22h2hap{h2_count}"
+            elif (
+                clip_5p == self.clip_5p_positions[0]
+                and clip_3p == self.clip_3p_positions[0]
+            ):
+                h1_count += 1
+                hap_name = f"{self.gene}_int22h1hap{h1_count}"
+            elif clip_5p == 0 and clip_3p == self.clip_3p_positions[1]:
+                h3_count += 1
+                hap_name = f"{self.gene}_int22h3hap{h3_count}"
+            elif (
+                clip_5p == self.clip_5p_positions[0]
+                and clip_3p == self.clip_3p_positions[1]
+            ):
+                inversion_count += 1
+                hap_name = f"{self.gene}_int22invhap{inversion_count}"
+            elif clip_5p == self.clip_5p_positions[0] and clip_3p == 0:
+                deletion_count += 1
+                hap_name = f"{self.gene}_int22delhap{deletion_count}"
+            elif clip_5p == 0 and clip_3p == self.clip_3p_positions[0]:
+                invdup_count += 1
+                hap_name = f"{self.gene}_int22invorduphap{invdup_count}"
             else:
                 unknown_count += 1
                 hap_name = f"{self.gene}_unknownhap{unknown_count}"
@@ -189,6 +209,19 @@ class F8Phaser(Phaser):
         # so we cannot separate the upstream regions
         # we look for read evidence only at downstream region of region2 and region3
         # so we drop duplication as it involves upstream region of region2 and it's not pathogenic (?)
+        for hap in ass_haps.values():
+            if "del" in hap:
+                if self.sample_sex is not None:
+                    if self.sample_sex == "female" and self.mdepth is not None:
+                        prob = self.depth_prob(int(e1_e22_depth), self.mdepth / 2)
+                        if prob[0] > 0.75:
+                            sv_hap.setdefault(hap, "deletion")
+                    if self.sample_sex == "male":
+                        if e1_e22_depth < 1:
+                            sv_hap.setdefault(hap, "deletion")
+            if "inv" in hap and "dup" not in hap:
+                sv_hap.setdefault(hap, "inversion")
+        """
         for hap, links in flanking_sum.items():
             if links == "region1-region2" and "int22h2" in hap:
                 if self.sample_sex is not None:
@@ -201,7 +234,7 @@ class F8Phaser(Phaser):
                             sv_hap.setdefault(hap, "deletion")
             elif links == "region1-region3" and "int22h3" in hap:
                 sv_hap.setdefault(hap, "inversion")
-
+        """
         if sv_hap == {} and self.sample_sex is not None:
             if self.sample_sex == "female" and total_cn < 6:
                 total_cn = None

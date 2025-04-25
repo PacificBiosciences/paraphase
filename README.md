@@ -30,7 +30,9 @@ Paraphase supports 160 segmental duplication [regions](docs/regions.md) in GRCh3
 - CFH/CFHR1/CFHR2/CFHR3/CFHR4 (large deletions/duplications, atypical hemolytic uremic syndrome and age-related macular degeneration)
 
 For more details about Paraphase, please check out our latest [paper](https://www.nature.com/articles/s41467-025-57505-2) and our earlier [paper](https://www.cell.com/ajhg/fulltext/S0002-9297(23)00001-0) on its application to the gene SMN1.
+
 Chen X, Baker D, Dolzhenko E, et al. Genome-wide profiling of highly similar paralogous genes using HiFi sequencing. Nature Communications. 2025. doi:10.1038/s41467-025-57505-2
+
 Chen X, Harting J, Farrow E, et al. Comprehensive SMN1 and SMN2 profiling for spinal muscular atrophy analysis using long-read PacBio HiFi sequencing. The American Journal of Human Genetics. 2023. doi:10.1016/j.ajhg.2023.01.001
 
 For whole-genome sequencing (WGS) data, we recommend >20X, ideally 30X, genome coverage. Low coverage or short read length could result in less accurate phasing, especially when gene copies are highly similar to each other. For hybrid capture-based enrichment data, a higher read depth (>50X) is recommended as the read length is generally shorter than WGS.
