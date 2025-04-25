@@ -707,8 +707,8 @@ class Paraphase:
         parser.add_argument(
             "--genome",
             help="Optionally specify which genome reference build the input BAM files are aligned against.\n"
-            + "Accepted values are 19, 37 and 38. Default is 38.\n"
-            + "Note that fewer genes are currently supported in 19/37. See paraphase/data/19/config.yaml",
+            + "Accepted values are 19, 37, chm13, and 38. Default is 38.\n"
+            + "Note that fewer genes are currently supported in 19/37/chm13. See paraphase/data/19/config.yaml and paraphase/data/chm13/config.yaml",
             required=False,
             default="38",
         )
