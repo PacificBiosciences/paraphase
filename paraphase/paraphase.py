@@ -686,7 +686,7 @@ class Paraphase:
         )
         parser.add_argument(
             "--min-variant-frequency",
-            help="Optional. Minimum frequency for a variant to be used for phasing.\n"
+            help="Optional. Minimum frequency for a variant to be used for phasing. Works with the targeted mode.\n"
             + "The cutoff for variant-supporting reads is determined by max(5, total_depth * min_frequency).\n"
             + "Note that total_depth is the combined depth of all paralogs for a paralog group.\n"
             + "Default is 0.11.",
@@ -696,7 +696,7 @@ class Paraphase:
         )
         parser.add_argument(
             "--min-haplotype-frequency",
-            help="Optional. Minimum frequency of unique supporting reads for a haplotype.\n"
+            help="Optional. Minimum frequency of unique supporting reads for a haplotype. Works with the targeted mode.\n"
             + "The cutoff for haplotype-supporting reads is determined by max(4, total_depth * min_frequency).\n"
             + "Note that total_depth is the combined depth of all paralogs for a paralog group.\n"
             + "Default is 0.03.",
