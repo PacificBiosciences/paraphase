@@ -39,6 +39,23 @@ class HbaPhaser(Phaser):
     def set_parameter(self, config):
         super().set_parameter(config)
         self.depth_region = config["depth_region"]
+        self.coordinate_4p2 = config["4p2_coordinate"]
+        self.coordinate_3p7 = config["3p7_coordinate"]
+
+    @staticmethod
+    def check_two_haps_in_cis(alleles, name1, name2):
+        in_cis = False
+        for allele in alleles:
+            found1 = False
+            found2 = False
+            for hap in allele:
+                if name1 in hap:
+                    found1 = True
+                if name2 in hap:
+                    found2 = True
+            if found1 and found2:
+                in_cis = True
+        return in_cis
 
     def call(self):
         if self.check_coverage_before_analysis() is False:
@@ -54,7 +71,7 @@ class HbaPhaser(Phaser):
         self.het_sites = sorted(list(self.candidate_pos))
         self.remove_noisy_sites()
         self.init_het_sites = [a for a in self.het_sites]
-        raw_read_haps = self.get_haplotypes_from_reads(check_clip=True)
+        raw_read_haps = self.get_haplotypes_from_reads(check_clip=True, min_clip_len=9)
 
         (
             ass_haps,
@@ -95,7 +112,7 @@ class HbaPhaser(Phaser):
                 if clip_5p == self.clip_5p_positions[0]:
                     count_3p7dup += 1
                     new_hap_name = f"{self.gene}_3p7duphap{count_3p7dup}"
-                elif clip_5p == self.clip_5p_positions[1]:
+                else:
                     count_4p2del += 1
                     new_hap_name = f"{self.gene}_4p2delhap{count_4p2del}"
             else:
@@ -106,7 +123,7 @@ class HbaPhaser(Phaser):
                     count_hba1 += 1
                     new_hap_name = f"{self.gene}_hba1hap{count_hba1}"
                 if (
-                    clip_5p == self.clip_5p_positions[1]
+                    clip_5p != self.clip_5p_positions[0]
                     and clip_3p == self.clip_3p_positions[1]
                 ):
                     count_homology += 1
@@ -122,10 +139,20 @@ class HbaPhaser(Phaser):
                 nonuniquely_supporting_reads,
             )
 
-        sv_called = []
+        sv_called = {}
         for hap in ass_haps.values():
             if "del" in hap or "dup" in hap:
-                sv_called.append(hap)
+                sv_name = hap.strip("hba_").split("hap")[0]
+                sv_type = None
+                if "del" in hap:
+                    sv_type = sv_name.split("del")[0]
+                elif "dup" in hap:
+                    sv_type = sv_name.split("dup")[0]
+                if sv_type is not None:
+                    if sv_type == "3p7":
+                        sv_called.setdefault(hap, f"{sv_name},{self.coordinate_3p7}")
+                    elif sv_type == "4p2":
+                        sv_called.setdefault(hap, f"{sv_name},{self.coordinate_4p2}")
 
         two_cp_haps = []
         if count_3p7del == 0 and count_4p2del == 1:
@@ -184,6 +211,34 @@ class HbaPhaser(Phaser):
         if total_cn <= 1:
             total_cn = None
 
+        # phase
+        haps_to_exclude = [
+            a for a in ass_haps if "homology" in ass_haps[a] or "unknown" in ass_haps[a]
+        ]
+        (
+            alleles,
+            hap_links,
+            _,
+            _,
+            _,
+        ) = self.phase_alleles(
+            uniquely_supporting_reads,
+            nonuniquely_supporting_reads,
+            raw_read_haps,
+            ass_haps,
+            reverse=self.is_reverse,
+            haps_to_exclude=haps_to_exclude,
+        )
+        # case where all haplotypes are phased into one allele
+        if len(alleles) == 1:
+            haps_to_consider = [
+                a
+                for a in ass_haps.values()
+                if "homology" not in a and "unknown" not in a
+            ]
+            if sorted(alleles[0]) == sorted(haps_to_consider):
+                alleles = []
+
         genotype = None
         if count_4p2del == 0 and count_4p2dup == 0:
             if count_3p7del == 1 and total_cn == 3:
@@ -210,48 +265,34 @@ class HbaPhaser(Phaser):
                     genotype = "-a/aa"
                 else:
                     # anti3.7/4.2
-                    genotype = "-a/aaa"
+                    if self.check_two_haps_in_cis(alleles, "4p2del", "3p7dup"):
+                        genotype = "aa/aa"
+                    else:
+                        genotype = "-a/aaa"
             elif count_hba2 == 0 and count_hba1 == 2:
                 genotype = "-a/-a"
         elif count_4p2del == 0 and count_4p2dup > 0:
             # we dont consider anti4.2/anti4.2 for now. Should be very rare
             if count_3p7del == 1 and count_hba1 == 1 and count_hba2 == 1:
                 # 3.7/anti4.2
-                genotype = "aaa/-a"
+                if self.check_two_haps_in_cis(alleles, "4p2dup", "3p7del"):
+                    genotype = "aa/aa"
+                else:
+                    genotype = "aaa/-a"
             elif count_hba2 == 2 and count_hba1 == 2:
                 if count_3p7dup == 0:
                     genotype = "aaa/aa"
                 else:
                     # anti3.7/anti4.2
-                    genotype = "aaa/aaa"
+                    if self.check_two_haps_in_cis(alleles, "4p2dup", "3p7dup"):
+                        genotype = "aaaa/aa"
+                    else:
+                        genotype = "aaa/aaa"
         elif count_4p2del > 0 and count_4p2dup > 0:
             # 4.2/anti4.2
             if count_hba1 == 2 and count_hba2 == 1:
                 genotype = "aaa/-a"
 
-        # phase
-        alleles = []
-        linked_haps = []
-        hap_links = {}
-        if self.to_phase is True:
-            (
-                alleles,
-                hap_links,
-                _,
-                _,
-                linked_haps,
-            ) = self.phase_alleles(
-                uniquely_supporting_reads,
-                nonuniquely_supporting_reads,
-                raw_read_haps,
-                ass_haps,
-                reverse=self.is_reverse,
-            )
-            # case where all haplotypes are phased into one allele
-            if len(alleles) == 1:
-                if len(alleles[0]) == len(ass_haps):
-                    alleles = []
-                    linked_haps = []
         self.close_handle()
 
         return self.GeneCall(
@@ -276,5 +317,5 @@ class HbaPhaser(Phaser):
             self.region_avg_depth._asdict(),
             self.sample_sex,
             self.init_het_sites,
-            linked_haps,
+            alleles,
         )

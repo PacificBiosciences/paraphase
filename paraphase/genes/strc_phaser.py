@@ -65,8 +65,12 @@ class StrcPhaser(Phaser):
         self.het_sites = sorted(list(self.candidate_pos))
         self.remove_noisy_sites()
         self.init_het_sites = [a for a in self.het_sites]
-
-        raw_read_haps = self.get_haplotypes_from_reads(add_sites=self.add_sites)
+        homo_sites_to_add = self.add_homo_sites()
+        raw_read_haps = self.get_haplotypes_from_reads(
+            kept_sites=homo_sites_to_add,
+            homo_sites=homo_sites_to_add,
+            add_sites=self.add_sites,
+        )
         het_sites = self.het_sites
         if self.del1_reads_partial != set():
             raw_read_haps, het_sites = self.update_reads_for_deletions(
@@ -111,14 +115,13 @@ class StrcPhaser(Phaser):
                 nonuniquely_supporting_reads,
                 known_del={"3": self.deletion1_name},
             )
-
-            if counter_gene == 1 or counter_pseudo == 1:
+            # one haplotype, identical on both alleles
+            if len(ass_haps) == 1 and self.init_het_sites == []:
+                two_cp_haps.append(list(ass_haps.values())[0])
+            # identify cn2 haplotypes, stringent
+            elif counter_gene == 1 or counter_pseudo == 1:
                 two_cp_haps = self.compare_depth(haplotypes, ass_haps)
-                for hap in two_cp_haps:
-                    if "strcp1" not in hap:
-                        counter_gene += 1
-                    else:
-                        counter_pseudo += 1
+            # two haplotypes, identical on both alleles
             if (
                 intergenic_depth > 5
                 and counter_gene == 1
@@ -126,18 +129,26 @@ class StrcPhaser(Phaser):
                 and two_cp_haps == []
             ):
                 two_cp_haps = list(ass_haps.values())
-                for hap in two_cp_haps:
-                    if "strcp1" not in hap:
-                        counter_gene += 1
-                    else:
-                        counter_pseudo += 1
+            # identify cn2 haplotypes, loose
+            elif two_cp_haps == [] and counter_gene == 1 and counter_pseudo > 1:
+                # check if the strc haplotype has more reads than others
+                two_cp_haps = self.get_cn2_haplotype(
+                    read_counts, ass_haps, prob_cutoff=0.15
+                )
+                two_cp_haps = [a for a in two_cp_haps if "strcp1" not in a]
+
+            for hap in two_cp_haps:
+                if "strcp1" not in hap:
+                    counter_gene += 1
+                else:
+                    counter_pseudo += 1
 
             total_cn = len(ass_haps) + len(two_cp_haps)
 
             # check depth between STRC and pseudogene
             if self.mdepth is not None:
                 prob = self.depth_prob(int(intergenic_depth), self.mdepth / 2)
-                if prob[0] < 0.9 and counter_gene == 1:
+                if prob[0] < 0.9 and counter_gene == 1 and counter_pseudo == 2:
                     counter_gene = None
                     total_cn = None
                 if prob[0] > 0.95 and counter_gene > 1 and counter_pseudo > 1:

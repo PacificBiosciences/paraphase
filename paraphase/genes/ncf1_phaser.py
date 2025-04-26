@@ -11,7 +11,7 @@ class Ncf1Phaser(Phaser):
     new_fields.insert(4, "pseudo_reads")
     new_fields.insert(4, "gene_reads")
     new_fields.remove("alleles_final")
-    new_fields.remove("hap_links")
+    new_fields.remove("haplotype_links")
     GeneCall = namedtuple(
         "GeneCall",
         new_fields,
@@ -113,6 +113,11 @@ class Ncf1Phaser(Phaser):
         two_cp_haps = []
         if counter_gene == 1:
             two_cp_hap_candidate = self.compare_depth(haplotypes, ass_haps)
+            if two_cp_hap_candidate == []:
+                # check if one haplotype has more reads than others
+                two_cp_hap_candidate = self.get_cn2_haplotype(
+                    read_counts, ass_haps, prob_cutoff=0.15
+                )
             if "ncf1_hap1" in two_cp_hap_candidate:
                 two_cp_haps = two_cp_hap_candidate
                 counter_gene += 1

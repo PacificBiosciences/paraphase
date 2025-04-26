@@ -137,6 +137,7 @@ f8:
   genes: F8A1,F8A2,F8A3,H2AB1,H2AB2,H2AB3
   realign_region: chrX:155376007-155387000
   extract_regions: chrX:154880316-154890327 chrX:155376007-155386059 chrX:155454650-155464706
+  clip_5p_positions: [155376506]
   clip_3p_positions: [155386059, 155386727]
   left_boundary: 155376507
   right_boundary: 155386059
@@ -165,6 +166,8 @@ hba:
   clip_5p_positions: [171989, 172890]
   clip_3p_positions: [173729, 175046]
   is_tandem: True
+  4p2_coordinate: chr16:169742-174000
+  3p7_coordinate: chr16:172240-176044
   depth_region: [[160000, 190000]]
   noisy_region: [[172417, 172418]]
 TNXB:

@@ -1,0 +1,26 @@
+smn1:
+  genes: SMN1,SMN2
+  data: {known_haplotypes: known_haplotypes.json}
+  realign_region: chr5:71346746-71556707
+  gene2_region: chr5:70798797-70846807
+  extract_regions: chr5:70799795-70845807 chr5:71373739-71419759
+  pivot_site: 71408734
+  left_boundary: 71373893
+  right_boundary: 71417979
+  noisy_region:
+  - [71403714, 71403746]
+  add_sites: [71408734_C_T]
+  strip_c_region_start: 71381875
+  strip_c_region_end: 71409804
+  deletion1_size: 3559
+  deletion2_size: 6310
+  deletion1_name: 71374493_del_3559
+  deletion2_name: 71405074_del_6310
+  del2_3p_pos1: 71405074
+  del2_3p_pos2: 71405357
+  del2_5p_pos1: 71411372
+  del2_5p_pos2: 71411381
+  del1_3p_pos1: 71374493
+  del1_3p_pos2: 71374587
+  del1_5p_pos1: 71377858
+  del1_5p_pos2: 71378051

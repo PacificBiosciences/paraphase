@@ -12,14 +12,14 @@ class Smn1Phaser(Phaser):
     new_fields = (
         "smn1_cn",
         "smn2_cn",
-        "smn2_del78_cn",
+        "smn_del78_cn",
         "smn1_read_number",
         "smn2_read_number",
-        "smn2_del78_read_number",
+        "smn_del78_read_number",
         "highest_total_cn",
         "smn1_haplotypes",
         "smn2_haplotypes",
-        "smn2_del78_haplotypes",
+        "smn_del78_haplotypes",
         "assembled_haplotypes",
         "two_copy_haplotypes",
         "sites_for_phasing",
@@ -128,7 +128,7 @@ class Smn1Phaser(Phaser):
         return False
 
     def output_variants_in_haplotypes(
-        self, smn1_haps, smn2_haps, smn2_del_haps, reads, nonunique, two_cp_haps
+        self, smn1_haps, smn2_haps, smn2_del_haps, reads, nonunique
     ):
         """
         Summarize all variants in each haplotype.
@@ -145,7 +145,6 @@ class Smn1Phaser(Phaser):
         # het sites not used in phasing
         if reads != {}:
             for var in var_no_phasing:
-                genotypes = []
                 var_reads = self.check_variants_in_haplotypes(var)
                 haps_with_variant = []
                 for smn_haps in [smn1_haps, smn2_haps, smn2_del_haps]:
@@ -157,9 +156,6 @@ class Smn1Phaser(Phaser):
                         genotype = self.get_genotype_in_hap(
                             var_reads, hap_reads, hap_reads_nonunique
                         )
-                        genotypes.append(genotype)
-                        if hap_name in two_cp_haps:
-                            genotypes.append(genotype)
                         if genotype == "1":
                             haps_with_variant.append(hap_name)
                 if haps_with_variant == []:
@@ -248,12 +244,12 @@ class Smn1Phaser(Phaser):
             haplogroup = None
             if "del" not in hap_name:
                 query_hap = haplotype_variants[hap_name]
-                gene = hap_name[:4]
+                gene = hap_name.split("_")[1][:4]
                 haplogroup, candidates1, candidates2 = self.assign_hap_to_group(
                     query_hap, gene
                 )
             else:
-                haplogroup = "smn2_del_exon78"
+                haplogroup = "smn_del_exon78"
             haplotype_info.setdefault(
                 hap_name,
                 self.HaplotypeInfo(
@@ -330,18 +326,18 @@ class Smn1Phaser(Phaser):
                 if copy_four_prob > 0.75:
                     two_cp_haps = list(smn1_haps.values())
                     return 4, two_cp_haps
-            if smn1_cn in [2, 3] and read_counts is not None:
-                # check if one smn1 haplotype has more reads than others
-                haps = list(read_counts.keys())
-                counts = list(read_counts.values())
-                max_count = max(counts)
-                cp2_hap = haps[counts.index(max_count)]
-                if cp2_hap in smn1_haps:
-                    others_max = sorted(counts, reverse=True)[1]
-                    probs = self.depth_prob(max_count, others_max)
-                    if probs[0] < 0.0005 and others_max >= 10:
-                        two_cp_haps.append(smn1_haps[cp2_hap])
-                        return smn1_cn + 1, two_cp_haps
+        if smn1_cn in [2, 3] and read_counts is not None and self.targeted is False:
+            # check if one smn1 haplotype has more reads than others
+            haps = list(read_counts.keys())
+            counts = list(read_counts.values())
+            max_count = max(counts)
+            cp2_hap = haps[counts.index(max_count)]
+            if cp2_hap in smn1_haps:
+                others_max = sorted(counts, reverse=True)[1]
+                probs = self.depth_prob(max_count, others_max)
+                if probs[0] < 0.0005 and others_max >= 10:
+                    two_cp_haps.append(smn1_haps[cp2_hap])
+                    return smn1_cn + 1, two_cp_haps
 
         if smn1_cn == 1 and smn2_cn >= 1:
             haploid_depth = self.smn2_reads_splice / smn2_cn
@@ -580,17 +576,9 @@ class Smn1Phaser(Phaser):
         smn2_cn = None
         smn2_del_cn = 0
         smn1_haps, smn2_haps, smn2_del_haps = self.assign_haps_to_gene(ass_haps)
-        if ass_haps == [] and self.init_het_sites == []:
-            if self.has_smn1 is True and self.has_smn2 is False:
-                smn1_cn = 2
-                smn2_cn = 0
-            elif self.has_smn1 is False and self.has_smn2 is True:
-                smn1_cn = 0
-                smn2_cn = 2
-        else:
-            smn1_cn = len(smn1_haps)
-            smn2_cn = len(smn2_haps)
-            smn2_del_cn = len(smn2_del_haps)
+        smn1_cn = len(smn1_haps)
+        smn2_cn = len(smn2_haps)
+        smn2_del_cn = len(smn2_del_haps)
 
         tmp = {}
         for i, hap in enumerate(smn1_haps):
@@ -602,16 +590,8 @@ class Smn1Phaser(Phaser):
         smn2_haps = tmp
         tmp = {}
         for i, hap in enumerate(smn2_del_haps):
-            tmp.setdefault(hap, f"{self.gene}_smn2del78hap{i+1}")
+            tmp.setdefault(hap, f"{self.gene}_smndel78hap{i+1}")
         smn2_del_haps = tmp
-
-        # update cn based on depth
-        smn1_cn_old = smn1_cn
-        smn1_cn, two_cp_haps = self.adjust_smn1_cn(
-            smn1_cn, smn2_cn, hcn, ass_haps, read_counts, smn1_haps
-        )
-        smn2_cn, two_cp_haps_smn2 = self.adjust_smn2_cn(smn1_cn_old, smn2_cn, smn2_haps)
-        two_cp_haps += two_cp_haps_smn2
 
         # summarize variants
         haplotypes = None
@@ -622,8 +602,58 @@ class Smn1Phaser(Phaser):
                 smn2_del_haps,
                 uniquely_supporting_reads,
                 nonuniquely_supporting_reads,
-                two_cp_haps,
             )
+
+        two_cp_haps = []
+        if self.targeted:
+            haps_to_compare = {**smn1_haps, **smn2_haps}
+            if read_counts is not None:
+                # check if one haplotype has more reads than others
+                haps = []
+                counts = []
+                for hap_seq, hap_count in read_counts.items():
+                    # exclude exon7-8 deletion
+                    if "3" not in hap_seq:
+                        haps.append(hap_seq)
+                        counts.append(hap_count)
+                if len(haps) >= 2:
+                    max_count = max(counts)
+                    cp2_hap = haps[counts.index(max_count)]
+                    others_max = sorted(counts, reverse=True)[1]
+                    probs = self.depth_prob(max_count, others_max)
+                    if probs[0] < 0.05 and others_max >= 10:
+                        two_cp_haps.append(haps_to_compare[cp2_hap])
+        for hap in two_cp_haps:
+            if "smn1hap" in hap:
+                smn1_cn += 1
+            elif "smn2hap" in hap:
+                smn2_cn += 1
+
+        # update cn based on depth
+        smn1_cn_old = smn1_cn
+        smn1_cn, two_cp_haps_smn1 = self.adjust_smn1_cn(
+            smn1_cn, smn2_cn, hcn, ass_haps, read_counts, smn1_haps
+        )
+        for hap in two_cp_haps_smn1:
+            if hap not in two_cp_haps:
+                two_cp_haps.append(hap)
+        smn2_cn, two_cp_haps_smn2 = self.adjust_smn2_cn(smn1_cn_old, smn2_cn, smn2_haps)
+        for hap in two_cp_haps_smn2:
+            if hap not in two_cp_haps:
+                two_cp_haps.append(hap)
+
+        # homozygous case
+        if len(ass_haps) == 1 and self.init_het_sites == []:
+            if self.has_smn1 is True and self.has_smn2 is False:
+                smn1_cn = 2
+                two_cp_haps = list(smn1_haps.values())
+            elif self.has_smn1 is False and self.has_smn2 is True:
+                if self.smn2_reads_splice > 0:
+                    two_cp_haps = list(smn2_haps.values())
+                    smn2_cn = 2
+                else:
+                    two_cp_haps = list(smn2_del_haps.values())
+                    smn2_del_cn = 2
 
         self.close_handle()
 

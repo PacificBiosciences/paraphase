@@ -27,7 +27,7 @@ class Phaser:
         "final_haplotypes",
         "two_copy_haplotypes",
         "alleles_final",
-        "hap_links",
+        "haplotype_links",
         "highest_total_cn",
         "assembled_haplotypes",
         "sites_for_phasing",
@@ -41,7 +41,7 @@ class Phaser:
         "region_depth",
         "sample_sex",
         "heterozygous_sites",
-        "linked_haplotypes",
+        "raw_alleles",
         "fusions_called",
     ]
     GeneCall = namedtuple(
@@ -73,11 +73,15 @@ class Phaser:
         self.genome_bam = genome_bam
         self.sample_sex = sample_sex
         self.trusted_read_support = 20
+        self.targeted = False
         if args is not None:
-            self.trusted_read_support = args.min_read_variant
-        self.min_read_haplotype = 4
+            self.targeted = args.targeted
+        self.min_vaf = None
         if args is not None:
-            self.min_read_haplotype = args.min_read_haplotype
+            self.min_vaf = args.min_variant_frequency
+        self.min_haplotype_frequency = None
+        if args is not None:
+            self.min_haplotype_frequency = args.min_haplotype_frequency
 
     def set_parameter(self, config):
         self.gene = config["gene"]
@@ -146,6 +150,9 @@ class Phaser:
         self.add_sites = []
         if "add_sites" in config:
             self.add_sites = config["add_sites"]
+        self.gene1_cn2 = False
+        if "gene1_cn2" in config:
+            self.gene1_cn2 = True
         self.match = {}
         self.gene2_region = config.get("gene2_region")
         if self.gene2_region is not None:
@@ -825,7 +832,7 @@ class Phaser:
                 self.nchr_old,
                 offset_pos - 1,
                 offset_pos + del_len,
-            )
+            ).upper()
         return ref_seq, var_seq, indel_size
 
     def get_candidate_pos(
@@ -839,6 +846,9 @@ class Phaser:
         """
         Get all polymorphic sites in the region, update self.candidate_pos
         """
+        min_variant_frequency = min_vaf
+        if self.min_vaf is not None:
+            min_variant_frequency = max(min_variant_frequency, self.min_vaf)
         bamh = self._bamh
         pileups_raw = {}
         for pileupcolumn in bamh.pileup(
@@ -914,9 +924,12 @@ class Phaser:
                             if var_seq != ref_seq and (
                                 (
                                     var_count >= min_read_support
-                                    and var_count / total_depth > min_vaf
+                                    and var_count >= total_depth * min_variant_frequency
                                 )
-                                or var_count >= self.trusted_read_support
+                                or (
+                                    self.targeted is False
+                                    and var_count >= self.trusted_read_support
+                                )
                             ):
                                 # SNV
                                 if "-" not in var_seq and "+" not in var_seq:
@@ -1352,7 +1365,14 @@ class Phaser:
         """
         Assemble and evaluate haplotypes
         """
-        min_support = self.min_read_haplotype
+        total_depth = self.region_avg_depth.median
+        min_support = 4
+        if (
+            self.targeted
+            and self.min_haplotype_frequency is not None
+            and total_depth is not None
+        ):
+            min_support = max(min_support, total_depth * self.min_haplotype_frequency)
         het_sites = self.het_sites
         haplotypes_to_reads, raw_read_haps = self.simplify_read_haps(raw_read_haps)
 
@@ -1529,7 +1549,7 @@ class Phaser:
             for n1, n2 in counts:
                 this_site_prob = self.depth_prob(n1, n2 / other_cn)
                 probs.append(this_site_prob)
-            probs_fil = [a for a in probs if a[0] < 0.25]
+            probs_fil = [a for a in probs if a is not None and a[0] < 0.25]
             if stringent is True:
                 if len(probs_fil) >= nsites * 0.8 and nsites >= 5:
                     two_cp_haps.append(hap)
@@ -1640,6 +1660,7 @@ class Phaser:
         ass_haps,
         reverse=False,
         min_read=2,
+        haps_to_exclude=[],
     ):
         """
         Phase haplotypes into alleles using read evidence
@@ -1647,13 +1668,15 @@ class Phaser:
         new_reads = {}
         # unique
         for hap in uniq_reads:
-            for read in uniq_reads[hap]:
-                short_name = read.split("_sup")[0]
-                new_reads.setdefault(short_name, []).append({read: [hap]})
+            if hap not in haps_to_exclude:
+                for read in uniq_reads[hap]:
+                    short_name = read.split("_sup")[0]
+                    new_reads.setdefault(short_name, []).append({read: [hap]})
         # nonunique
         for read, supported_haps in nonuniquely_supporting_reads.items():
+            new_supported_haps = [a for a in supported_haps if a not in haps_to_exclude]
             short_name = read.split("_sup")[0]
-            new_reads.setdefault(short_name, []).append({read: supported_haps})
+            new_reads.setdefault(short_name, []).append({read: new_supported_haps})
 
         (
             nondirected_links,
@@ -1671,17 +1694,8 @@ class Phaser:
             sorted(read_links.items(), key=lambda item: len(item[1]), reverse=True)
         )
         alleles = Phaser.get_alleles_from_links(read_links, ass_haps.values())
-        linked_haps = alleles
-        if len(alleles) > 2:
-            alleles = []
-
-        haps_in_alleles = []
-        for allele in alleles:
-            for hap in allele:
-                haps_in_alleles.append(hap)
-        # not all haplotypes are included in alleles
-        if len(set(haps_in_alleles)) < len(ass_haps):
-            alleles = []
+        linked_haps = [a for a in alleles]
+        alleles = self.filter_alleles(alleles, ass_haps, haps_to_exclude)
 
         return (
             alleles,
@@ -1690,6 +1704,39 @@ class Phaser:
             {a: Counter(b) for a, b in directed_links_loose.items()},
             linked_haps,
         )
+
+    @staticmethod
+    def filter_alleles(alleles, ass_haps, haps_to_exclude):
+        """Filter out possibly incorrectly phased alleles"""
+        # scenarios to filter out
+        # 1. more than two alleles
+        if len(alleles) > 2:
+            alleles = []
+        # 2. two alleles sharing haplotypes
+        if len(alleles) == 2:
+            if set(alleles[0]).intersection(set(alleles[1])) != set():
+                alleles = []
+        # 3. not all haplotypes are included in alleles
+        haps_in_alleles = []
+        for allele in alleles:
+            for hap in allele:
+                haps_in_alleles.append(hap)
+        haps_considered = [
+            hap_name
+            for (hap_seq, hap_name) in ass_haps.items()
+            if hap_seq not in haps_to_exclude
+        ]
+        if len(alleles) == 2 and len(haps_in_alleles) < len(haps_considered):
+            alleles = []
+        if len(alleles) == 1 and len(haps_in_alleles) < len(haps_considered):
+            if len(haps_in_alleles) == len(haps_considered) - 1 and len(
+                haps_in_alleles
+            ) in [2, 3]:
+                # 1/2 or 1/3 are okay, add the single haplotype as the second allele
+                alleles.append([a for a in haps_considered if a not in haps_in_alleles])
+            else:
+                alleles = []
+        return alleles
 
     def get_directed_links(self, new_reads, raw_read_haps, ass_haps, reverse):
         """Get links between haplotypes from reads"""
@@ -2033,12 +2080,37 @@ class Phaser:
             return bp_index
         return None
 
+    def get_cn2_haplotype(
+        self, read_counts, ass_haps, min_cn1_read_count=10, prob_cutoff=0.05
+    ):
+        """
+        Check if the haplotype with the highest depth has twice the reads
+        of the haplotype with the second highest depth
+        """
+        if read_counts is None:
+            return []
+        if len(read_counts) < 2:
+            return []
+        two_cp_haps = []
+        haps = list(read_counts.keys())
+        counts = list(read_counts.values())
+        max_count = max(counts)
+        cp2_hap = haps[counts.index(max_count)]
+        others_max = sorted(counts, reverse=True)[1]
+        probs = self.depth_prob(max_count, others_max)
+        if (
+            probs is not None
+            and probs[0] < prob_cutoff
+            and others_max >= min_cn1_read_count
+        ):
+            two_cp_haps.append(ass_haps[cp2_hap])
+        return two_cp_haps
+
     def call(self):
         """Main function to phase haplotypes and call copy numbers"""
         if self.check_coverage_before_analysis() is False:
             return self.GeneCall()
         self.get_homopolymer()
-        # self.get_homopolymer_old()
         self.find_big_deletion()
 
         if self.deletion1_size is not None:
@@ -2178,26 +2250,50 @@ class Phaser:
         two_cp_haps = []
         if len(ass_haps) == 1 and self.init_het_sites == []:
             two_cp_haps.append(list(ass_haps.values())[0])
-        elif (
-            len(ass_haps) == 3 and self.expect_cn2 is False and self.gene != "BPY2"
-        ) or (self.gene == "BPY2" and len(ass_haps) < 3):
-            two_cp_haps = self.compare_depth(haplotypes, ass_haps, stringent=True)
-            if two_cp_haps == [] and read_counts is not None:
-                # check if one haplotype has more reads than others
-                haps = list(read_counts.keys())
-                counts = list(read_counts.values())
-                max_count = max(counts)
-                cp2_hap = haps[counts.index(max_count)]
-                others_max = sorted(counts, reverse=True)[1]
-                probs = self.depth_prob(max_count, others_max)
-                # print(counts, probs)
-                if probs[0] < 0.05 and others_max >= 10:
-                    two_cp_haps.append(ass_haps[cp2_hap])
+        else:
+            if self.targeted:
+                if two_cp_haps == []:
+                    # check if one haplotype has more reads than others
+                    two_cp_haps = self.get_cn2_haplotype(
+                        read_counts, ass_haps, min_cn1_read_count=15
+                    )
+            else:
+                if (
+                    len(ass_haps) == 3
+                    and self.expect_cn2 is False
+                    and self.gene != "BPY2"
+                ) or (self.gene == "BPY2" and len(ass_haps) < 3):
+                    # check if one haplotype has twice the depth of others
+                    # at variant sites unique to it
+                    two_cp_haps = self.compare_depth(
+                        haplotypes, ass_haps, stringent=True
+                    )
+                    if (
+                        two_cp_haps == []
+                        and read_counts is not None
+                        and len(read_counts) >= 2
+                    ):
+                        # check if one haplotype has more reads than others
+                        two_cp_haps = self.get_cn2_haplotype(read_counts, ass_haps)
 
         # call fusion
         fusions_called = None
         if self.call_fusion is not None:
             two_cp_haps, fusions_called = self.find_fusion(ass_haps)
+
+        # check gene1 haplotypes and update to cn2 if assume gene1 is never cn1
+        # only for targeted mode
+        if self.targeted and self.gene1_cn2 and two_cp_haps == []:
+            gene1_haps = []
+            gene2_haps = []
+            for hap_seq, hap_name in ass_haps.items():
+                # this is assuming gene2 is very different from gene1
+                if hap_seq.count("2") > len(hap_seq) * 0.7:
+                    gene2_haps.append(hap_name)
+                else:
+                    gene1_haps.append(hap_name)
+            if len(gene1_haps) == 1:
+                two_cp_haps.append(gene1_haps[0])
 
         total_cn = len(ass_haps) + len(two_cp_haps)
 
@@ -2206,7 +2302,12 @@ class Phaser:
             total_cn = 2
 
         # two pairs of identical copies
-        if total_cn == 2 and self.expect_cn2 is False and self.gene != "BPY2":
+        if (
+            total_cn == 2
+            and self.expect_cn2 is False
+            and self.gene != "BPY2"
+            and self.call_fusion is None
+        ):
             if self.mdepth is not None:
                 prob = self.depth_prob(int(self.region_avg_depth.median), self.mdepth)
                 if prob[0] < 0.75:

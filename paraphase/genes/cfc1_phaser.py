@@ -62,16 +62,11 @@ class Cfc1Phaser(Phaser):
             two_cp_haps = list(ass_haps.values())
         elif len(ass_haps) == 3:
             two_cp_haps = self.compare_depth(haplotypes, ass_haps, loose=True)
-            if two_cp_haps == [] and read_counts is not None:
-                # check if one smn1 haplotype has more reads than others
-                haps = list(read_counts.keys())
-                counts = list(read_counts.values())
-                max_count = max(counts)
-                cp2_hap = haps[counts.index(max_count)]
-                others_max = sorted(counts, reverse=True)[1]
-                probs = self.depth_prob(max_count, others_max)
-                if probs[0] < 0.15 and others_max >= 10:
-                    two_cp_haps.append(ass_haps[cp2_hap])
+            if two_cp_haps == []:
+                # check if one haplotype has more reads than others
+                two_cp_haps = self.get_cn2_haplotype(
+                    read_counts, ass_haps, prob_cutoff=0.15
+                )
 
         total_cn = len(ass_haps) + len(two_cp_haps)
 

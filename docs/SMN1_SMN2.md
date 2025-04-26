@@ -4,13 +4,13 @@
 
 - `smn1_cn`: copy number of SMN1, a `null` call indicates that Paraphase finds only one haplotype but depth does not unambiguously support a copy number of one or two.
 - `smn2_cn`: copy number of SMN2, a `null` call indicates that Paraphase finds only one haplotype but depth does not unambiguously support a copy number of one or two.
-- `smn2_del78_cn`: copy number of SMN2Δ7–8 (SMN2 with a deletion of Exon7-8)
+- `smn_del78_cn`: copy number of SMNΔ7–8 (SMN with a deletion of Exon7-8)
 - `smn1_read_number`: number of reads containing c.840C
 - `smn2_read_number`: number of reads containing c.840T
-- `smn2_del78_read_number`: number of reads containing the known deletion of Exon7-8 on SMN2
+- `smn_del78_read_number`: number of reads containing the known deletion of Exon7-8 on SMN
 - `smn1_haplotypes`: phased SMN1 haplotypes
 - `smn2_haplotypes`: phased SMN2 haplotypes
-- `smn2_del78_haplotypes`: phased SMN2Δ7–8 haplotypes
+- `smn_del78_haplotypes`: phased SMNΔ7–8 haplotypes
 - `two_copy_haplotypes`: haplotypes that are present in two copies based on depth. This happens when (in a small number of cases) two haplotypes are identical and we infer that there exist two of them instead of one by checking the read depth.
 - `haplotype_details`: lists information about each haplotype 
   - `boundary`: The boundary of the region that is resolved on the haplotype. This is useful when a haplotype is only partially phased.
@@ -24,7 +24,7 @@ We can visualize the haplotypes by loading the Paraphase output bam file into IG
 
 ![example1](figures/HG01175_smn1.png)
 
-In this example, there are two copies of SMN1, one copy of SMN2Δ7–8, and one copy of intact SMN2. All reads are realigned to SMN1. Polymorphic sites used for phasing/assembling haplotypes are shown in the top panel. The `Unassigned` category contains reads that carry bases that do not support any haplotypes (this could be due to sequencing errors or partially phased haplotypes).
+In this example, there are two copies of SMN1, one copy of SMNΔ7–8, and one copy of intact SMN2. All reads are realigned to SMN1. Polymorphic sites used for phasing/assembling haplotypes are shown in the top panel. The `Unassigned` category contains reads that carry bases that do not support any haplotypes (this could be due to sequencing errors or partially phased haplotypes).
 
 ### Example 2
 
