@@ -190,8 +190,11 @@ class BamRealigner:
                 int(region_split[1].split("-")[1]),
             ):
                 if read.is_supplementary is False and read.is_secondary is False:
-                    modification = read.modified_bases
-                    self.methyl.setdefault(read.qname, modification)
+                    if read.has_tag("MM"):
+                        mm_tag = read.get_tag("MM")
+                        if "," in mm_tag:
+                            modification = read.modified_bases
+                            self.methyl.setdefault(read.qname, modification)
         if read is not None:
             if read.has_tag("rq"):
                 has_rq = True
@@ -276,8 +279,8 @@ class BamRealigner:
                     mm_tag, ml_tag = read_5mc
                     read.set_tags(
                         [
-                            ("Mm", ",".join([str(a) for a in mm_tag]), "Z"),
-                            ("Ml", ml_tag, "C"),
+                            ("MM", ",".join([str(a) for a in mm_tag]), "Z"),
+                            ("ML", ml_tag, "C"),
                         ]
                     )
                 realign_out_bamh.write(read)
