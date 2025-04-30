@@ -90,17 +90,61 @@ class BamRealigner:
             seq_end = int(find_clip_3p[0][:-1])
         return seq_end
 
+    @staticmethod
+    def parse_base_mod_tags(read):
+        """Get base modification probabilities from ML/MM tags"""
+        mod_prob = []
+        header = None
+        if read.has_tag("MM") and read.has_tag("ML"):
+            mm = read.get_tag("MM")
+            ml = read.get_tag("ML")
+            mm = [a for a in mm.split(";") if "C+m" in a]
+            if mm != [] and len(mm) == 1 and "," in mm[0]:
+                mm = mm[0].split(",")
+                header = mm[0]
+                mm = [int(a) for a in mm[1:]]
+                seq = read.query_sequence.upper()
+                if read.is_reverse is False:
+                    index_to_pos = {}
+                    count_c = 0
+                    for a in re.finditer(r"C", seq):
+                        pos = a.start()
+                        index_to_pos.setdefault(count_c, pos)
+                        count_c += 1
+                    count_c = 0
+                    for i, mm_value in enumerate(mm):
+                        this_c = count_c + mm_value
+                        ml_value = ml[i]
+                        pos = index_to_pos[this_c]
+                        mod_prob.append((pos, ml_value))
+                        count_c = this_c + 1
+                else:
+                    index_to_pos = {}
+                    count_g = seq.count("G")
+                    for a in re.finditer(r"G", seq):
+                        pos = a.start()
+                        count_g -= 1
+                        index_to_pos.setdefault(count_g, pos)
+                    count_g = 0
+                    for i, mm_value in enumerate(mm):
+                        this_g = count_g + mm_value
+                        ml_value = ml[i]
+                        pos = index_to_pos[this_g]
+                        mod_prob.append((pos, ml_value))
+                        count_g = this_g + 1
+                    mod_prob = list(reversed(mod_prob))
+        return header, mod_prob
+
     def get_5mc(self, read):
         """Get Ml/Mm tags"""
         if read.qname in self.methyl:
-            read_methyl = self.methyl[read.qname]
+            read_originally_reverse, header, modified_bases = self.methyl[read.qname]
             seq = read.query_sequence.upper()
             seq_len = len(seq)
-            mm_tag = ["C+m"]
+            mm_tag = [header]
             ml_tag = []
             if read.is_reverse is False:
-                if ("C", 0, "m") in read_methyl:
-                    modified_bases = read_methyl[("C", 0, "m")]
+                if read_originally_reverse is False:
                     if modified_bases != []:
                         seq_start = self.get_5p_hardclip(read)
                         current_pos = 0
@@ -112,8 +156,7 @@ class BamRealigner:
                                 mm_tag.append(skipped_c)
                                 ml_tag.append(val)
                         return (mm_tag, ml_tag)
-                if ("C", 1, "m") in read_methyl:
-                    modified_bases = read_methyl[("C", 1, "m")]
+                else:
                     if modified_bases != []:
                         seq_start = self.get_5p_hardclip(read)
                         current_pos = 0
@@ -125,9 +168,8 @@ class BamRealigner:
                                 mm_tag.append(skipped_c)
                                 ml_tag.append(val)
                         return (mm_tag, ml_tag)
-            elif read.is_reverse:
-                if ("C", 0, "m") in read_methyl:
-                    modified_bases = read_methyl[("C", 0, "m")]
+            else:
+                if read_originally_reverse is False:
                     if modified_bases != []:
                         seq_end = self.get_3p_hardclip(read)
                         current_pos = seq_len
@@ -141,8 +183,7 @@ class BamRealigner:
                                 mm_tag.append(skipped_g)
                                 ml_tag.append(val)
                         return (mm_tag, ml_tag)
-                if ("C", 1, "m") in read_methyl:
-                    modified_bases = read_methyl[("C", 1, "m")]
+                else:
                     if modified_bases != []:
                         seq_end = self.get_3p_hardclip(read)
                         current_pos = seq_len
@@ -190,11 +231,11 @@ class BamRealigner:
                 int(region_split[1].split("-")[1]),
             ):
                 if read.is_supplementary is False and read.is_secondary is False:
-                    if read.has_tag("MM"):
-                        mm_tag = read.get_tag("MM")
-                        if "," in mm_tag:
-                            modification = read.modified_bases
-                            self.methyl.setdefault(read.qname, modification)
+                    header, base_mod = self.parse_base_mod_tags(read)
+                    if base_mod != []:
+                        self.methyl.setdefault(
+                            read.qname, (read.is_reverse, header, base_mod)
+                        )
         if read is not None:
             if read.has_tag("rq"):
                 has_rq = True
