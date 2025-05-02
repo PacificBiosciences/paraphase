@@ -74,90 +74,6 @@ class BamRealigner:
         large_insertions = [a for a in insertions_on_read if a > min_size]
         return read.get_tag("NM") - sum(large_deletions + large_insertions)
 
-    @staticmethod
-    def get_5p_hardclip(read):
-        seq_start = 0
-        find_clip_5p = re.findall(r"^\d+H", read.cigarstring)
-        if find_clip_5p != []:
-            seq_start = int(find_clip_5p[0][:-1])
-        return seq_start
-
-    @staticmethod
-    def get_3p_hardclip(read):
-        seq_end = 0
-        find_clip_3p = re.findall(r"\d+H$", read.cigarstring)
-        if find_clip_3p != []:
-            seq_end = int(find_clip_3p[0][:-1])
-        return seq_end
-
-    def get_5mc(self, read):
-        """Get Ml/Mm tags"""
-        if read.qname in self.methyl:
-            read_methyl = self.methyl[read.qname]
-            seq = read.query_sequence.upper()
-            seq_len = len(seq)
-            mm_tag = ["C+m"]
-            ml_tag = []
-            if read.is_reverse is False:
-                if ("C", 0, "m") in read_methyl:
-                    modified_bases = read_methyl[("C", 0, "m")]
-                    if modified_bases != []:
-                        seq_start = self.get_5p_hardclip(read)
-                        current_pos = 0
-                        for pos, val in modified_bases:
-                            if pos >= seq_start:
-                                pos -= seq_start
-                                skipped_c = seq[current_pos:pos].count("C")
-                                current_pos = pos + 1
-                                mm_tag.append(skipped_c)
-                                ml_tag.append(val)
-                        return (mm_tag, ml_tag)
-                if ("C", 1, "m") in read_methyl:
-                    modified_bases = read_methyl[("C", 1, "m")]
-                    if modified_bases != []:
-                        seq_start = self.get_5p_hardclip(read)
-                        current_pos = 0
-                        for pos, val in modified_bases:
-                            if pos >= seq_start:
-                                pos -= seq_start
-                                skipped_c = seq[current_pos : (pos - 1)].count("C")
-                                current_pos = pos
-                                mm_tag.append(skipped_c)
-                                ml_tag.append(val)
-                        return (mm_tag, ml_tag)
-            elif read.is_reverse:
-                if ("C", 0, "m") in read_methyl:
-                    modified_bases = read_methyl[("C", 0, "m")]
-                    if modified_bases != []:
-                        seq_end = self.get_3p_hardclip(read)
-                        current_pos = seq_len
-                        for pos, val in modified_bases:
-                            if pos >= seq_end:
-                                pos -= seq_end
-                                skipped_g = seq[(seq_len - pos) : current_pos].count(
-                                    "G"
-                                )
-                                current_pos = seq_len - pos - 1
-                                mm_tag.append(skipped_g)
-                                ml_tag.append(val)
-                        return (mm_tag, ml_tag)
-                if ("C", 1, "m") in read_methyl:
-                    modified_bases = read_methyl[("C", 1, "m")]
-                    if modified_bases != []:
-                        seq_end = self.get_3p_hardclip(read)
-                        current_pos = seq_len
-                        for pos, val in modified_bases:
-                            if pos >= seq_end:
-                                pos -= seq_end
-                                skipped_g = seq[
-                                    (seq_len - pos + 1) : current_pos
-                                ].count("G")
-                                current_pos = seq_len - pos
-                                mm_tag.append(skipped_g)
-                                ml_tag.append(val)
-                        return (mm_tag, ml_tag)
-        return None
-
     def write_realign_bam(self, gene2=False):
         """
         Realign reads to region of interest and output a tagged bam for visualization
@@ -182,31 +98,28 @@ class BamRealigner:
         wgs_bamh = pysam_handle(self.bam, reference_fasta=self.genome_reference)
         has_rq = False
         read = None
-        for region in self.extract_regions.split():
-            region_split = region.split(":")
-            for read in wgs_bamh.fetch(
-                region_split[0],
-                int(region_split[1].split("-")[0]),
-                int(region_split[1].split("-")[1]),
-            ):
-                if read.is_supplementary is False and read.is_secondary is False:
-                    modification = read.modified_bases
-                    self.methyl.setdefault(read.qname, modification)
+        region = self.extract_regions.split()[0]
+        region_split = region.split(":")
+        for read in wgs_bamh.fetch(
+            region_split[0],
+            int(region_split[1].split("-")[0]),
+            int(region_split[1].split("-")[1]),
+        ):
+            if read.is_supplementary is False and read.is_secondary is False:
+                break
         if read is not None:
             if read.has_tag("rq"):
                 has_rq = True
         wgs_bamh.close()
         if has_rq:
             realign_cmd = (
-                f"{self.samtools} view -F 0x100 -F 0x200 -F 0x800 -e '[rq]>=0.99' -T {self.genome_reference} {self.bam} {self.extract_regions} | sort | uniq | "
-                + f'awk \'BEGIN {{FS="\\t"}} {{print "@" $1 "\\n" $10 "\\n+\\n" $11}}\''
-                + f" | {self.minimap2} {self.use_r2k} -a -x map-pb {realign_ref} - | {self.samtools} view -bh | {self.samtools} sort > {realign_out_tmp}"
+                f'echo {self.extract_regions} | sed -e "s/ /\\n/g"  | sed -e "s/:/\\t/" | sed -e "s/-/\\t/" | '
+                + f"{self.samtools} view --region-file - -u -F 0x100 -F 0x200 -F 0x800 -e '[rq]>=0.99' -T {self.genome_reference} {self.bam} | {self.samtools} fastq -T MM,ML - | {self.minimap2} {self.use_r2k} -ay -x map-pb {realign_ref} - | {self.samtools} view -bh | {self.samtools} sort > {realign_out_tmp}"
             )
         else:
             realign_cmd = (
-                f"{self.samtools} view -F 0x100 -F 0x200 -F 0x800 -T {self.genome_reference} {self.bam} {self.extract_regions} | sort | uniq | "
-                + f'awk \'BEGIN {{FS="\\t"}} {{print "@" $1 "\\n" $10 "\\n+\\n" $11}}\''
-                + f" | {self.minimap2} {self.use_r2k} -a -x map-pb {realign_ref} - | {self.samtools} view -bh | {self.samtools} sort > {realign_out_tmp}"
+                f'echo {self.extract_regions} | sed -e "s/ /\\n/g"  | sed -e "s/:/\\t/" | sed -e "s/-/\\t/" | '
+                + f"{self.samtools} view --region-file - -u -F 0x100 -F 0x200 -F 0x800 -T {self.genome_reference} {self.bam} | {self.samtools} fastq -T MM,ML - | {self.minimap2} {self.use_r2k} -ay -x map-pb {realign_ref} - | {self.samtools} view -bh | {self.samtools} sort > {realign_out_tmp}"
             )
         result = subprocess.run(realign_cmd, capture_output=True, text=True, shell=True)
         result.check_returncode()
@@ -270,16 +183,6 @@ class BamRealigner:
                             new_sa.append("")
                             new_ltags.append(("SA", ";".join(new_sa)))
                 read.tags = new_ltags
-                # modification
-                read_5mc = self.get_5mc(read)
-                if read_5mc is not None:
-                    mm_tag, ml_tag = read_5mc
-                    read.set_tags(
-                        [
-                            ("Mm", ",".join([str(a) for a in mm_tag]), "Z"),
-                            ("Ml", ml_tag, "C"),
-                        ]
-                    )
                 realign_out_bamh.write(read)
         realign_bamh.close()
         realign_out_bamh.close()
