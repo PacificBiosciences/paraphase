@@ -37,7 +37,11 @@ class Ncf1Phaser(Phaser):
 
     def call(self):
         if self.check_coverage_before_analysis() is False:
-            return self.GeneCall()
+            return self.GeneCall(
+                genome_depth=self.mdepth,
+                region_depth=self.region_avg_depth._asdict(),
+                sample_sex=self.sample_sex,
+            )
         pivot_site = self.pivot_site
         for pileupcolumn in self._bamh.pileup(
             self.nchr, pivot_site, pivot_site + 1, truncate=True
@@ -56,6 +60,9 @@ class Ncf1Phaser(Phaser):
 
         raw_read_haps = self.get_haplotypes_from_reads(add_sites=self.add_sites)
 
+        simple_call, phase_result = self.phase_haps_catch_error(raw_read_haps)
+        if simple_call is not None:
+            return simple_call
         (
             ass_haps,
             original_haps,
@@ -64,7 +71,7 @@ class Ncf1Phaser(Phaser):
             nonuniquely_supporting_reads,
             raw_read_haps,
             read_counts,
-        ) = self.phase_haps(raw_read_haps)
+        ) = phase_result
 
         total_cn = len(ass_haps)
         tmp = {}

@@ -1447,6 +1447,49 @@ class Phaser:
             read_counts,
         )
 
+    def phase_haps_catch_error(self, raw_read_haps, debug=False):
+        """Run phase_haps, catch error"""
+        try:
+            (
+                ass_haps,
+                original_haps,
+                hcn,
+                uniquely_supporting_reads,
+                nonuniquely_supporting_reads,
+                raw_read_haps,
+                read_counts,
+            ) = self.phase_haps(raw_read_haps, debug=debug)
+        except Exception:
+            logging.warning(
+                "Did not phase haplotypes successfully, possibly due to low coverage. See error message below"
+            )
+            traceback.print_exc()
+            return (
+                self.GeneCall(
+                    sites_for_phasing=self.het_sites,
+                    het_sites_not_used_in_phasing=self.het_no_phasing,
+                    homozygous_sites=self.homo_sites,
+                    read_details={a: "".join(b) for a, b in raw_read_haps.items()},
+                    genome_depth=self.mdepth,
+                    region_depth=self.region_avg_depth._asdict(),
+                    sample_sex=self.sample_sex,
+                    heterozygous_sites=self.init_het_sites,
+                ),
+                None,
+            )
+        return (
+            None,
+            (
+                ass_haps,
+                original_haps,
+                hcn,
+                uniquely_supporting_reads,
+                nonuniquely_supporting_reads,
+                raw_read_haps,
+                read_counts,
+            ),
+        )
+
     def get_read_support(self, raw_read_haps, haplotypes_to_reads, ass_haps):
         """Find uniquely and nonuniquely supporting reads for given haplotypes"""
         read_support = VariantGraph.match_reads_and_haplotypes(raw_read_haps, ass_haps)
@@ -2109,7 +2152,11 @@ class Phaser:
     def call(self):
         """Main function to phase haplotypes and call copy numbers"""
         if self.check_coverage_before_analysis() is False:
-            return self.GeneCall()
+            return self.GeneCall(
+                genome_depth=self.mdepth,
+                region_depth=self.region_avg_depth._asdict(),
+                sample_sex=self.sample_sex,
+            )
         self.get_homopolymer()
         self.find_big_deletion()
 
@@ -2196,43 +2243,18 @@ class Phaser:
             known_del.setdefault("4", self.deletion2_name)
         self.het_sites = het_sites
 
-        try:
-            (
-                ass_haps,
-                original_haps,
-                hcn,
-                uniquely_supporting_reads,
-                nonuniquely_supporting_reads,
-                raw_read_haps,
-                read_counts,
-            ) = self.phase_haps(raw_read_haps)
-        except Exception:
-            logging.warning(
-                "Did not phase haplotypes successfully, possibly due to low coverage. See error message below"
-            )
-            traceback.print_exc()
-            return self.GeneCall(
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                None,
-                self.het_sites,
-                None,
-                self.het_no_phasing,
-                self.homo_sites,
-                None,
-                None,
-                {a: "".join(b) for a, b in raw_read_haps.items()},
-                self.mdepth,
-                self.region_avg_depth._asdict(),
-                self.sample_sex,
-                None,
-            )
-
+        simple_call, phase_result = self.phase_haps_catch_error(raw_read_haps)
+        if simple_call is not None:
+            return simple_call
+        (
+            ass_haps,
+            original_haps,
+            hcn,
+            uniquely_supporting_reads,
+            nonuniquely_supporting_reads,
+            raw_read_haps,
+            read_counts,
+        ) = phase_result
         tmp = {}
         for i, hap in enumerate(ass_haps):
             tmp.setdefault(hap, f"{self.gene}_hap{i+1}")

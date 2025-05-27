@@ -205,7 +205,7 @@ class Paraphase:
                     f"Error running {gene} for sample {sample_id}...See error message below"
                 )
                 traceback.print_exc()
-                phaser_calls.setdefault(gene, Phaser.GeneCall())
+                phaser_calls.setdefault(gene, Phaser.GeneCall()._asdict())
         return phaser_calls
 
     def process_sample(
@@ -270,7 +270,10 @@ class Paraphase:
                         gdepth = None
 
                 # call sample sex
-                if True in ["X" in configs[a]["nchr"] for a in configs]:
+                if True in [
+                    "X" in configs[a]["nchr"] or "Y" in configs[a]["nchr"]
+                    for a in configs
+                ]:
                     logging.info(f"Checking sample sex at {datetime.datetime.now()}...")
                     depth = GenomeDepth(
                         bam,
@@ -347,7 +350,7 @@ class Paraphase:
         # update smn1
         if "SERF1A" in sample_out and "smn1" in sample_out:
             serf1_haps = sample_out["SERF1A"].get("final_haplotypes")
-            smn_haps = sample_out["SERF1A"].get("final_haplotypes")
+            smn_haps = sample_out["smn1"].get("final_haplotypes")
             if serf1_haps is not None and smn_haps is not None:
                 smn1_cn = sample_out["smn1"].get("smn1_cn")
                 if smn1_cn is not None and smn1_cn == 1:
@@ -845,7 +848,10 @@ class Paraphase:
         finally:
             # remove temp dir
             if os.path.exists(tmpdir):
-                shutil.rmtree(tmpdir)
+                try:
+                    shutil.rmtree(tmpdir)
+                except Exception:
+                    logging.warning("Could not remove temporary directory...")
             logging.info(
                 f"Completed Paraphase analysis at {datetime.datetime.now()}..."
             )

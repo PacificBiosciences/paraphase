@@ -59,7 +59,11 @@ class HbaPhaser(Phaser):
 
     def call(self):
         if self.check_coverage_before_analysis() is False:
-            return self.GeneCall()
+            return self.GeneCall(
+                genome_depth=self.mdepth,
+                region_depth=self.region_avg_depth._asdict(),
+                sample_sex=self.sample_sex,
+            )
         genome_bamh = pysam_handle(self.genome_bam, self.reference_fasta)
         surrounding_region_depth = self.get_regional_depth(
             genome_bamh, self.depth_region
@@ -73,6 +77,9 @@ class HbaPhaser(Phaser):
         self.init_het_sites = [a for a in self.het_sites]
         raw_read_haps = self.get_haplotypes_from_reads(check_clip=True, min_clip_len=9)
 
+        simple_call, phase_result = self.phase_haps_catch_error(raw_read_haps)
+        if simple_call is not None:
+            return simple_call
         (
             ass_haps,
             original_haps,
@@ -81,7 +88,7 @@ class HbaPhaser(Phaser):
             nonuniquely_supporting_reads,
             raw_read_haps,
             read_counts,
-        ) = self.phase_haps(raw_read_haps)
+        ) = phase_result
 
         count_hba1 = 0
         count_hba2 = 0

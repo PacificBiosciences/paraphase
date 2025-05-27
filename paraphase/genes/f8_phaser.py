@@ -85,7 +85,11 @@ class F8Phaser(Phaser):
 
     def call(self):
         if self.check_coverage_before_analysis() is False:
-            return self.GeneCall()
+            return self.GeneCall(
+                genome_depth=self.mdepth,
+                region_depth=self.region_avg_depth._asdict(),
+                sample_sex=self.sample_sex,
+            )
 
         genome_bamh = pysam_handle(self.genome_bam, self.reference_fasta)
         e1_e22_depth = self.get_regional_depth(genome_bamh, self.depth_region)[0].median
@@ -122,6 +126,9 @@ class F8Phaser(Phaser):
             kept_sites=self.add_sites,
         )
 
+        simple_call, phase_result = self.phase_haps_catch_error(raw_read_haps)
+        if simple_call is not None:
+            return simple_call
         (
             ass_haps,
             original_haps,
@@ -130,7 +137,7 @@ class F8Phaser(Phaser):
             nonuniquely_supporting_reads,
             raw_read_haps,
             read_counts,
-        ) = self.phase_haps(raw_read_haps)
+        ) = phase_result
 
         total_cn = len(ass_haps)
         tmp = {}

@@ -47,7 +47,11 @@ class StrcPhaser(Phaser):
 
     def call(self):
         if self.check_coverage_before_analysis() is False:
-            return self.GeneCall()
+            return self.GeneCall(
+                genome_depth=self.mdepth,
+                region_depth=self.region_avg_depth._asdict(),
+                sample_sex=self.sample_sex,
+            )
         genome_bamh = pysam_handle(self.genome_bam, self.reference_fasta)
         intergenic_depth = self.get_regional_depth(genome_bamh, self.depth_region)[
             0
@@ -83,6 +87,9 @@ class StrcPhaser(Phaser):
                 self.deletion1_name,
             )
         self.het_sites = het_sites
+        simple_call, phase_result = self.phase_haps_catch_error(raw_read_haps)
+        if simple_call is not None:
+            return simple_call
         (
             ass_haps,
             original_haps,
@@ -91,7 +98,7 @@ class StrcPhaser(Phaser):
             nonuniquely_supporting_reads,
             raw_read_haps,
             read_counts,
-        ) = self.phase_haps(raw_read_haps)
+        ) = phase_result
 
         haplotypes = None
         dvar = None
