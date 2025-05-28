@@ -21,7 +21,11 @@ class Pms2Phaser(Phaser):
 
     def call(self):
         if self.check_coverage_before_analysis() is False:
-            return self.GeneCall()
+            return self.GeneCall(
+                genome_depth=self.mdepth,
+                region_depth=self.region_avg_depth._asdict(),
+                sample_sex=self.sample_sex,
+            )
         self.get_homopolymer()
         self.find_big_deletion(min_size=2900)
 
@@ -68,6 +72,9 @@ class Pms2Phaser(Phaser):
             known_del.setdefault("3", self.deletion1_name)
         self.het_sites = het_sites
 
+        simple_call, phase_result = self.phase_haps_catch_error(raw_read_haps)
+        if simple_call is not None:
+            return simple_call
         (
             ass_haps,
             original_haps,
@@ -76,7 +83,7 @@ class Pms2Phaser(Phaser):
             nonuniquely_supporting_reads,
             raw_read_haps,
             read_counts,
-        ) = self.phase_haps(raw_read_haps)
+        ) = phase_result
 
         tmp = {}
         counter_gene = 0

@@ -332,8 +332,6 @@ class BamTagger:
 
         call_sum = self.call_sum
         hp_keys = call_sum.get("final_haplotypes")
-        if hp_keys is None:
-            return
         self._bamh = pysam.AlignmentFile(inbam, "rb")
         out_bamh = pysam.AlignmentFile(tmpbam, "wb", template=self._bamh)
         unique_reads = call_sum.get("unique_supporting_reads")
@@ -347,16 +345,18 @@ class BamTagger:
 
         for read in self._bamh.fetch(nchr):
             if read.is_secondary is False:
-                read = self.add_tag_to_read(
-                    read,
-                    hp_keys,
-                    unique_reads,
-                    nonunique_reads,
-                    read_details,
-                    alleles,
-                    random_assign=random_assign,
-                    gene2=gene2,
-                )
+                read.set_tag("RN", self.gene, "Z")
+                if hp_keys is not None:
+                    read = self.add_tag_to_read(
+                        read,
+                        hp_keys,
+                        unique_reads,
+                        nonunique_reads,
+                        read_details,
+                        alleles,
+                        random_assign=random_assign,
+                        gene2=gene2,
+                    )
                 out_bamh.write(read)
         out_bamh.close()
         self._bamh.close()

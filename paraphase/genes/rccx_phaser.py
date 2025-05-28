@@ -1,9 +1,7 @@
 # paraphase
 # Author: Xiao Chen <xchen@pacificbiosciences.com>
 
-import copy
 from collections import namedtuple
-import copy
 from ..phaser import Phaser
 
 
@@ -348,7 +346,11 @@ class RccxPhaser(Phaser):
 
     def call(self):
         if self.check_coverage_before_analysis() is False:
-            return self.GeneCall()
+            return self.GeneCall(
+                genome_depth=self.mdepth,
+                region_depth=self.region_avg_depth._asdict(),
+                sample_sex=self.sample_sex,
+            )
         self.get_homopolymer()
         self.del2_reads, self.del2_reads_partial = self.get_long_del_reads(
             self.del2_3p_pos1,
@@ -420,6 +422,9 @@ class RccxPhaser(Phaser):
         self.het_sites = het_sites
 
         # assemble haplotypes
+        simple_call, phase_result = self.phase_haps_catch_error(raw_read_haps)
+        if simple_call is not None:
+            return simple_call
         (
             ass_haps,
             original_haps,
@@ -428,7 +433,7 @@ class RccxPhaser(Phaser):
             nonuniquely_supporting_reads,
             raw_read_haps,
             read_counts,
-        ) = self.phase_haps(raw_read_haps)
+        ) = phase_result
 
         tmp = {}
         for i, hap in enumerate(ass_haps):
