@@ -135,7 +135,7 @@ class IkbkgPhaser(Phaser):
                         hap_name = f"{self.gene}_pseudohap{pseudo_counter}"
                     elif clip_5p == self.clip_5p_positions[1]:
                         dup_counter += 1
-                        tmp.setdefault(hap, f"{self.gene}_duphap{dup_counter}")
+                        hap_name = f"{self.gene}_duphap{dup_counter}"
                     else:
                         assert clip_5p == 0
                         gene_counter += 1
