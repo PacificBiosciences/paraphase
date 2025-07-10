@@ -2306,16 +2306,19 @@ class Phaser:
         # check gene1 haplotypes and update to cn2 if assume gene1 is never cn1
         # only for targeted mode
         if self.targeted and self.gene1_cn2 and two_cp_haps == []:
-            gene1_haps = []
-            gene2_haps = []
-            for hap_seq, hap_name in ass_haps.items():
-                # this is assuming gene2 is very different from gene1
-                if hap_seq.count("2") > len(hap_seq) * 0.7:
-                    gene2_haps.append(hap_name)
-                else:
-                    gene1_haps.append(hap_name)
-            if len(gene1_haps) == 1:
-                two_cp_haps.append(gene1_haps[0])
+            region_length = self.right_boundary - self.left_boundary
+            snp_count = len(self.het_sites)
+            if snp_count > region_length * 0.008:
+                gene1_haps = []
+                gene2_haps = []
+                for hap_seq, hap_name in ass_haps.items():
+                    # this is assuming gene2 is very different from gene1
+                    if hap_seq.count("2") > len(hap_seq) * 0.7:
+                        gene2_haps.append(hap_name)
+                    else:
+                        gene1_haps.append(hap_name)
+                if len(gene1_haps) == 1:
+                    two_cp_haps.append(gene1_haps[0])
 
         total_cn = len(ass_haps) + len(two_cp_haps)
 
