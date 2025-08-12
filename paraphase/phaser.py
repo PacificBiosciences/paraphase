@@ -848,7 +848,7 @@ class Phaser:
         """
         min_variant_frequency = min_vaf
         if self.min_vaf is not None:
-            min_variant_frequency = max(min_variant_frequency, self.min_vaf)
+            min_variant_frequency = self.min_vaf
         bamh = self._bamh
         pileups_raw = {}
         for pileupcolumn in bamh.pileup(
