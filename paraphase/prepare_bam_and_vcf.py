@@ -951,8 +951,6 @@ class VcfGenerater:
         call_sum = self.call_sum
         if gene2 is False:
             final_haps = call_sum.get("final_haplotypes")
-        if final_haps is None:
-            return
         # special SV type variants to report for certain genes
         special_variants = self.get_sv(gene2)
 
@@ -1156,7 +1154,11 @@ class VcfGenerater:
         return variants_info, hap_info
 
     def run(self):
-        if self.call_sum.get("final_haplotypes") is None:
+        final_haps = self.call_sum.get("final_haplotypes")
+        true_het_sites = self.call_sum.get("heterozygous_sites")
+        if final_haps is None:
+            return
+        if final_haps == {} and true_het_sites is not None and true_het_sites != []:
             return
         variants_info, hap_info = self.run_without_realign()
         self.merge_vcf([(variants_info, hap_info)])
@@ -1228,7 +1230,11 @@ class TwoGeneVcfGenerater(VcfGenerater):
         in this two-gene scenario
         """
         call_sum = self.call_sum
-        if call_sum.get("final_haplotypes") is None:
+        final_haps = self.call_sum.get("final_haplotypes")
+        true_het_sites = self.call_sum.get("heterozygous_sites")
+        if final_haps is None:
+            return
+        if final_haps == {} and true_het_sites is not None and true_het_sites != []:
             return
         gene1_haps, gene2_haps = self.separate_two_genes()
         vars_gene1, gene1_hap_info = self.run_without_realign(
