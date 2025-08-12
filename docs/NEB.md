@@ -7,6 +7,7 @@ Paraphase resolves the triplicate (TRI) repeat region in NEB, where copy number 
 - `total_cn`: total copy number of the triplicate repeat
 - `two_copy_haplotypes`: haplotypes that are present in two copies based on depth. This happens when (in a small number of cases) two haplotypes are identical and we infer that there exist two of them instead of one by checking the read depth.
 - `alleles_final`: when possible, different copies of TRI are phased into alleles with read based phasing. 
+- `repeat_name`: haplotypes are assigned to TRI1/TRI2/TRI3, which are the three copies of the repeat in the reference genome. Note that this is according to their order in the reference genome, i.e. the first copy of the repeat in the reference genome is TRI1 and the last copy is TRI3. Some studies assign TRI1/TRI2/TRI3 according to their order in the coding sequence, which is on the negative strand of the reference genome, thus a reverse order than what's reported by Paraphase.
 
 ## Visualizing haplotypes
 
