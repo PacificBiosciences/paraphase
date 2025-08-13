@@ -114,12 +114,12 @@ class BamRealigner:
         if has_rq:
             realign_cmd = (
                 f'echo {self.extract_regions} | sed -e "s/ /\\n/g"  | sed -e "s/:/\\t/" | sed -e "s/-/\\t/" | '
-                + f"{self.samtools} view --region-file - -u -F 0x100 -F 0x200 -F 0x800 -e '[rq]>=0.99' -T {self.genome_reference} {self.bam} | {self.samtools} fastq -T MM,ML - | {self.minimap2} {self.use_r2k} -ay -x map-pb {realign_ref} - | {self.samtools} view -bh | {self.samtools} sort > {realign_out_tmp}"
+                + f"{self.samtools} view --region-file - -u -F 0x100 -F 0x200 -F 0x800 -e '[rq]>=0.99' -T {self.genome_reference} {self.bam} | {self.samtools} fastq -T MM,ML - | {self.minimap2} {self.use_r2k} -ay -x map-pb {realign_ref} - | {self.samtools} view -bh | {self.samtools} sort -n | {self.samtools} sort > {realign_out_tmp}"
             )
         else:
             realign_cmd = (
                 f'echo {self.extract_regions} | sed -e "s/ /\\n/g"  | sed -e "s/:/\\t/" | sed -e "s/-/\\t/" | '
-                + f"{self.samtools} view --region-file - -u -F 0x100 -F 0x200 -F 0x800 -T {self.genome_reference} {self.bam} | {self.samtools} fastq -T MM,ML - | {self.minimap2} {self.use_r2k} -ay -x map-pb {realign_ref} - | {self.samtools} view -bh | {self.samtools} sort > {realign_out_tmp}"
+                + f"{self.samtools} view --region-file - -u -F 0x100 -F 0x200 -F 0x800 -T {self.genome_reference} {self.bam} | {self.samtools} fastq -T MM,ML - | {self.minimap2} {self.use_r2k} -ay -x map-pb {realign_ref} - | {self.samtools} view -bh | {self.samtools} sort -n | {self.samtools} sort > {realign_out_tmp}"
             )
         result = subprocess.run(realign_cmd, capture_output=True, text=True, shell=True)
         result.check_returncode()
@@ -153,6 +153,7 @@ class BamRealigner:
             "wb",
             header=new_header,
         )
+        unique_reads_added = set()
         for read in realign_bamh.fetch(ref_name_tmp):
             num_mismatch = self.get_nm(read)
             if (
@@ -160,30 +161,35 @@ class BamRealigner:
                 and read.query_alignment_length >= self.min_aln
                 and num_mismatch < read.reference_length * self.max_mismatch
             ):
-                read.reference_start += offset
-                ltags = read.tags
-                new_ltags = []
-                for tag in ltags:
-                    if tag[0] != "SA":
-                        new_ltags.append(tag)
-                    else:
-                        # update the SA tag
-                        new_sa = []
-                        for sa_item in tag[1].split(";"):
-                            if sa_item != "":
-                                at = sa_item.split(",")
-                                at[0] = nchr
-                                tmp_pos = int(at[1])
-                                at[1] = str(tmp_pos + offset)
-                                mapq = int(at[4])
-                                if mapq >= self.min_mapq:
-                                    new_at = ",".join(at)
-                                    new_sa.append(new_at)
-                        if new_sa != []:
-                            new_sa.append("")
-                            new_ltags.append(("SA", ";".join(new_sa)))
-                read.tags = new_ltags
-                realign_out_bamh.write(read)
+                if (
+                    read.qname,
+                    read.cigarstring,
+                ) not in unique_reads_added:
+                    unique_reads_added.add((read.qname, read.cigarstring))
+                    read.reference_start += offset
+                    ltags = read.tags
+                    new_ltags = []
+                    for tag in ltags:
+                        if tag[0] != "SA":
+                            new_ltags.append(tag)
+                        else:
+                            # update the SA tag
+                            new_sa = []
+                            for sa_item in tag[1].split(";"):
+                                if sa_item != "":
+                                    at = sa_item.split(",")
+                                    at[0] = nchr
+                                    tmp_pos = int(at[1])
+                                    at[1] = str(tmp_pos + offset)
+                                    mapq = int(at[4])
+                                    if mapq >= self.min_mapq:
+                                        new_at = ",".join(at)
+                                        new_sa.append(new_at)
+                            if new_sa != []:
+                                new_sa.append("")
+                                new_ltags.append(("SA", ";".join(new_sa)))
+                    read.tags = new_ltags
+                    realign_out_bamh.write(read)
         realign_bamh.close()
         realign_out_bamh.close()
         pysam.index(realign_out)
