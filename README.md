@@ -113,6 +113,7 @@ Paraphase produces a few output files in the directory specified by `-o`, with t
 - `haplotype_details`: lists information about each haplotype 
   - `boundary`: the boundary of the region that is resolved on the haplotype. This is useful when a haplotype is only partially phased.
 - `alleles_final`: haplotypes phased into alleles. This is possible when the segmental duplication is in tandem.
+- `fusions_called`: deletions or duplications created by unequal crossing over between paralogous sequences, called by a special step that checks the flanking sequences of phased haplotypes. This step is currently enabled for four regions: CYP2D6, GBA, CYP11B1 and the CFH gene cluster. 
 
 Tutorials/Examples are provided for interpreting the `json` output and visualizing haplotypes for medically relevant genes listed below: 
 - [SMN1/SMN2](docs/SMN1_SMN2.md)
