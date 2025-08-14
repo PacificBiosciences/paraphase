@@ -89,6 +89,7 @@ class F8Phaser(Phaser):
                 genome_depth=self.mdepth,
                 region_depth=self.region_avg_depth._asdict(),
                 sample_sex=self.sample_sex,
+                phase_region=f"{self.genome_build}:{self.nchr}:{self.left_boundary}-{self.right_boundary}",
             )
 
         genome_bamh = pysam_handle(self.genome_bam, self.reference_fasta)
@@ -272,4 +273,5 @@ class F8Phaser(Phaser):
             self.region_avg_depth._asdict(),
             self.sample_sex,
             self.init_het_sites,
+            f"{self.genome_build}:{self.nchr}:{self.left_boundary}-{self.right_boundary}",
         )

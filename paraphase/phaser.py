@@ -41,6 +41,7 @@ class Phaser:
         "region_depth",
         "sample_sex",
         "heterozygous_sites",
+        "phase_region",
         "raw_alleles",
         "fusions_called",
     ]
@@ -74,6 +75,7 @@ class Phaser:
         self.sample_sex = sample_sex
         self.trusted_read_support = 20
         self.targeted = False
+        self.genome_build = args.genome if args is not None else None
         if args is not None:
             self.targeted = args.targeted
         self.min_vaf = None
@@ -2156,6 +2158,7 @@ class Phaser:
                 genome_depth=self.mdepth,
                 region_depth=self.region_avg_depth._asdict(),
                 sample_sex=self.sample_sex,
+                phase_region=f"{self.genome_build}:{self.nchr}:{self.left_boundary}-{self.right_boundary}",
             )
         self.get_homopolymer()
         self.find_big_deletion()
@@ -2404,6 +2407,7 @@ class Phaser:
             self.region_avg_depth._asdict(),
             self.sample_sex,
             self.init_het_sites,
+            f"{self.genome_build}:{self.nchr}:{self.left_boundary}-{self.right_boundary}",
             linked_haps,
             fusions_called,
         )
