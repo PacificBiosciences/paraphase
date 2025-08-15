@@ -35,7 +35,7 @@ For more details about Paraphase, please check out our latest [paper](https://ww
 
 - Chen X, Harting J, Farrow E, et al. Comprehensive SMN1 and SMN2 profiling for spinal muscular atrophy analysis using long-read PacBio HiFi sequencing. The American Journal of Human Genetics. 2023. doi:10.1016/j.ajhg.2023.01.001
 
-For whole-genome sequencing (WGS) data, we recommend >20X, ideally 30X, genome coverage. Low coverage or short read length could result in less accurate phasing, especially when gene copies are highly similar to each other. For hybrid capture-based enrichment data, a higher read depth (>50X) is recommended as the read length is generally shorter than WGS.
+Paraphase supports both whole-genome sequencing (WGS) data and targeted sequencing data, including data generated from [PureTarget](https://www.pacb.com/technology/puretarget) panels. For whole-genome sequencing (WGS) data, we recommend >20X, ideally 30X, genome coverage. Low coverage or shorter read length could result in less accurate phasing, especially when gene copies are highly similar to each other. See our [tutorial](docs/targeted_data.md) for more details on targeted data.
 
 ## Contact
 
