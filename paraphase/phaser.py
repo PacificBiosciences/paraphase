@@ -41,6 +41,7 @@ class Phaser:
         "region_depth",
         "sample_sex",
         "heterozygous_sites",
+        "phase_region",
         "raw_alleles",
         "fusions_called",
     ]
@@ -74,6 +75,7 @@ class Phaser:
         self.sample_sex = sample_sex
         self.trusted_read_support = 20
         self.targeted = False
+        self.genome_build = args.genome if args is not None else None
         if args is not None:
             self.targeted = args.targeted
         self.min_vaf = None
@@ -167,18 +169,18 @@ class Phaser:
         self.del1_reads_partial = set()
         self.del2_reads = set()
         self.del2_reads_partial = set()
-        self.deletion1_size = None
-        self.deletion2_size = None
-        self.deletion1_name = None
-        self.deletion2_name = None
-        self.del2_3p_pos1 = None
-        self.del2_3p_pos2 = None
-        self.del2_5p_pos1 = None
-        self.del2_5p_pos2 = None
-        self.del1_3p_pos1 = None
-        self.del1_3p_pos2 = None
-        self.del1_5p_pos1 = None
-        self.del1_5p_pos2 = None
+        self.deletion1_size = config.get("deletion1_size")
+        self.deletion2_size = config.get("deletion2_size")
+        self.deletion1_name = config.get("deletion1_name")
+        self.deletion2_name = config.get("deletion2_name")
+        self.del2_3p_pos1 = config.get("del2_3p_pos1")
+        self.del2_3p_pos2 = config.get("del2_3p_pos2")
+        self.del2_5p_pos1 = config.get("del2_5p_pos1")
+        self.del2_5p_pos2 = config.get("del2_5p_pos2")
+        self.del1_3p_pos1 = config.get("del1_3p_pos1")
+        self.del1_3p_pos2 = config.get("del1_3p_pos2")
+        self.del1_5p_pos1 = config.get("del1_5p_pos1")
+        self.del1_5p_pos2 = config.get("del1_5p_pos2")
 
     def get_regional_depth(self, bam_handle, query_region, ninterval=100):
         """Get depth of the query regions"""
@@ -446,11 +448,15 @@ class Phaser:
             self.del2_5p_pos2 = nend + padding
 
     @staticmethod
-    def check_del(read, del_size):
+    def check_del(read, del_size, pos1, pos2):
         """Find reads having the 6.3kb deletion in its cigar string"""
-        del_len = [int(a[:-1]) for a in re.findall(Phaser.deletion, read.cigarstring)]
-        if del_len != [] and abs(max(del_len) - del_size) < 50:
-            return True
+        starting_pos = read.reference_start
+        for (op_type, op_len) in read.cigartuples:
+            if op_type == 2 and abs(op_len - del_size) < min(del_size * 0.1, 50):
+                if pos1 - 3 <= starting_pos <= pos2 + 3:
+                    return True
+            if op_type in [0, 2, 7, 8]:
+                starting_pos += op_len
         return False
 
     def get_long_del_reads(
@@ -487,7 +493,8 @@ class Phaser:
                     and read.reference_start < reference_start_cutoff
                 ):
                     p3_reads.add(read_name)
-            if self.check_del(read, del_size):
+            deletion_in_cigar = self.check_del(read, del_size, pos1, pos2)
+            if deletion_in_cigar:
                 del_reads.add(read_name)
         # 5 prime clip
         pos1 = p5_pos1
@@ -502,8 +509,6 @@ class Phaser:
                     and read.reference_end > reference_end_cutoff
                 ):
                     p5_reads.add(read_name)
-            if self.check_del(read, del_size):
-                del_reads.add(read_name)
         if del_reads != set() or (p3_reads != set() and p5_reads != set()):
             return (
                 del_reads.union(p3_reads.intersection(p5_reads)),
@@ -848,7 +853,7 @@ class Phaser:
         """
         min_variant_frequency = min_vaf
         if self.min_vaf is not None:
-            min_variant_frequency = max(min_variant_frequency, self.min_vaf)
+            min_variant_frequency = self.min_vaf
         bamh = self._bamh
         pileups_raw = {}
         for pileupcolumn in bamh.pileup(
@@ -2156,6 +2161,7 @@ class Phaser:
                 genome_depth=self.mdepth,
                 region_depth=self.region_avg_depth._asdict(),
                 sample_sex=self.sample_sex,
+                phase_region=f"{self.genome_build}:{self.nchr}:{self.left_boundary}-{self.right_boundary}",
             )
         self.get_homopolymer()
         self.find_big_deletion()
@@ -2306,16 +2312,19 @@ class Phaser:
         # check gene1 haplotypes and update to cn2 if assume gene1 is never cn1
         # only for targeted mode
         if self.targeted and self.gene1_cn2 and two_cp_haps == []:
-            gene1_haps = []
-            gene2_haps = []
-            for hap_seq, hap_name in ass_haps.items():
-                # this is assuming gene2 is very different from gene1
-                if hap_seq.count("2") > len(hap_seq) * 0.7:
-                    gene2_haps.append(hap_name)
-                else:
-                    gene1_haps.append(hap_name)
-            if len(gene1_haps) == 1:
-                two_cp_haps.append(gene1_haps[0])
+            region_length = self.right_boundary - self.left_boundary
+            snp_count = len(self.het_sites)
+            if snp_count > region_length * 0.008:
+                gene1_haps = []
+                gene2_haps = []
+                for hap_seq, hap_name in ass_haps.items():
+                    # this is assuming gene2 is very different from gene1
+                    if hap_seq.count("2") > len(hap_seq) * 0.7:
+                        gene2_haps.append(hap_name)
+                    else:
+                        gene1_haps.append(hap_name)
+                if len(gene1_haps) == 1:
+                    two_cp_haps.append(gene1_haps[0])
 
         total_cn = len(ass_haps) + len(two_cp_haps)
 
@@ -2401,6 +2410,7 @@ class Phaser:
             self.region_avg_depth._asdict(),
             self.sample_sex,
             self.init_het_sites,
+            f"{self.genome_build}:{self.nchr}:{self.left_boundary}-{self.right_boundary}",
             linked_haps,
             fusions_called,
         )

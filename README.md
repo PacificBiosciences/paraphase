@@ -35,7 +35,7 @@ For more details about Paraphase, please check out our latest [paper](https://ww
 
 - Chen X, Harting J, Farrow E, et al. Comprehensive SMN1 and SMN2 profiling for spinal muscular atrophy analysis using long-read PacBio HiFi sequencing. The American Journal of Human Genetics. 2023. doi:10.1016/j.ajhg.2023.01.001
 
-For whole-genome sequencing (WGS) data, we recommend >20X, ideally 30X, genome coverage. Low coverage or short read length could result in less accurate phasing, especially when gene copies are highly similar to each other. For hybrid capture-based enrichment data, a higher read depth (>50X) is recommended as the read length is generally shorter than WGS.
+Paraphase supports both whole-genome sequencing (WGS) data and targeted sequencing data, including data generated from [PureTarget](https://www.pacb.com/technology/puretarget) panels. For whole-genome sequencing (WGS) data, we recommend >20X, ideally 30X, genome coverage. Low coverage or shorter read length could result in less accurate phasing, especially when gene copies are highly similar to each other. See our [tutorial](docs/targeted_data.md) for more details on targeted data.
 
 ## Contact
 
@@ -113,6 +113,7 @@ Paraphase produces a few output files in the directory specified by `-o`, with t
 - `haplotype_details`: lists information about each haplotype 
   - `boundary`: the boundary of the region that is resolved on the haplotype. This is useful when a haplotype is only partially phased.
 - `alleles_final`: haplotypes phased into alleles. This is possible when the segmental duplication is in tandem.
+- `fusions_called`: deletions or duplications created by unequal crossing over between paralogous sequences, called by a special step that checks the flanking sequences of phased haplotypes. This step is currently enabled for four regions: CYP2D6, GBA, CYP11B1 and the CFH gene cluster. 
 
 Tutorials/Examples are provided for interpreting the `json` output and visualizing haplotypes for medically relevant genes listed below: 
 - [SMN1/SMN2](docs/SMN1_SMN2.md)
