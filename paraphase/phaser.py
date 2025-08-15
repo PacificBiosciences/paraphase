@@ -169,18 +169,18 @@ class Phaser:
         self.del1_reads_partial = set()
         self.del2_reads = set()
         self.del2_reads_partial = set()
-        self.deletion1_size = None
-        self.deletion2_size = None
-        self.deletion1_name = None
-        self.deletion2_name = None
-        self.del2_3p_pos1 = None
-        self.del2_3p_pos2 = None
-        self.del2_5p_pos1 = None
-        self.del2_5p_pos2 = None
-        self.del1_3p_pos1 = None
-        self.del1_3p_pos2 = None
-        self.del1_5p_pos1 = None
-        self.del1_5p_pos2 = None
+        self.deletion1_size = config.get("deletion1_size")
+        self.deletion2_size = config.get("deletion2_size")
+        self.deletion1_name = config.get("deletion1_name")
+        self.deletion2_name = config.get("deletion2_name")
+        self.del2_3p_pos1 = config.get("del2_3p_pos1")
+        self.del2_3p_pos2 = config.get("del2_3p_pos2")
+        self.del2_5p_pos1 = config.get("del2_5p_pos1")
+        self.del2_5p_pos2 = config.get("del2_5p_pos2")
+        self.del1_3p_pos1 = config.get("del1_3p_pos1")
+        self.del1_3p_pos2 = config.get("del1_3p_pos2")
+        self.del1_5p_pos1 = config.get("del1_5p_pos1")
+        self.del1_5p_pos2 = config.get("del1_5p_pos2")
 
     def get_regional_depth(self, bam_handle, query_region, ninterval=100):
         """Get depth of the query regions"""
@@ -448,11 +448,15 @@ class Phaser:
             self.del2_5p_pos2 = nend + padding
 
     @staticmethod
-    def check_del(read, del_size):
+    def check_del(read, del_size, pos1, pos2):
         """Find reads having the 6.3kb deletion in its cigar string"""
-        del_len = [int(a[:-1]) for a in re.findall(Phaser.deletion, read.cigarstring)]
-        if del_len != [] and abs(max(del_len) - del_size) < 50:
-            return True
+        starting_pos = read.reference_start
+        for (op_type, op_len) in read.cigartuples:
+            if op_type == 2 and abs(op_len - del_size) < min(del_size * 0.1, 50):
+                if pos1 - 3 <= starting_pos <= pos2 + 3:
+                    return True
+            if op_type in [0, 2, 7, 8]:
+                starting_pos += op_len
         return False
 
     def get_long_del_reads(
@@ -489,7 +493,8 @@ class Phaser:
                     and read.reference_start < reference_start_cutoff
                 ):
                     p3_reads.add(read_name)
-            if self.check_del(read, del_size):
+            deletion_in_cigar = self.check_del(read, del_size, pos1, pos2)
+            if deletion_in_cigar:
                 del_reads.add(read_name)
         # 5 prime clip
         pos1 = p5_pos1
@@ -504,8 +509,6 @@ class Phaser:
                     and read.reference_end > reference_end_cutoff
                 ):
                     p5_reads.add(read_name)
-            if self.check_del(read, del_size):
-                del_reads.add(read_name)
         if del_reads != set() or (p3_reads != set() and p5_reads != set()):
             return (
                 del_reads.union(p3_reads.intersection(p5_reads)),
