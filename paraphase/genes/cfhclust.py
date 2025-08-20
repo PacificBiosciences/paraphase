@@ -73,7 +73,7 @@ class CfhClust(Phaser):
             None,
             None,
             None,
-            f"{self.cfh["phase_region"]},{self.cfhr3["phase_region"]}",
+            f"{self.cfh['phase_region']},{self.cfhr3['phase_region']}",
             None,
             fusions,
         )
