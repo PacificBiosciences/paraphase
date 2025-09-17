@@ -698,7 +698,10 @@ class Phaser:
                                 read_seq = read.alignment.query_sequence
                                 start_pos = read.query_position
                                 end_pos = start_pos + 1
-                                if end_pos < len(read_seq):
+                                find_clip_3p = re.findall(r"\d+S$", read.alignment.cigarstring)
+                                clip_3p_len = int(find_clip_3p[0][:-1]) if find_clip_3p != [] else 0
+                                # need to substract clip length from the end
+                                if end_pos < len(read_seq) - clip_3p_len:
                                     hap = read_seq[start_pos:end_pos]
                                     if read_name not in read_haps:
                                         read_haps.setdefault(read_name, ["x"] * nvar)
@@ -1034,10 +1037,16 @@ class Phaser:
             var_pos,
             truncate=True,
         ):
-            read_names = pileupcolumn.get_query_names()
+            read_names = []
             bases = [
                 a.upper() for a in pileupcolumn.get_query_sequences(add_indels=True)
             ]
+            for read in pileupcolumn.pileups:
+                this_read_names = self.get_read_names(
+                    read.alignment, []
+                )
+                read_names.append(this_read_names[0])
+            assert len(bases) == len(read_names)
             for i, read in enumerate(read_names):
                 if bases[i] == ref_base:
                     dreads.setdefault(read, "ref")
@@ -1390,6 +1399,7 @@ class Phaser:
         elif nvar == 1:
             ass_haps = ["1", "2"]
             original_haps = ["1", "2"]
+            hcn = 2
         else:
             pivot_index, _ = self.get_pivot_site_index()
             hap_graph = VariantGraph(
