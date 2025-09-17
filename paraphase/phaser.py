@@ -925,7 +925,7 @@ class Phaser:
                             if indel_size < 25:
                                 self.homo_sites.append(f"{pos}_{ref_seq}_{var_seq}")
                 elif len(counter) >= 2:
-                    found_ref = ref_seq_genome in [a[0] for a in bases]
+                    found_ref = ref_seq_genome in all_bases
                     if found_ref or pos in white_list:
                         for var_seq, var_count in bases:
                             ref_seq = ref_seq_genome
