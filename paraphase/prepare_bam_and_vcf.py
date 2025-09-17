@@ -963,12 +963,7 @@ class VcfGenerater:
         uniq_reads = []
         for read_set in self.call_sum["unique_supporting_reads"].values():
             for read_name in read_set:
-                read_name_split = read_name.split("_sup")
-                # supplementary alignments
-                if self.use_supplementary and len(read_name_split) > 1:
-                    uniq_reads.append(read_name_split[0])
-                else:
-                    uniq_reads.append(read_name)
+                uniq_reads.append(read_name)
         variants_info = {}
         two_cp_haplotypes = self.call_sum.get("two_copy_haplotypes")
         nhap = len(final_haps)
@@ -1110,7 +1105,7 @@ class VcfGenerater:
                     new_read_name = read_name
                     if self.use_supplementary and read.alignment.is_supplementary:
                         new_read_name = (
-                            read_name + f"_sup_{read.alignment.reference_start}"
+                            read_name + f"_sup_{read.alignment.reference_start}_{read.alignment.reference_length}"
                         )
                     this_pos_read_names.append(read_name)
                     this_pos_read_names_sup.append(new_read_name)
