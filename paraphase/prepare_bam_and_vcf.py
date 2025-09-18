@@ -772,7 +772,7 @@ class VcfGenerater:
         counter = None
         if all_bases != []:
             counter = Counter(all_bases)
-            most_common_base = counter.most_common(2)
+            most_common_base = sorted(counter.items(), key=lambda x: (-x[1], x[0]))
             var_seq = most_common_base[0][0]
             ad = most_common_base[0][1]
             is_snp = False
