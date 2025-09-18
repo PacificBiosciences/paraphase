@@ -312,9 +312,10 @@ class BamTagger:
             else:
                 if read_name in nonunique:
                     possible_haps = nonunique[read_name]
-                    random_hap = possible_haps[
-                        random.randint(0, len(possible_haps) - 1)
-                    ]
+                    random_hap = sorted(possible_haps)[0]
+                    #random_hap = possible_haps[
+                    #    random.randint(0, len(possible_haps) - 1)
+                    #]
                     if random_hap in hp_keys:
                         read.set_tag("HP", hp_keys[random_hap], "Z")
                 else:
