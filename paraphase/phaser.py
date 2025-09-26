@@ -451,9 +451,10 @@ class Phaser:
     def check_del(read, del_size, pos1, pos2):
         """Find reads having the 6.3kb deletion in its cigar string"""
         starting_pos = read.reference_start
-        for (op_type, op_len) in read.cigartuples:
+        for op_type, op_len in read.cigartuples:
             if op_type == 2 and abs(op_len - del_size) < min(del_size * 0.1, 50):
-                if pos1 - 3 <= starting_pos <= pos2 + 3:
+                padding = del_size * 0.1
+                if pos1 - padding <= starting_pos <= pos2 + padding:
                     return True
             if op_type in [0, 2, 7, 8]:
                 starting_pos += op_len
@@ -698,8 +699,14 @@ class Phaser:
                                 read_seq = read.alignment.query_sequence
                                 start_pos = read.query_position
                                 end_pos = start_pos + 1
-                                find_clip_3p = re.findall(r"\d+S$", read.alignment.cigarstring)
-                                clip_3p_len = int(find_clip_3p[0][:-1]) if find_clip_3p != [] else 0
+                                find_clip_3p = re.findall(
+                                    r"\d+S$", read.alignment.cigarstring
+                                )
+                                clip_3p_len = (
+                                    int(find_clip_3p[0][:-1])
+                                    if find_clip_3p != []
+                                    else 0
+                                )
                                 # need to substract clip length from the end
                                 if end_pos < len(read_seq) - clip_3p_len:
                                     hap = read_seq[start_pos:end_pos]
@@ -1042,9 +1049,7 @@ class Phaser:
                 a.upper() for a in pileupcolumn.get_query_sequences(add_indels=True)
             ]
             for read in pileupcolumn.pileups:
-                this_read_names = self.get_read_names(
-                    read.alignment, []
-                )
+                this_read_names = self.get_read_names(read.alignment, [])
                 read_names.append(this_read_names[0])
             assert len(bases) == len(read_names)
             for i, read in enumerate(read_names):
