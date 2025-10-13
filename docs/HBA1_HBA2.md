@@ -1,12 +1,43 @@
 # HBA1/HBA2
 
-For this [region](https://www.ncbi.nlm.nih.gov/books/NBK1435/), Paraphase calls the total copy number of HBA1 and HBA2. Variants are called in the VCF, against HBA2 reference sequence.
+
+This [medically relevant region](https://www.ncbi.nlm.nih.gov/books/NBK1435/), is characterised by two regions of homology, represented by "A" and "B" in this simplified schematic of the region:
+![HBA1_HBA2 Region](figures/HBA1-HBA2-diagram.png)
+
+Paraphase returns the total copy number of HBA1 and HBA2 in this region. Variants are called in the VCF relative to the HBA2 reference sequence.
+
+
+#### Structural Variants: 3.7 kb and 4.2 kb Deletions
+
+Two well-known structural variants in this region are the **3.7 kb** and **4.2 kb deletions**, which occur due to **homologous recombination** between the homologous sequences:
+
+- **3.7 kb deletion (or duplication)**  
+  Results from recombination between the "B" boxes, forming a hybrid HBA1/HBA2 gene.
+
+- **4.2 kb deletion (or duplication)**  
+  Results from recombination between the "A" boxes, leading to a deletion (or duplication) of HBA2.
+
 
 ## Fields in the `json` file
 
-- `genotype`: reports the genotype of this family. Possible alleles include `aa`, `aaa` (duplication), `-a` (deletion) or `--` (double deletion).
-- `alleles_final`: when possible, different copies of HBA are phased into alleles with read based phasing. 
-- `sv_called`: reports SVs (3p7del, 3p7dup, 4p2del or 4p2dup) and their coordinates.
+Fields shared across all genes are defined in the general json [file](json.png). The region includes several unique fields:
+
+- `genotype`: Reports the genotype for this family. Possible alleles include:
+  - `aa`: wild-type
+  - `aaa`: duplication
+  - `-a`: single-gene deletion
+  - `--`: double-gene deletion
+- `surrounding_region_depth`: xx to do xx
+- **`sv_called`**: Reports structural variants:
+  - `3p7del`: 3.7 kb deletion
+  - `3p7dup`: 3.7 kb duplication
+  - `4p2del`: 4.2 kb deletion
+  - `4p2dup`: 4.2 kb duplication  
+  Along with their coordinates.
+  
+Paraphase labels the HBA1 and HBA2 haplotypes accordingly. Paraphase also returns a `homology_haplotype` that 
+aligns to the "A" region closest to HBA2 and corresponds to the reads mapping to the left "A" region. This haplotype 
+should be clipped on both sides in wild-type and is used to detect the 4.2 deletion (appears left-clipped only).
 
 ## Visualizing haplotypes
 
