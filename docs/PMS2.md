@@ -2,10 +2,9 @@
 
 ## Fields in the `json` file
 
-Fields shared across all genes are defined in the general json [file](json.png). PMS2 does not include unique fields.
+Fields shared across all genes are defined in the general [json file](json.md). The PMS2 locus does not include unique fields.
 
-The PMS2 haplotypes are labeled as gene (labelled `pms2_pms2hapx`) and pseudogene (labelled `pms2_pms2clhapx`) based on 
-whether the haplotype is truncated in the 3' end
+The PMS2 haplotypes are labeled as gene (labeled `pms2_pms2hap#`) and pseudogene (labeled `pms2_pms2clhap#`) based on whether the haplotype extends beyond the homology region into the unique region.
 
 ## Visualizing haplotypes
 
