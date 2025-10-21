@@ -106,16 +106,9 @@ Paraphase produces a few output files in the directory specified by `-o`, with t
 
 2. `.paraphase.bam`: This BAM file can be loaded into IGV for visualization of haplotypes (group reads by `HP` tag and color alignments by `YC` tag). All haplotypes are aligned against the main gene of interest. Tutorials/Examples are provided for medically relevant genes (See below).  
 
-3. `.paraphase.json`: Output file summarizing haplotypes and variant calls for each gene family in each sample. In brief, a few generally used fields are explained below.
-- `final_haplotypes`: phased haplotypes for all gene copies in a gene family
-- `total_cn`: total copy number of the family (sum of gene and paralog/pseudogene)
-- `two_copy_haplotypes`: haplotypes that are present in two copies based on depth. This happens when (in a small number of cases) two haplotypes are identical and we infer that there exist two of them instead of one by checking the read depth.
-- `haplotype_details`: lists information about each haplotype 
-  - `boundary`: the boundary of the region that is resolved on the haplotype. This is useful when a haplotype is only partially phased.
-- `alleles_final`: haplotypes phased into alleles. This is possible when the segmental duplication is in tandem.
-- `fusions_called`: deletions or duplications created by unequal crossing over between paralogous sequences, called by a special step that checks the flanking sequences of phased haplotypes. This step is currently enabled for four regions: CYP2D6, GBA, CYP11B1 and the CFH gene cluster. 
+3. `.paraphase.json`: Output file summarizing copy number and phased halotypes for each region. Details can be found [here](docs/json.md).
 
-Tutorials/Examples are provided for interpreting the `json` output and visualizing haplotypes for medically relevant genes listed below: 
+Tutorials/Examples are provided for further interpreting the `json` output and visualizing haplotypes for medically relevant genes listed below: 
 - [SMN1/SMN2](docs/SMN1_SMN2.md)
 - [RCCX module (CYP21A2)](docs/RCCX.md)
 - [PMS2](docs/PMS2.md)

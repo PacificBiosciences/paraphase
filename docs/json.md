@@ -20,7 +20,7 @@ The json file contains fields that are common to all Paraphase target regions an
 - `region_depth`: median and 80th percentile of the depth across positions in the target region, where the depth is the combined depth of all reads, i.e. considering genes and paralogs together.
 - `sample_sex`: inferred biological sex based on coverage of X and Y chromosomes.
 
-### Information on phasd haplotypes
+### Information on phased haplotypes
   - `sites_for_phasing` variant sites used for phasing (currently only using SNPs for phasing).
   - `final_haplotypes` list of phased haplotypes for all gene copies in the family. Each haplotype is encoded based on the positions in `sites_for_phasing` using the following scheme:
     - `1`: reference base
@@ -33,7 +33,7 @@ The json file contains fields that are common to all Paraphase target regions an
     - `is_truncated`: contains the information on whether the haplotype is truncated at the 3 or 5' end, indicating the end of homology region (soft-clipped).
     - `variants`: variants observed in the haplotype. For most accurate calling of variants, we recommend referring to the Paraphase vcf.
   - `read_details`: for each read aligning to the region, includes assignment info at each `sites_for_phasing` position.
-  - `unique_supporting_reads`: reads that uniquely support one of the haplotype in `final_haplotypes`.
+  - `unique_supporting_reads`: reads that uniquely support one of the haplotypes in `final_haplotypes`.
   - `nonunique_supporting_reads`: reads that match to more than one haplotype and cannot uniquely be assigned. Lists all haplotypes that each read is consistent with.
   - `assembled_haplotypes`: initial set of phased haplotypes before downstream filtering. 
   - `het_sites_not_used_in_phasing`: heterozygous sites not used in phasing, either because they are indels or located in low confidence regions.

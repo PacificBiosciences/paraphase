@@ -12,7 +12,7 @@ Paraphase returns the total copy number of HBA1 and HBA2 in a sample. Variants a
 Two well-known structural variants in this region are the **3.7 kb** and **4.2 kb deletions or duplications**, which occur due to unequal crossing-overs between a pair of homology regions:
 
 - **3.7 kb deletion or duplication**  
-  Results from recombination between the "B" boxes, forming a hybrid HBA2/HBA1 gene.
+  Results from recombination between the "B" boxes, forming a hybrid HBA1/HBA2 gene.
 
 - **4.2 kb deletion or duplication**  
   Results from recombination between the "A" boxes, leading to a deletion or duplication of HBA2.
@@ -42,7 +42,7 @@ To visualize phased haplotypes, load the output bam file in IGV, group reads by 
 
 Reads in gray are either unassigned or consistent with more than one possible haplotype. When two haplotypes are identical over a region, there can be more than one haplotype consistent with a read, and the read is randomly assigned to a haplotype and colored in gray. 
 
-Paraphase realigns reads to the HBA2 region in the reference genome, including the first "B" box and the second "A" box in the schematic above. Paraphase assigns a label to each haplotype based on the ending (soft-clipped) positions. 
+Paraphase realigns reads to the HBA2 region in the reference genome, including the first "B" box and the second "A" box in the schematic above. Paraphase assigns a label to each haplotype based on the starting and ending (soft-clipped) positions. 
 
 ![HBA example](figures/HBA.png)
 
