@@ -2,9 +2,9 @@
 
 ## Fields in the `json` file
 
-- `total_cn`: total copy number of PMS2 and PMS2CL
-- `gene_cn`: copy number of the gene of interest, i.e. PMS2
-- `two_copy_haplotypes`: haplotypes that are present in two copies based on depth. This happens when (in a small number of cases) two haplotypes are identical and we infer that there exist two of them instead of one by checking the read depth.
+Fields shared across all genes are defined in the general [json file](json.md). The PMS2 locus does not include unique fields.
+
+The PMS2 haplotypes are labeled as gene (labeled `pms2_pms2hap#`) and pseudogene (labeled `pms2_pms2clhap#`) based on whether the haplotype extends beyond the homology region into the unique region.
 
 ## Visualizing haplotypes
 

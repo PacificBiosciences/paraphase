@@ -8,12 +8,16 @@ If provided with prior knowledge on paralog differentiation, Paraphase can assig
 
 ## VCF format
 
-We have repurposed the sample column to report haplotypes (gene copies) found in a region (gene family). Each column represents a haplotype. The haplotype names are consistent with those reported in the `json` file. 
+We have repurposed the sample column to report haplotypes (gene copies) found in a region (gene family). Each column represents a haplotype. The haplotype names are consistent with those reported in the [json file](json.md). Haplotypes present in two copies are reported as separate columns in the vcf.
 
-In the INFO field, we report the boundaries of haplotypes with `HPBOUND`, which is a pair of numbers representing the start and end coordinates of the haplotype, i.e. phase block. In the case of complete phasing, these numbers represent the start and end of the region that Paraphase is designed to phase. Otherwise, sometimes Paraphase can only phase part of the region and the start and end of the phase blocks are reflected by these numbers. The coordinates are sometimes prefixed or appended by the word `truncated`, which means that the haplotypes are clipped right before or after. This marks the end of the homology and these truncated haplotypes are often those from the paralog or the pseudogene. The `HPBOUND` field is useful when annotating variants in Paraphase VCFs as the boundaries and the truncated status can be compared against the gene/transcript coordinates to determine if we have full information for the complete gene.
+In the INFO field, we report:
+- `HPBOUND`: the boundaries of haplotypes with two numbers for the start and end coordinates of the haplotype, i.e. phase block. In the case of complete phasing, these numbers represent the start and end of the region that Paraphase is designed to phase. The coordinates can be prefixed or appended by the word `truncated`, which means that the haplotypes are clipped right before or after the position. This marks the end of the homology and these truncated haplotypes are often those from the paralog or the pseudogene. The `HPBOUND` field is useful for annotating variants, as the boundaries and the truncated status can be compared against the gene/transcript coordinates to determine if we have full information for the complete gene.
+- `ALLELE`:  if Paraphase is able to phase haplotypes into two chromosomes, this information is reported in the VCF under `ALLELE` in the INFO field. Haplotypes on the same chromosome are grouped together, separated by `+`, and the two chomosomes are separated by `,`.
 
-When Paraphase is able to phase haplotypes into two chromosomes, this information is reported in the VCF under `ALLELE` in the INFO field. Haplotypes on the same chromosome are grouped together, separated by `+`, and the two chomosomes are separated by `,`.
-
+The `FORMAT` field describes the entries in the haplotype columns:
+* `GT` (Genotype): the called genotype of that haplotype, with 0=REF, 1=ALT and `.` for no-calls.
+* `DP` (total depth): a single number corresponding to the total number of reads overlapping a variant position for each haplotype.
+* `AD` (Allele depth): one comma-separated entry per allele, corresponding to the number of reads that can be definitively assigned to REF or ALT. This sum of this field is strictly less than or equal to DP. 
 
 ## Example
 

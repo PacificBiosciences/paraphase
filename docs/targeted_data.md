@@ -11,13 +11,11 @@ Paraphase can work with targeted sequencing data, such as:
 The Paraphase config file needs to be modified based on the design of the target panel. Take the panel design for CYP21A2/CYP21A1P as an example.
 
 ```yaml
-{
   cyp21:
     realign_region: chr6:32038085-32042687
     extract_regions: chr6:31980000-32046800
     left_boundary: 32038085
     right_boundary: 32042687
-}
 ```
 
 Each target region has an arbitrary name, e.g. `cyp21` here. 
