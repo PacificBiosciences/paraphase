@@ -361,7 +361,7 @@ class Smn1Phaser(Phaser):
                 new_smn1_cn = None
         return new_smn1_cn, two_cp_haps
 
-    def adjust_smn2_cn(self, smn1_cn, smn2_cn, smn2_haps):
+    def adjust_smn2_cn(self, smn1_cn, smn2_cn, read_counts, smn2_haps):
         """
         Adjust SMN2 CN if there is only one haplotype found.
         """
@@ -390,6 +390,29 @@ class Smn1Phaser(Phaser):
                     if copy_one_prob < 0.05:
                         two_cp_haps = list(smn2_haps.values())
                         return 2, two_cp_haps
+            if smn1_cn == 0 and smn2_cn == 2:
+                # scenario where two two-copy alleles are identical
+                copy_four_prob = copy_number_probs[3]
+                if copy_four_prob > 0.75:
+                    two_cp_haps = list(smn2_haps.values())
+                    return 4, two_cp_haps
+        if (
+            smn1_cn in [0, 1]
+            and smn2_cn in [2, 3]
+            and read_counts is not None
+            and self.targeted is False
+        ):
+            # check if one smn2 haplotype has more reads than others
+            haps = list(read_counts.keys())
+            counts = list(read_counts.values())
+            max_count = max(counts)
+            cp2_hap = haps[counts.index(max_count)]
+            if cp2_hap in smn2_haps:
+                others_max = sorted(counts, reverse=True)[1]
+                probs = self.depth_prob(max_count, others_max)
+                if probs[0] < 0.0005 and others_max >= 10:
+                    two_cp_haps.append(smn2_haps[cp2_hap])
+                    return smn2_cn + 1, two_cp_haps
         if smn1_cn is not None:
             if smn2_cn == 1 and smn1_cn == 2 and len(self.smn2_del_reads_partial) <= 1:
                 haploid_depth = self.smn1_reads_splice / smn1_cn
@@ -645,7 +668,9 @@ class Smn1Phaser(Phaser):
         for hap in two_cp_haps_smn1:
             if hap not in two_cp_haps:
                 two_cp_haps.append(hap)
-        smn2_cn, two_cp_haps_smn2 = self.adjust_smn2_cn(smn1_cn_old, smn2_cn, smn2_haps)
+        smn2_cn, two_cp_haps_smn2 = self.adjust_smn2_cn(
+            smn1_cn_old, smn2_cn, read_counts, smn2_haps
+        )
         for hap in two_cp_haps_smn2:
             if hap not in two_cp_haps:
                 two_cp_haps.append(hap)
