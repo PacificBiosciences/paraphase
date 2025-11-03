@@ -312,10 +312,10 @@ class BamTagger:
             else:
                 if read_name in nonunique:
                     possible_haps = nonunique[read_name]
-                    random_hap = sorted(possible_haps)[0]
-                    #random_hap = possible_haps[
-                    #    random.randint(0, len(possible_haps) - 1)
-                    #]
+                    # random_hap = sorted(possible_haps)[0]
+                    random_hap = possible_haps[
+                        random.randint(0, len(possible_haps) - 1)
+                    ]
                     if random_hap in hp_keys:
                         read.set_tag("HP", hp_keys[random_hap], "Z")
                 else:
@@ -772,7 +772,9 @@ class VcfGenerater:
         counter = None
         if all_bases != []:
             counter = Counter(all_bases)
-            most_common_base = sorted(counter.items(), key=lambda x: (-x[1], len(x[0]), x[0] != ref_seq, x[0]))
+            most_common_base = sorted(
+                counter.items(), key=lambda x: (-x[1], len(x[0]), x[0] != ref_seq, x[0])
+            )
             var_seq = most_common_base[0][0]
             ad = most_common_base[0][1]
             is_snp = False
@@ -1106,7 +1108,8 @@ class VcfGenerater:
                     new_read_name = read_name
                     if self.use_supplementary and read.alignment.is_supplementary:
                         new_read_name = (
-                            read_name + f"_sup_{read.alignment.reference_start}_{read.alignment.reference_length}"
+                            read_name
+                            + f"_sup_{read.alignment.reference_start}_{read.alignment.reference_length}"
                         )
                     this_pos_read_names.append(read_name)
                     this_pos_read_names_sup.append(new_read_name)
