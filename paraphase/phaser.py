@@ -1292,6 +1292,9 @@ class Phaser:
         For reads carrying known big deletions, update read haplotype to
         reflect the deletion. This is needed for downstream phasing
         """
+        for read in del_reads_partial:
+            if read not in raw_read_haps:
+                raw_read_haps.setdefault(read, "x" * len(het_sites))
         pos1 = -1
         pos2 = -1
         for i, var in enumerate(het_sites):
@@ -1302,6 +1305,27 @@ class Phaser:
             if int(var.split("_")[0]) > n2:
                 pos2 = i
                 break
+        if pos1 != -1 and pos2 == -1:
+            for read in del_reads_partial:
+                if read in raw_read_haps:
+                    hap = list(raw_read_haps[read])
+                    for i in range(pos1, len(het_sites)):
+                        hap[i] = base
+                    raw_read_haps[read] = "".join(hap)
+        if pos1 == -1 and pos2 == -1:
+            het_sites.append(del_name)
+            for read in raw_read_haps:
+                hap = list(raw_read_haps[read])
+                hap.append("x")
+                pos1 = len(het_sites) - 1
+                if read in del_reads_partial:
+                    hap[pos1] = base
+                elif hap[pos1 - 1] == "0" and pos1 - 1 >= 0:
+                    hap[pos1] = "0"
+                else:
+                    if hap[pos1 - 1] != "x" and pos1 - 1 >= 0:
+                        hap[pos1] = "1"
+                raw_read_haps[read] = "".join(hap)
         if pos1 != -1 and pos2 != -1:
             if pos1 < pos2:
                 for read in del_reads_partial:
