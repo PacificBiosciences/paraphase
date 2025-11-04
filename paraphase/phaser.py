@@ -862,7 +862,7 @@ class Phaser:
         Get all polymorphic sites in the region, update self.candidate_pos
         """
         min_variant_frequency = min_vaf
-        if self.min_vaf is not None:
+        if self.min_vaf is not None and self.targeted:
             min_variant_frequency = self.min_vaf
         bamh = self._bamh
         pileups_raw = {}
