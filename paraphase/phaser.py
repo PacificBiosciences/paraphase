@@ -447,6 +447,73 @@ class Phaser:
             self.del2_5p_pos1 = nend - padding
             self.del2_5p_pos2 = nend + padding
 
+    def find_clip_site(self, min_clip_length=800, min_count=6, padding=1000):
+        """Call recurrent clip sites from data"""
+        clip_reads = []
+        for read in self._bamh.fetch(
+            self.nchr, self.left_boundary, self.right_boundary
+        ):
+            read_cigar = read.cigarstring
+            clip_len = [int(a[:-1]) for a in re.findall(Phaser.clip_5p, read_cigar)]
+            if clip_len != []:
+                if clip_len[0] >= min_clip_length:
+                    clip_pos = read.reference_start
+                    if (
+                        clip_pos > self.left_boundary + padding
+                        and clip_pos < self.right_boundary - padding
+                    ):
+                        clip_reads.append((clip_pos, "5p"))
+            clip_len = [int(a[:-1]) for a in re.findall(Phaser.clip_3p, read_cigar)]
+            if clip_len != []:
+                if clip_len[0] >= min_clip_length:
+                    clip_pos = read.reference_end
+                    if (
+                        clip_pos > self.left_boundary + padding
+                        and clip_pos < self.right_boundary - padding
+                    ):
+                        clip_reads.append((clip_pos, "3p"))
+        counter = Counter(clip_reads)
+        for (pos, clip_direction), this_count in counter.items():
+            if this_count >= min_count:
+                if clip_direction == "5p":
+                    if True not in [
+                        a in self.clip_5p_positions for a in range(pos - 100, pos + 100)
+                    ]:
+                        in_deletion = False
+                        if self.del1_5p_pos1 is not None:
+                            if True in [
+                                a in range(self.del1_5p_pos1, self.del1_5p_pos2)
+                                for a in range(pos - 100, pos + 100)
+                            ]:
+                                in_deletion = True
+                        if self.del2_5p_pos1 is not None:
+                            if True in [
+                                a in range(self.del2_5p_pos1, self.del2_5p_pos2)
+                                for a in range(pos - 100, pos + 100)
+                            ]:
+                                in_deletion = True
+                        if in_deletion is False:
+                            self.clip_5p_positions.append(pos)
+                elif clip_direction == "3p":
+                    if True not in [
+                        a in self.clip_3p_positions for a in range(pos - 100, pos + 100)
+                    ]:
+                        in_deletion = False
+                        if self.del1_3p_pos1 is not None:
+                            if True in [
+                                a in range(self.del1_3p_pos1, self.del1_3p_pos2)
+                                for a in range(pos - 100, pos + 100)
+                            ]:
+                                in_deletion = True
+                        if self.del2_3p_pos1 is not None:
+                            if True in [
+                                a in range(self.del2_3p_pos1, self.del2_3p_pos2)
+                                for a in range(pos - 100, pos + 100)
+                            ]:
+                                in_deletion = True
+                        if in_deletion is False:
+                            self.clip_3p_positions.append(pos)
+
     @staticmethod
     def check_del(read, del_size, pos1, pos2):
         """Find reads having the 6.3kb deletion in its cigar string"""
