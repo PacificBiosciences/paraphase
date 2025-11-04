@@ -119,7 +119,23 @@ class Ncf1Phaser(Phaser):
         haplotypes = tmp
 
         two_cp_haps = []
-        if counter_gene == 1:
+        # scenario where only three haplotypes are found, possibly each at CN2
+        if total_cn == 3:
+            if self.mdepth is not None:
+                probs = self.depth_prob(self.region_avg_depth.median, self.mdepth / 2)
+                if probs is not None and probs[3] > 0.99:
+                    two_cp_haps = list(ass_haps.values())
+                    for hap in two_cp_haps:
+                        total_cn += 1
+                        if "pseudo" in hap:
+                            counter_pseudo += 1
+                        else:
+                            counter_gene += 1
+            if counter_gene == 1 and counter_pseudo == 2:
+                counter_gene = None
+                total_cn = None
+
+        elif counter_gene == 1:
             two_cp_hap_candidate = self.compare_depth(haplotypes, ass_haps)
             if two_cp_hap_candidate == []:
                 # check if one haplotype has more reads than others
@@ -133,16 +149,13 @@ class Ncf1Phaser(Phaser):
 
         if self.mdepth is not None:
             prob = self.depth_prob(gene_reads, self.mdepth / 2)
-            if prob[0] < 0.9 and counter_gene == 1:
-                counter_gene = None
-                total_cn = None
-            if prob[0] > 0.95 and counter_gene > 1 and two_cp_haps != []:
-                counter_gene = None
-                total_cn = None
-        # scenario where only three haplotypes are found, possibly each at CN2
-        if counter_gene == 1 and counter_pseudo == 2 and total_cn == 3:
-            counter_gene = None
-            total_cn = None
+            if prob is not None:
+                if prob[0] < 0.9 and counter_gene == 1:
+                    counter_gene = None
+                    total_cn = None
+                if prob[0] > 0.95 and counter_gene > 1 and two_cp_haps != []:
+                    counter_gene = None
+                    total_cn = None
 
         # homozygous case
         if total_cn == 0:
