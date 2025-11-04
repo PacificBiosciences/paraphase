@@ -2404,7 +2404,7 @@ class Phaser:
         ):
             if self.mdepth is not None:
                 prob = self.depth_prob(int(self.region_avg_depth.median), self.mdepth)
-                if prob[0] < 0.75:
+                if prob is not None and prob[0] < 0.75:
                     total_cn = 4
                     if two_cp_haps == [] and ass_haps != {}:
                         two_cp_haps = list(ass_haps.values())
