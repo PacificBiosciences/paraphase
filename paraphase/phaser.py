@@ -2020,7 +2020,7 @@ class Phaser:
     def find_fusion(self, ass_haps):
         """Call fusion based on haplotypes"""
         # update two-copy haplotypes
-        two_cp_haps = self.update_twp_cp_in_fusion_cases(ass_haps)
+        ass_haps, two_cp_haps = self.update_twp_cp_in_fusion_cases(ass_haps)
         fusions_called = {}
         for hap, hap_name in ass_haps.items():
             if hap.endswith("x") is False and hap.startswith("x") is False:
@@ -2054,7 +2054,7 @@ class Phaser:
                             fusions_called[hap_name].setdefault(
                                 "breakpoint", fusion_breakpoint
                             )
-        return two_cp_haps, fusions_called
+        return ass_haps, two_cp_haps, fusions_called
 
     def get_fusion_type(self, hap):
         """Fusion type: deletion or duplication"""
@@ -2075,6 +2075,30 @@ class Phaser:
     def update_twp_cp_in_fusion_cases(ass_haps):
         """Update two-copy haplotypes based on the presence of gene/paralogs"""
         two_cp_haps = []
+        ass_haps_renamed = {}
+        counter_gene1 = 0
+        counter_gene2 = 0
+        counter_fusion = 0
+        counter_unknown = 0
+        for a, hap_name in ass_haps.items():
+            gene_name = hap_name.split("_")[0]
+            if a.endswith("0") is False and a.startswith("0") is False:
+                counter_gene1 += 1
+                ass_haps_renamed.setdefault(a, f"{gene_name}_gene1hap{counter_gene1}")
+            elif a.endswith("0") is True and a.startswith("0") is True:
+                counter_gene2 += 1
+                ass_haps_renamed.setdefault(a, f"{gene_name}_gene2hap{counter_gene2}")
+            elif (a.endswith("0") is False and a.startswith("0") is True) or (
+                a.endswith("0") is True and a.startswith("0") is False
+            ):
+                counter_fusion += 1
+                ass_haps_renamed.setdefault(a, f"{gene_name}_fusionhap{counter_fusion}")
+            else:
+                counter_unknown += 1
+                ass_haps_renamed.setdefault(
+                    a, f"{gene_name}_unknownhap{counter_unknown}"
+                )
+        ass_haps = ass_haps_renamed
         if True not in [a.startswith("x") or a.endswith("x") for a in ass_haps]:
             gene1s = [
                 a
@@ -2100,7 +2124,7 @@ class Phaser:
             # homozygous fusion
             elif len(fusions) == 1 and len(ass_haps) == 1:
                 two_cp_haps.append(ass_haps[fusions[0]])
-        return two_cp_haps
+        return ass_haps, two_cp_haps
 
     def new_hap_for_breakpoint(self, hap):
         """
@@ -2346,7 +2370,7 @@ class Phaser:
         # call fusion
         fusions_called = None
         if self.call_fusion is not None:
-            two_cp_haps, fusions_called = self.find_fusion(ass_haps)
+            ass_haps, two_cp_haps, fusions_called = self.find_fusion(ass_haps)
 
         # check gene1 haplotypes and update to cn2 if assume gene1 is never cn1
         # only for targeted mode
