@@ -147,7 +147,7 @@ class Ncf1Phaser(Phaser):
                 counter_gene += 1
                 total_cn += 1
 
-        if self.mdepth is not None:
+        if self.mdepth is not None and counter_gene is not None:
             prob = self.depth_prob(gene_reads, self.mdepth / 2)
             if prob is not None:
                 if prob[0] < 0.9 and counter_gene == 1:
