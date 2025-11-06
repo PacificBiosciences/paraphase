@@ -122,8 +122,8 @@ class Ncf1Phaser(Phaser):
         # scenario where only three haplotypes are found, possibly each at CN2
         if total_cn == 3:
             if self.mdepth is not None:
-                probs = self.depth_prob(self.region_avg_depth.median, self.mdepth / 2)
-                if probs is not None and probs[3] > 0.99:
+                probs = self.depth_prob(self.region_avg_depth.median, self.mdepth)
+                if probs is not None and probs[2] + probs[3] > 0.95:
                     two_cp_haps = list(ass_haps.values())
                     for hap in two_cp_haps:
                         total_cn += 1
