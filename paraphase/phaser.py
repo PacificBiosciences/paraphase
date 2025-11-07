@@ -1842,8 +1842,12 @@ class Phaser:
         for hap_link in nondirected_links:
             if len(nondirected_links[hap_link]) >= min_read:
                 hap1, hap2 = hap_link.split("-")
-                read_links.setdefault(hap1, []).append(hap2)
-                read_links.setdefault(hap2, []).append(hap1)
+                read_links.setdefault(hap1, [])
+                if hap2 not in read_links[hap1]:
+                    read_links[hap1].append(hap2)
+                read_links.setdefault(hap2, [])
+                if hap1 not in read_links[hap2]:
+                    read_links[hap2].append(hap1)
         read_links = dict(
             sorted(read_links.items(), key=lambda item: len(item[1]), reverse=True)
         )
@@ -2396,6 +2400,12 @@ class Phaser:
             tmp.setdefault(hap, f"{self.gene}_hap{i+1}")
         ass_haps = tmp
 
+        two_cp_haps = []
+        # call fusion
+        fusions_called = None
+        if self.call_fusion is not None:
+            ass_haps, two_cp_haps, fusions_called = self.find_fusion(ass_haps)
+
         haplotypes = None
         if ass_haps != {}:
             haplotypes = self.output_variants_in_haplotypes(
@@ -2405,39 +2415,34 @@ class Phaser:
                 known_del=known_del,
             )
 
-        two_cp_haps = []
-        if len(ass_haps) == 1 and self.init_het_sites == []:
-            two_cp_haps.append(list(ass_haps.values())[0])
-        else:
-            if self.targeted:
-                if two_cp_haps == []:
-                    # check if one haplotype has more reads than others
-                    two_cp_haps = self.get_cn2_haplotype(
-                        read_counts, ass_haps, min_cn1_read_count=15
-                    )
+        if self.call_fusion is None:
+            if len(ass_haps) == 1 and self.init_het_sites == []:
+                two_cp_haps.append(list(ass_haps.values())[0])
             else:
-                if (
-                    len(ass_haps) == 3
-                    and self.expect_cn2 is False
-                    and self.gene != "BPY2"
-                ) or (self.gene == "BPY2" and len(ass_haps) < 3):
-                    # check if one haplotype has twice the depth of others
-                    # at variant sites unique to it
-                    two_cp_haps = self.compare_depth(
-                        haplotypes, ass_haps, stringent=True
-                    )
-                    if (
-                        two_cp_haps == []
-                        and read_counts is not None
-                        and len(read_counts) >= 2
-                    ):
+                if self.targeted:
+                    if two_cp_haps == []:
                         # check if one haplotype has more reads than others
-                        two_cp_haps = self.get_cn2_haplotype(read_counts, ass_haps)
-
-        # call fusion
-        fusions_called = None
-        if self.call_fusion is not None:
-            ass_haps, two_cp_haps, fusions_called = self.find_fusion(ass_haps)
+                        two_cp_haps = self.get_cn2_haplotype(
+                            read_counts, ass_haps, min_cn1_read_count=15
+                        )
+                else:
+                    if (
+                        len(ass_haps) == 3
+                        and self.expect_cn2 is False
+                        and self.gene != "BPY2"
+                    ) or (self.gene == "BPY2" and len(ass_haps) < 3):
+                        # check if one haplotype has twice the depth of others
+                        # at variant sites unique to it
+                        two_cp_haps = self.compare_depth(
+                            haplotypes, ass_haps, stringent=True
+                        )
+                        if (
+                            two_cp_haps == []
+                            and read_counts is not None
+                            and len(read_counts) >= 2
+                        ):
+                            # check if one haplotype has more reads than others
+                            two_cp_haps = self.get_cn2_haplotype(read_counts, ass_haps)
 
         # check gene1 haplotypes and update to cn2 if assume gene1 is never cn1
         # only for targeted mode
