@@ -114,12 +114,12 @@ class BamRealigner:
         if has_rq:
             realign_cmd = (
                 f'echo {self.extract_regions} | sed -e "s/ /\\n/g"  | sed -e "s/:/\\t/" | sed -e "s/-/\\t/" | '
-                + f"{self.samtools} view --region-file - -u -F 0x100 -F 0x200 -F 0x800 -e '[rq]>=0.99' -T {self.genome_reference} {self.bam} | {self.samtools} fastq -T MM,ML - | {self.minimap2} {self.use_r2k} -ay -x map-pb {realign_ref} - | {self.samtools} view -bh | {self.samtools} sort -n | {self.samtools} sort > {realign_out_tmp}"
+                + f"{self.samtools} view --region-file - -u -F 0x100 -F 0x200 -F 0x800 -e '[rq]>=0.99' -T {self.genome_reference} {self.bam} | {self.samtools} fastq -T MM,ML - | {self.minimap2} {self.use_r2k} -ayY -x map-pb {realign_ref} - | {self.samtools} view -bh | {self.samtools} sort -n | {self.samtools} sort > {realign_out_tmp}"
             )
         else:
             realign_cmd = (
                 f'echo {self.extract_regions} | sed -e "s/ /\\n/g"  | sed -e "s/:/\\t/" | sed -e "s/-/\\t/" | '
-                + f"{self.samtools} view --region-file - -u -F 0x100 -F 0x200 -F 0x800 -T {self.genome_reference} {self.bam} | {self.samtools} fastq -T MM,ML - | {self.minimap2} {self.use_r2k} -ay -x map-pb {realign_ref} - | {self.samtools} view -bh | {self.samtools} sort -n | {self.samtools} sort > {realign_out_tmp}"
+                + f"{self.samtools} view --region-file - -u -F 0x100 -F 0x200 -F 0x800 -T {self.genome_reference} {self.bam} | {self.samtools} fastq -T MM,ML - | {self.minimap2} {self.use_r2k} -ayY -x map-pb {realign_ref} - | {self.samtools} view -bh | {self.samtools} sort -n | {self.samtools} sort > {realign_out_tmp}"
             )
         result = subprocess.run(realign_cmd, capture_output=True, text=True, shell=True)
         result.check_returncode()
@@ -312,6 +312,7 @@ class BamTagger:
             else:
                 if read_name in nonunique:
                     possible_haps = nonunique[read_name]
+                    # random_hap = sorted(possible_haps)[0]
                     random_hap = possible_haps[
                         random.randint(0, len(possible_haps) - 1)
                     ]
@@ -771,7 +772,9 @@ class VcfGenerater:
         counter = None
         if all_bases != []:
             counter = Counter(all_bases)
-            most_common_base = counter.most_common(2)
+            most_common_base = sorted(
+                counter.items(), key=lambda x: (-x[1], len(x[0]), x[0] != ref_seq, x[0])
+            )
             var_seq = most_common_base[0][0]
             ad = most_common_base[0][1]
             is_snp = False
@@ -963,12 +966,7 @@ class VcfGenerater:
         uniq_reads = []
         for read_set in self.call_sum["unique_supporting_reads"].values():
             for read_name in read_set:
-                read_name_split = read_name.split("_sup")
-                # supplementary alignments
-                if self.use_supplementary and len(read_name_split) > 1:
-                    uniq_reads.append(read_name_split[0])
-                else:
-                    uniq_reads.append(read_name)
+                uniq_reads.append(read_name)
         variants_info = {}
         two_cp_haplotypes = self.call_sum.get("two_copy_haplotypes")
         nhap = len(final_haps)
@@ -1110,7 +1108,8 @@ class VcfGenerater:
                     new_read_name = read_name
                     if self.use_supplementary and read.alignment.is_supplementary:
                         new_read_name = (
-                            read_name + f"_sup_{read.alignment.reference_start}"
+                            read_name
+                            + f"_sup_{read.alignment.reference_start}_{read.alignment.reference_length}"
                         )
                     this_pos_read_names.append(read_name)
                     this_pos_read_names_sup.append(new_read_name)

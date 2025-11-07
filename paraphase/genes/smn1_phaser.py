@@ -311,21 +311,22 @@ class Smn1Phaser(Phaser):
             haploid_depth = genome_depth / 2
             depth1 = self.smn1_reads_splice
             copy_number_probs = self.depth_prob(depth1, haploid_depth)
-            if smn1_cn == 1:
-                # when there is only one haplotype, check if depth is
-                # consistent with haploid depth
-                copy_one_prob = copy_number_probs[0]
-                if copy_one_prob < 0.05:
-                    two_cp_haps = list(smn1_haps.values())
-                    return 2, two_cp_haps
-                if copy_one_prob < 0.25:
-                    new_smn1_cn = None
-            elif smn1_cn == 2:
-                # scenario where two two-copy alleles are identical
-                copy_four_prob = copy_number_probs[3]
-                if copy_four_prob > 0.75:
-                    two_cp_haps = list(smn1_haps.values())
-                    return 4, two_cp_haps
+            if copy_number_probs is not None:
+                if smn1_cn == 1:
+                    # when there is only one haplotype, check if depth is
+                    # consistent with haploid depth
+                    copy_one_prob = copy_number_probs[0]
+                    if copy_one_prob < 0.05:
+                        two_cp_haps = list(smn1_haps.values())
+                        return 2, two_cp_haps
+                    if copy_one_prob < 0.25:
+                        new_smn1_cn = None
+                elif smn1_cn == 2:
+                    # scenario where two two-copy alleles are identical
+                    copy_four_prob = copy_number_probs[3]
+                    if copy_four_prob > 0.75:
+                        two_cp_haps = list(smn1_haps.values())
+                        return 4, two_cp_haps
         if smn1_cn in [2, 3] and read_counts is not None and self.targeted is False:
             # check if one smn1 haplotype has more reads than others
             haps = list(read_counts.keys())
@@ -335,7 +336,7 @@ class Smn1Phaser(Phaser):
             if cp2_hap in smn1_haps:
                 others_max = sorted(counts, reverse=True)[1]
                 probs = self.depth_prob(max_count, others_max)
-                if probs[0] < 0.0005 and others_max >= 10:
+                if probs is not None and probs[0] < 0.0005 and others_max >= 10:
                     two_cp_haps.append(smn1_haps[cp2_hap])
                     return smn1_cn + 1, two_cp_haps
 
@@ -346,12 +347,13 @@ class Smn1Phaser(Phaser):
                 copy_number_probs = self.depth_prob(depth1, haploid_depth)
                 # when there is only one haplotype, check if depth is
                 # consistent with haploid depth
-                copy_one_prob = copy_number_probs[0]
-                if copy_one_prob < 0.25:
-                    new_smn1_cn = None
-                    if smn2_cn > 1 and copy_one_prob < 0.05:
-                        two_cp_haps = list(smn1_haps.values())
-                        return 2, two_cp_haps
+                if copy_number_probs is not None:
+                    copy_one_prob = copy_number_probs[0]
+                    if copy_one_prob < 0.25:
+                        new_smn1_cn = None
+                        if smn2_cn > 1 and copy_one_prob < 0.05:
+                            two_cp_haps = list(smn1_haps.values())
+                            return 2, two_cp_haps
         # if we see more haplotypes in other regions of the gene
         if smn1_cn == 1 and hcn > len(ass_haps):
             if self.has_smn2 is False:
@@ -361,7 +363,7 @@ class Smn1Phaser(Phaser):
                 new_smn1_cn = None
         return new_smn1_cn, two_cp_haps
 
-    def adjust_smn2_cn(self, smn1_cn, smn2_cn, smn2_haps):
+    def adjust_smn2_cn(self, smn1_cn, smn2_cn, read_counts, smn2_haps):
         """
         Adjust SMN2 CN if there is only one haplotype found.
         """
@@ -377,25 +379,12 @@ class Smn1Phaser(Phaser):
             depth1 = self.smn2_reads_splice
             copy_number_probs = self.depth_prob(depth1, haploid_depth)
             # if smn1 cn is 3, then no need to adjust smn2 cn
-            if (
-                smn2_cn == 1
-                and len(self.smn2_del_reads_partial) <= 1
-                and (smn1_cn is None or smn1_cn <= 2)
-            ):
-                # when there is only one haplotype, check if depth is
-                # consistent with haploid depth
-                copy_one_prob = copy_number_probs[0]
-                if copy_one_prob < 0.25:
-                    new_smn2_cn = None
-                    if copy_one_prob < 0.05:
-                        two_cp_haps = list(smn2_haps.values())
-                        return 2, two_cp_haps
-        if smn1_cn is not None:
-            if smn2_cn == 1 and smn1_cn == 2 and len(self.smn2_del_reads_partial) <= 1:
-                haploid_depth = self.smn1_reads_splice / smn1_cn
-                if haploid_depth > 10:
-                    depth1 = self.smn2_reads_splice
-                    copy_number_probs = self.depth_prob(depth1, haploid_depth)
+            if copy_number_probs is not None:
+                if (
+                    smn2_cn == 1
+                    and len(self.smn2_del_reads_partial) <= 1
+                    and (smn1_cn is None or smn1_cn <= 2)
+                ):
                     # when there is only one haplotype, check if depth is
                     # consistent with haploid depth
                     copy_one_prob = copy_number_probs[0]
@@ -404,6 +393,44 @@ class Smn1Phaser(Phaser):
                         if copy_one_prob < 0.05:
                             two_cp_haps = list(smn2_haps.values())
                             return 2, two_cp_haps
+                if smn1_cn == 0 and smn2_cn == 2:
+                    # scenario where two two-copy alleles are identical
+                    copy_four_prob = copy_number_probs[3]
+                    if copy_four_prob > 0.75:
+                        two_cp_haps = list(smn2_haps.values())
+                        return 4, two_cp_haps
+        if (
+            smn1_cn in [0, 1]
+            and smn2_cn in [2, 3]
+            and read_counts is not None
+            and self.targeted is False
+        ):
+            # check if one smn2 haplotype has more reads than others
+            haps = list(read_counts.keys())
+            counts = list(read_counts.values())
+            max_count = max(counts)
+            cp2_hap = haps[counts.index(max_count)]
+            if cp2_hap in smn2_haps:
+                others_max = sorted(counts, reverse=True)[1]
+                probs = self.depth_prob(max_count, others_max)
+                if probs is not None and probs[0] < 0.0005 and others_max >= 10:
+                    two_cp_haps.append(smn2_haps[cp2_hap])
+                    return smn2_cn + 1, two_cp_haps
+        if smn1_cn is not None:
+            if smn2_cn == 1 and smn1_cn == 2 and len(self.smn2_del_reads_partial) <= 1:
+                haploid_depth = self.smn1_reads_splice / smn1_cn
+                if haploid_depth > 10:
+                    depth1 = self.smn2_reads_splice
+                    copy_number_probs = self.depth_prob(depth1, haploid_depth)
+                    # when there is only one haplotype, check if depth is
+                    # consistent with haploid depth
+                    if copy_number_probs is not None:
+                        copy_one_prob = copy_number_probs[0]
+                        if copy_one_prob < 0.25:
+                            new_smn2_cn = None
+                            if copy_one_prob < 0.05:
+                                two_cp_haps = list(smn2_haps.values())
+                                return 2, two_cp_haps
         return new_smn2_cn, two_cp_haps
 
     def get_best_match(
@@ -629,7 +656,7 @@ class Smn1Phaser(Phaser):
                     cp2_hap = haps[counts.index(max_count)]
                     others_max = sorted(counts, reverse=True)[1]
                     probs = self.depth_prob(max_count, others_max)
-                    if probs[0] < 0.05 and others_max >= 10:
+                    if probs is not None and probs[0] < 0.05 and others_max >= 10:
                         two_cp_haps.append(haps_to_compare[cp2_hap])
         for hap in two_cp_haps:
             if "smn1hap" in hap:
@@ -645,7 +672,9 @@ class Smn1Phaser(Phaser):
         for hap in two_cp_haps_smn1:
             if hap not in two_cp_haps:
                 two_cp_haps.append(hap)
-        smn2_cn, two_cp_haps_smn2 = self.adjust_smn2_cn(smn1_cn_old, smn2_cn, smn2_haps)
+        smn2_cn, two_cp_haps_smn2 = self.adjust_smn2_cn(
+            smn1_cn_old, smn2_cn, read_counts, smn2_haps
+        )
         for hap in two_cp_haps_smn2:
             if hap not in two_cp_haps:
                 two_cp_haps.append(hap)

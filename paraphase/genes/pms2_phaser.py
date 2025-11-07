@@ -28,7 +28,10 @@ class Pms2Phaser(Phaser):
                 phase_region=f"{self.genome_build}:{self.nchr}:{self.left_boundary}-{self.right_boundary}",
             )
         self.get_homopolymer()
-        self.find_big_deletion(min_size=2900)
+        self.find_big_deletion(min_size=1000)
+        pms2cl_clip_site = self.clip_3p_positions[0]
+        self.find_clip_site()
+        self.clip_3p_positions = [pms2cl_clip_site]
 
         if self.deletion1_size is not None:
             self.del1_reads, self.del1_reads_partial = self.get_long_del_reads(
@@ -52,6 +55,7 @@ class Pms2Phaser(Phaser):
         # for distinguishing pms2 from pms2cl
         raw_read_haps = self.get_haplotypes_from_reads(
             clip_buffer=50,
+            min_clip_len=100,
             check_clip=True,
             kept_sites=homo_sites_to_add,
             add_sites=self.add_sites,
@@ -93,13 +97,22 @@ class Pms2Phaser(Phaser):
         for hap in ass_haps:
             clip_position = self.get_3pclip_from_hap(hap)
             if clip_position is None:
-                counter_unknown += 1
-                hap_name = f"{self.gene}_unknownhap{counter_unknown}"
-            elif clip_position in self.clip_3p_positions:
+                num_pms2_bases = 0
+                for i, base in enumerate(hap):
+                    pos = int(self.het_sites[i].split("_")[0])
+                    if pos > pms2cl_clip_site + 50 and base not in ["0", "x"]:
+                        num_pms2_bases += 1
+                if num_pms2_bases >= 3:
+                    counter_gene += 1
+                    hap_name = f"{self.gene}_pms2hap{counter_gene}"
+                else:
+                    counter_unknown += 1
+                    hap_name = f"{self.gene}_unknownhap{counter_unknown}"
+            elif clip_position == pms2cl_clip_site:
                 counter_pseudo += 1
                 hap_name = f"{self.gene}_pms2clhap{counter_pseudo}"
             else:
-                assert clip_position == 0
+                # assert clip_position == 0
                 counter_gene += 1
                 hap_name = f"{self.gene}_pms2hap{counter_gene}"
             tmp.setdefault(hap, hap_name)

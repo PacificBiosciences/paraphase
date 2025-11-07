@@ -152,35 +152,35 @@ class TestSmn1Phaser(object):
         smn2_haps = {"22": "smn2hap1"}
         # genome depth too low
         self.phaser.mdepth = 15
-        smn2_cn, _ = self.phaser.adjust_smn2_cn(1, 1, smn2_haps)
+        smn2_cn, _ = self.phaser.adjust_smn2_cn(1, 1, None, smn2_haps)
         assert smn2_cn is None
 
         # smn2, consider smn2_del
         self.phaser.mdepth = 30
         self.phaser.smn2_reads_splice = 30
         self.phaser.smn2_del_reads_partial = set()
-        smn2_cn, _ = self.phaser.adjust_smn2_cn(1, 1, smn2_haps)
+        smn2_cn, _ = self.phaser.adjust_smn2_cn(1, 1, None, smn2_haps)
         assert smn2_cn == 2
 
         # smn2, when there is smn2_del, only one read
         self.phaser.mdepth = 30
         self.phaser.smn2_reads_splice = 30
         self.phaser.smn2_del_reads_partial = {"r1"}
-        smn2_cn, _ = self.phaser.adjust_smn2_cn(1, 1, smn2_haps)
+        smn2_cn, _ = self.phaser.adjust_smn2_cn(1, 1, None, smn2_haps)
         assert smn2_cn == 2
 
         # smn2, when there is smn2_del, more than one read
         self.phaser.mdepth = 30
         self.phaser.smn2_reads_splice = 30
         self.phaser.smn2_del_reads_partial = {"r1", "r2"}
-        smn2_cn, _ = self.phaser.adjust_smn2_cn(1, 1, smn2_haps)
+        smn2_cn, _ = self.phaser.adjust_smn2_cn(1, 1, None, smn2_haps)
         assert smn2_cn == 1
 
         # compare smn1 and smn2 depth, with smn2 del78
         self.phaser.mdepth = None
         self.phaser.smn1_reads_splice = 30
         self.phaser.smn2_reads_splice = 32
-        smn2_cn, _ = self.phaser.adjust_smn2_cn(2, 1, smn2_haps)
+        smn2_cn, _ = self.phaser.adjust_smn2_cn(2, 1, None, smn2_haps)
         assert smn2_cn == 1
 
         # compare smn1 and smn2 depth, without smn2 del78
@@ -188,7 +188,7 @@ class TestSmn1Phaser(object):
         self.phaser.mdepth = None
         self.phaser.smn1_reads_splice = 30
         self.phaser.smn2_reads_splice = 32
-        smn2_cn, _ = self.phaser.adjust_smn2_cn(2, 1, smn2_haps)
+        smn2_cn, _ = self.phaser.adjust_smn2_cn(2, 1, None, smn2_haps)
         assert smn2_cn == 2
 
         # compare smn1 and smn2 depth, without smn2 del78
@@ -197,7 +197,41 @@ class TestSmn1Phaser(object):
         self.phaser.mdepth = None
         self.phaser.smn1_reads_splice = 15
         self.phaser.smn2_reads_splice = 32
-        smn2_cn, _ = self.phaser.adjust_smn2_cn(1, 1, smn2_haps)
+        smn2_cn, _ = self.phaser.adjust_smn2_cn(1, 1, None, smn2_haps)
         assert smn2_cn == 1
+
+        # adjust smn2 depth from 2 to 4 based on genome depth
+        smn2_haps = {"22": "smn2hap1", "21": "smn2hap2"}
+        self.phaser.mdepth = 30
+        self.phaser.smn2_reads_splice = 60
+        smn2_cn, two_cp_haps = self.phaser.adjust_smn2_cn(0, 2, None, smn2_haps)
+        assert smn2_cn == 4
+        assert two_cp_haps == ["smn2hap1", "smn2hap2"]
+
+        self.phaser.mdepth = 30
+        self.phaser.smn2_reads_splice = 40
+        smn2_cn, two_cp_haps = self.phaser.adjust_smn2_cn(0, 2, None, smn2_haps)
+        assert smn2_cn == 2
+        assert two_cp_haps == []
+
+        # adjust smn2 depth from 2 to 3 based on relative depth between haplotypes
+        smn2_haps = {"22": "smn2hap1", "21": "smn2hap2"}
+        read_counts = {
+            "11": 20,
+            "22": 20,
+            "21": 40,
+        }
+        smn2_cn, two_cp_haps = self.phaser.adjust_smn2_cn(1, 2, read_counts, smn2_haps)
+        assert smn2_cn == 3
+        assert two_cp_haps == ["smn2hap2"]
+
+        read_counts = {
+            "11": 20,
+            "22": 20,
+            "21": 20,
+        }
+        smn2_cn, two_cp_haps = self.phaser.adjust_smn2_cn(1, 2, read_counts, smn2_haps)
+        assert smn2_cn == 2
+        assert two_cp_haps == []
 
         self.phaser.close_handle()

@@ -52,6 +52,8 @@ class CfhClust(Phaser):
                     len(self.cfh["final_haplotypes"]),
                     len(self.cfhr3["final_haplotypes"]),
                 )
+                if total_cn < self.cfh["total_cn"] or total_cn < self.cfhr3["total_cn"]:
+                    two_cp_haps = []
 
         return self.GeneCall(
             total_cn,

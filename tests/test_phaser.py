@@ -191,7 +191,7 @@ class TestPhaser(object):
             "3",
             "del",
         )
-        assert raw_read_haps["r1"] == "111111"
+        assert raw_read_haps["r1"] == "1111113"
         assert het_sites == [
             "70917101_A_C",
             "70917111_A_C",
@@ -199,6 +199,7 @@ class TestPhaser(object):
             "70917200_A_C",
             "70917300_A_C",
             "70917400_A_C",
+            "del",
         ]
 
     def test_check_linking_read(self):
@@ -275,7 +276,13 @@ class TestPhaser(object):
             "21212121": "hap3",
             "02121210": "hap4",
         }
-        two_cp_haps = Phaser.update_twp_cp_in_fusion_cases(haplotypes)
+        renamed_haps, two_cp_haps = Phaser.update_twp_cp_in_fusion_cases(haplotypes)
+        assert renamed_haps == {
+            "12121212": "hap1_gene1hap1",
+            "01212120": "hap2_gene2hap1",
+            "21212121": "hap3_gene1hap2",
+            "02121210": "hap4_gene2hap2",
+        }
         assert two_cp_haps == []
 
         haplotypes = {
@@ -283,23 +290,23 @@ class TestPhaser(object):
             "01212120": "hap2",
             "21212121": "hap3",
         }
-        two_cp_haps = Phaser.update_twp_cp_in_fusion_cases(haplotypes)
-        assert two_cp_haps == ["hap2"]
+        renamed_haps, two_cp_haps = Phaser.update_twp_cp_in_fusion_cases(haplotypes)
+        assert two_cp_haps == ["hap2_gene2hap1"]
 
         haplotypes = {
             "01212120": "hap1",
             "02121210": "hap2",
             "21212121": "hap3",
         }
-        two_cp_haps = Phaser.update_twp_cp_in_fusion_cases(haplotypes)
-        assert two_cp_haps == ["hap3"]
+        renamed_haps, two_cp_haps = Phaser.update_twp_cp_in_fusion_cases(haplotypes)
+        assert two_cp_haps == ["hap3_gene1hap1"]
 
         haplotypes = {
             "0121212x": "hap1",
             "21212121": "hap2",
             "02121210": "hap3",
         }
-        two_cp_haps = Phaser.update_twp_cp_in_fusion_cases(haplotypes)
+        renamed_haps, two_cp_haps = Phaser.update_twp_cp_in_fusion_cases(haplotypes)
         assert two_cp_haps == []
 
     def test_get_fusion_type(self):
@@ -314,23 +321,32 @@ class TestPhaser(object):
         assert self.phaser.get_fusion_type("121211") is None
 
     def test_get_fusion_breakpoint_index(self):
-        breakpoint_index = self.phaser.get_fusion_breakpoint_index("121210", "111111122222")
+        breakpoint_index = self.phaser.get_fusion_breakpoint_index(
+            "121210", "111111122222"
+        )
         assert breakpoint_index == 7
 
         # PSV sequence does not agree with clips on the original haplotype
-        breakpoint_index = self.phaser.get_fusion_breakpoint_index("121210", "2222211111111")
+        breakpoint_index = self.phaser.get_fusion_breakpoint_index(
+            "121210", "2222211111111"
+        )
         assert breakpoint_index is None
 
-        breakpoint_index = self.phaser.get_fusion_breakpoint_index("012121", "2222211111111")
+        breakpoint_index = self.phaser.get_fusion_breakpoint_index(
+            "012121", "2222211111111"
+        )
         assert breakpoint_index == 5
 
         # PSV sequence does not agree with clips on the original haplotype
-        breakpoint_index = self.phaser.get_fusion_breakpoint_index("012121", "111111122222")
+        breakpoint_index = self.phaser.get_fusion_breakpoint_index(
+            "012121", "111111122222"
+        )
         assert breakpoint_index is None
 
-        breakpoint_index = self.phaser.get_fusion_breakpoint_index("112121", "111111122222")
+        breakpoint_index = self.phaser.get_fusion_breakpoint_index(
+            "112121", "111111122222"
+        )
         assert breakpoint_index is None
-
 
     def test_new_hap_for_breakpoint(self):
         self.phaser.fusion_gene_def_variants = [
@@ -347,7 +363,6 @@ class TestPhaser(object):
         new_hap, all_sites = self.phaser.new_hap_for_breakpoint(hap)
         assert new_hap == "211212"
         assert all_sites == self.phaser.fusion_gene_def_variants
-
 
         self.phaser.fusion_gene_def_variants = []
         new_hap, all_sites = self.phaser.new_hap_for_breakpoint(hap)

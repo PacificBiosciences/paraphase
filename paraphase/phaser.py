@@ -447,13 +447,81 @@ class Phaser:
             self.del2_5p_pos1 = nend - padding
             self.del2_5p_pos2 = nend + padding
 
+    def find_clip_site(self, min_clip_length=800, min_count=6, padding=1000):
+        """Call recurrent clip sites from data"""
+        clip_reads = []
+        for read in self._bamh.fetch(
+            self.nchr, self.left_boundary, self.right_boundary
+        ):
+            read_cigar = read.cigarstring
+            clip_len = [int(a[:-1]) for a in re.findall(Phaser.clip_5p, read_cigar)]
+            if clip_len != []:
+                if clip_len[0] >= min_clip_length:
+                    clip_pos = read.reference_start
+                    if (
+                        clip_pos > self.left_boundary + padding
+                        and clip_pos < self.right_boundary - padding
+                    ):
+                        clip_reads.append((clip_pos, "5p"))
+            clip_len = [int(a[:-1]) for a in re.findall(Phaser.clip_3p, read_cigar)]
+            if clip_len != []:
+                if clip_len[0] >= min_clip_length:
+                    clip_pos = read.reference_end
+                    if (
+                        clip_pos > self.left_boundary + padding
+                        and clip_pos < self.right_boundary - padding
+                    ):
+                        clip_reads.append((clip_pos, "3p"))
+        counter = Counter(clip_reads)
+        for (pos, clip_direction), this_count in counter.items():
+            if this_count >= min_count:
+                if clip_direction == "5p":
+                    if True not in [
+                        a in self.clip_5p_positions for a in range(pos - 100, pos + 100)
+                    ]:
+                        in_deletion = False
+                        if self.del1_5p_pos1 is not None:
+                            if True in [
+                                a in range(self.del1_5p_pos1, self.del1_5p_pos2)
+                                for a in range(pos - 100, pos + 100)
+                            ]:
+                                in_deletion = True
+                        if self.del2_5p_pos1 is not None:
+                            if True in [
+                                a in range(self.del2_5p_pos1, self.del2_5p_pos2)
+                                for a in range(pos - 100, pos + 100)
+                            ]:
+                                in_deletion = True
+                        if in_deletion is False:
+                            self.clip_5p_positions.append(pos)
+                elif clip_direction == "3p":
+                    if True not in [
+                        a in self.clip_3p_positions for a in range(pos - 100, pos + 100)
+                    ]:
+                        in_deletion = False
+                        if self.del1_3p_pos1 is not None:
+                            if True in [
+                                a in range(self.del1_3p_pos1, self.del1_3p_pos2)
+                                for a in range(pos - 100, pos + 100)
+                            ]:
+                                in_deletion = True
+                        if self.del2_3p_pos1 is not None:
+                            if True in [
+                                a in range(self.del2_3p_pos1, self.del2_3p_pos2)
+                                for a in range(pos - 100, pos + 100)
+                            ]:
+                                in_deletion = True
+                        if in_deletion is False:
+                            self.clip_3p_positions.append(pos)
+
     @staticmethod
     def check_del(read, del_size, pos1, pos2):
         """Find reads having the 6.3kb deletion in its cigar string"""
         starting_pos = read.reference_start
-        for (op_type, op_len) in read.cigartuples:
+        for op_type, op_len in read.cigartuples:
             if op_type == 2 and abs(op_len - del_size) < min(del_size * 0.1, 50):
-                if pos1 - 3 <= starting_pos <= pos2 + 3:
+                padding = del_size * 0.1
+                if pos1 - padding <= starting_pos <= pos2 + padding:
                     return True
             if op_type in [0, 2, 7, 8]:
                 starting_pos += op_len
@@ -698,7 +766,16 @@ class Phaser:
                                 read_seq = read.alignment.query_sequence
                                 start_pos = read.query_position
                                 end_pos = start_pos + 1
-                                if end_pos < len(read_seq):
+                                find_clip_3p = re.findall(
+                                    r"\d+S$", read.alignment.cigarstring
+                                )
+                                clip_3p_len = (
+                                    int(find_clip_3p[0][:-1])
+                                    if find_clip_3p != []
+                                    else 0
+                                )
+                                # need to substract clip length from the end
+                                if end_pos < len(read_seq) - clip_3p_len:
                                     hap = read_seq[start_pos:end_pos]
                                     if read_name not in read_haps:
                                         read_haps.setdefault(read_name, ["x"] * nvar)
@@ -852,7 +929,7 @@ class Phaser:
         Get all polymorphic sites in the region, update self.candidate_pos
         """
         min_variant_frequency = min_vaf
-        if self.min_vaf is not None:
+        if self.min_vaf is not None and self.targeted:
             min_variant_frequency = self.min_vaf
         bamh = self._bamh
         pileups_raw = {}
@@ -922,7 +999,7 @@ class Phaser:
                             if indel_size < 25:
                                 self.homo_sites.append(f"{pos}_{ref_seq}_{var_seq}")
                 elif len(counter) >= 2:
-                    found_ref = ref_seq_genome in [a[0] for a in bases]
+                    found_ref = ref_seq_genome in all_bases
                     if found_ref or pos in white_list:
                         for var_seq, var_count in bases:
                             ref_seq = ref_seq_genome
@@ -1034,10 +1111,14 @@ class Phaser:
             var_pos,
             truncate=True,
         ):
-            read_names = pileupcolumn.get_query_names()
+            read_names = []
             bases = [
                 a.upper() for a in pileupcolumn.get_query_sequences(add_indels=True)
             ]
+            for read in pileupcolumn.pileups:
+                this_read_names = self.get_read_names(read.alignment, [])
+                read_names.append(this_read_names[0])
+            assert len(bases) == len(read_names)
             for i, read in enumerate(read_names):
                 if bases[i] == ref_base:
                     dreads.setdefault(read, "ref")
@@ -1278,6 +1359,9 @@ class Phaser:
         For reads carrying known big deletions, update read haplotype to
         reflect the deletion. This is needed for downstream phasing
         """
+        for read in del_reads_partial:
+            if read not in raw_read_haps:
+                raw_read_haps.setdefault(read, "x" * len(het_sites))
         pos1 = -1
         pos2 = -1
         for i, var in enumerate(het_sites):
@@ -1288,6 +1372,27 @@ class Phaser:
             if int(var.split("_")[0]) > n2:
                 pos2 = i
                 break
+        if pos1 != -1 and pos2 == -1:
+            for read in del_reads_partial:
+                if read in raw_read_haps:
+                    hap = list(raw_read_haps[read])
+                    for i in range(pos1, len(het_sites)):
+                        hap[i] = base
+                    raw_read_haps[read] = "".join(hap)
+        if pos1 == -1 and pos2 == -1:
+            het_sites.append(del_name)
+            for read in raw_read_haps:
+                hap = list(raw_read_haps[read])
+                hap.append("x")
+                pos1 = len(het_sites) - 1
+                if read in del_reads_partial:
+                    hap[pos1] = base
+                elif hap[pos1 - 1] == "0" and pos1 - 1 >= 0:
+                    hap[pos1] = "0"
+                else:
+                    if hap[pos1 - 1] != "x" and pos1 - 1 >= 0:
+                        hap[pos1] = "1"
+                raw_read_haps[read] = "".join(hap)
         if pos1 != -1 and pos2 != -1:
             if pos1 < pos2:
                 for read in del_reads_partial:
@@ -1390,6 +1495,7 @@ class Phaser:
         elif nvar == 1:
             ass_haps = ["1", "2"]
             original_haps = ["1", "2"]
+            hcn = 2
         else:
             pivot_index, _ = self.get_pivot_site_index()
             hap_graph = VariantGraph(
@@ -1736,8 +1842,12 @@ class Phaser:
         for hap_link in nondirected_links:
             if len(nondirected_links[hap_link]) >= min_read:
                 hap1, hap2 = hap_link.split("-")
-                read_links.setdefault(hap1, []).append(hap2)
-                read_links.setdefault(hap2, []).append(hap1)
+                read_links.setdefault(hap1, [])
+                if hap2 not in read_links[hap1]:
+                    read_links[hap1].append(hap2)
+                read_links.setdefault(hap2, [])
+                if hap1 not in read_links[hap2]:
+                    read_links[hap2].append(hap1)
         read_links = dict(
             sorted(read_links.items(), key=lambda item: len(item[1]), reverse=True)
         )
@@ -1981,7 +2091,7 @@ class Phaser:
     def find_fusion(self, ass_haps):
         """Call fusion based on haplotypes"""
         # update two-copy haplotypes
-        two_cp_haps = self.update_twp_cp_in_fusion_cases(ass_haps)
+        ass_haps, two_cp_haps = self.update_twp_cp_in_fusion_cases(ass_haps)
         fusions_called = {}
         for hap, hap_name in ass_haps.items():
             if hap.endswith("x") is False and hap.startswith("x") is False:
@@ -2015,7 +2125,7 @@ class Phaser:
                             fusions_called[hap_name].setdefault(
                                 "breakpoint", fusion_breakpoint
                             )
-        return two_cp_haps, fusions_called
+        return ass_haps, two_cp_haps, fusions_called
 
     def get_fusion_type(self, hap):
         """Fusion type: deletion or duplication"""
@@ -2036,6 +2146,30 @@ class Phaser:
     def update_twp_cp_in_fusion_cases(ass_haps):
         """Update two-copy haplotypes based on the presence of gene/paralogs"""
         two_cp_haps = []
+        ass_haps_renamed = {}
+        counter_gene1 = 0
+        counter_gene2 = 0
+        counter_fusion = 0
+        counter_unknown = 0
+        for a, hap_name in ass_haps.items():
+            gene_name = hap_name.split("_")[0]
+            if a.endswith("0") is False and a.startswith("0") is False:
+                counter_gene1 += 1
+                ass_haps_renamed.setdefault(a, f"{gene_name}_gene1hap{counter_gene1}")
+            elif a.endswith("0") is True and a.startswith("0") is True:
+                counter_gene2 += 1
+                ass_haps_renamed.setdefault(a, f"{gene_name}_gene2hap{counter_gene2}")
+            elif (a.endswith("0") is False and a.startswith("0") is True) or (
+                a.endswith("0") is True and a.startswith("0") is False
+            ):
+                counter_fusion += 1
+                ass_haps_renamed.setdefault(a, f"{gene_name}_fusionhap{counter_fusion}")
+            else:
+                counter_unknown += 1
+                ass_haps_renamed.setdefault(
+                    a, f"{gene_name}_unknownhap{counter_unknown}"
+                )
+        ass_haps = ass_haps_renamed
         if True not in [a.startswith("x") or a.endswith("x") for a in ass_haps]:
             gene1s = [
                 a
@@ -2061,7 +2195,7 @@ class Phaser:
             # homozygous fusion
             elif len(fusions) == 1 and len(ass_haps) == 1:
                 two_cp_haps.append(ass_haps[fusions[0]])
-        return two_cp_haps
+        return ass_haps, two_cp_haps
 
     def new_hap_for_breakpoint(self, hap):
         """
@@ -2266,6 +2400,12 @@ class Phaser:
             tmp.setdefault(hap, f"{self.gene}_hap{i+1}")
         ass_haps = tmp
 
+        two_cp_haps = []
+        # call fusion
+        fusions_called = None
+        if self.call_fusion is not None:
+            ass_haps, two_cp_haps, fusions_called = self.find_fusion(ass_haps)
+
         haplotypes = None
         if ass_haps != {}:
             haplotypes = self.output_variants_in_haplotypes(
@@ -2275,39 +2415,34 @@ class Phaser:
                 known_del=known_del,
             )
 
-        two_cp_haps = []
-        if len(ass_haps) == 1 and self.init_het_sites == []:
-            two_cp_haps.append(list(ass_haps.values())[0])
-        else:
-            if self.targeted:
-                if two_cp_haps == []:
-                    # check if one haplotype has more reads than others
-                    two_cp_haps = self.get_cn2_haplotype(
-                        read_counts, ass_haps, min_cn1_read_count=15
-                    )
+        if self.call_fusion is None:
+            if len(ass_haps) == 1 and self.init_het_sites == []:
+                two_cp_haps.append(list(ass_haps.values())[0])
             else:
-                if (
-                    len(ass_haps) == 3
-                    and self.expect_cn2 is False
-                    and self.gene != "BPY2"
-                ) or (self.gene == "BPY2" and len(ass_haps) < 3):
-                    # check if one haplotype has twice the depth of others
-                    # at variant sites unique to it
-                    two_cp_haps = self.compare_depth(
-                        haplotypes, ass_haps, stringent=True
-                    )
-                    if (
-                        two_cp_haps == []
-                        and read_counts is not None
-                        and len(read_counts) >= 2
-                    ):
+                if self.targeted:
+                    if two_cp_haps == []:
                         # check if one haplotype has more reads than others
-                        two_cp_haps = self.get_cn2_haplotype(read_counts, ass_haps)
-
-        # call fusion
-        fusions_called = None
-        if self.call_fusion is not None:
-            two_cp_haps, fusions_called = self.find_fusion(ass_haps)
+                        two_cp_haps = self.get_cn2_haplotype(
+                            read_counts, ass_haps, min_cn1_read_count=15
+                        )
+                else:
+                    if (
+                        len(ass_haps) == 3
+                        and self.expect_cn2 is False
+                        and self.gene != "BPY2"
+                    ) or (self.gene == "BPY2" and len(ass_haps) < 3):
+                        # check if one haplotype has twice the depth of others
+                        # at variant sites unique to it
+                        two_cp_haps = self.compare_depth(
+                            haplotypes, ass_haps, stringent=True
+                        )
+                        if (
+                            two_cp_haps == []
+                            and read_counts is not None
+                            and len(read_counts) >= 2
+                        ):
+                            # check if one haplotype has more reads than others
+                            two_cp_haps = self.get_cn2_haplotype(read_counts, ass_haps)
 
         # check gene1 haplotypes and update to cn2 if assume gene1 is never cn1
         # only for targeted mode
@@ -2341,7 +2476,7 @@ class Phaser:
         ):
             if self.mdepth is not None:
                 prob = self.depth_prob(int(self.region_avg_depth.median), self.mdepth)
-                if prob[0] < 0.75:
+                if prob is not None and prob[0] < 0.75:
                     total_cn = 4
                     if two_cp_haps == [] and ass_haps != {}:
                         two_cp_haps = list(ass_haps.values())
