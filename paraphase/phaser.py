@@ -1665,7 +1665,12 @@ class Phaser:
                 if len(var.split("_")) == 3:
                     pos, ref, alt = var.split("_")
                     pos = int(pos)
-                    if nstart < pos < nend and var in self.het_sites:
+                    if (
+                        nstart < pos < nend
+                        and var in self.het_sites
+                        and len(ref) == 1
+                        and len(alt) == 1
+                    ):
                         variants.add(var)
 
         for hap in haplotypes:
