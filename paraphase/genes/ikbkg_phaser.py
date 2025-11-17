@@ -51,12 +51,14 @@ class IkbkgPhaser(Phaser):
         self.get_homopolymer()
 
         ## get deletion ##
-        self.del1_reads, self.del1_reads_partial = self.get_long_del_reads(
-            self.del1_3p_pos1,
-            self.del1_3p_pos2,
-            self.del1_5p_pos1,
-            self.del1_5p_pos2,
-            self.deletion1_size,
+        self.del1_reads, self.del1_reads_partial, self.del1_negative_reads = (
+            self.get_long_del_reads(
+                self.del1_3p_pos1,
+                self.del1_3p_pos2,
+                self.del1_5p_pos1,
+                self.del1_5p_pos2,
+                self.deletion1_size,
+            )
         )
 
         self.get_candidate_pos(min_vaf=0.095)
@@ -96,6 +98,7 @@ class IkbkgPhaser(Phaser):
                 self.del1_3p_pos1,
                 self.del1_5p_pos2,
                 self.del1_reads_partial,
+                self.del1_negative_reads,
                 "3",
                 self.deletion1_name,
             )

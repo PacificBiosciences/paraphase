@@ -34,12 +34,14 @@ class Pms2Phaser(Phaser):
         self.clip_3p_positions = [pms2cl_clip_site]
 
         if self.deletion1_size is not None:
-            self.del1_reads, self.del1_reads_partial = self.get_long_del_reads(
-                self.del1_3p_pos1,
-                self.del1_3p_pos2,
-                self.del1_5p_pos1,
-                self.del1_5p_pos2,
-                self.deletion1_size,
+            self.del1_reads, self.del1_reads_partial, self.del1_negative_reads = (
+                self.get_long_del_reads(
+                    self.del1_3p_pos1,
+                    self.del1_3p_pos2,
+                    self.del1_5p_pos1,
+                    self.del1_5p_pos2,
+                    self.deletion1_size,
+                )
             )
         regions_to_check = []
         if self.del1_reads_partial != set():
@@ -71,6 +73,7 @@ class Pms2Phaser(Phaser):
                 self.del1_3p_pos1,
                 self.del1_5p_pos2,
                 self.del1_reads_partial,
+                self.del1_negative_reads,
                 "3",
                 self.deletion1_name,
             )

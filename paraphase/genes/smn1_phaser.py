@@ -526,19 +526,23 @@ class Smn1Phaser(Phaser):
             )
         self.get_homopolymer()
         # find known deletions
-        self.smn2_del_reads, self.smn2_del_reads_partial = self.get_long_del_reads(
-            self.del2_3p_pos1,
-            self.del2_3p_pos2,
-            self.del2_5p_pos1,
-            self.del2_5p_pos2,
-            self.deletion2_size,
+        self.smn2_del_reads, self.smn2_del_reads_partial, self.del2_negative_reads = (
+            self.get_long_del_reads(
+                self.del2_3p_pos1,
+                self.del2_3p_pos2,
+                self.del2_5p_pos1,
+                self.del2_5p_pos2,
+                self.deletion2_size,
+            )
         )
-        self.smn1_del_reads, self.smn1_del_reads_partial = self.get_long_del_reads(
-            self.del1_3p_pos1,
-            self.del1_3p_pos2,
-            self.del1_5p_pos1,
-            self.del1_5p_pos2,
-            self.deletion1_size,
+        self.smn1_del_reads, self.smn1_del_reads_partial, self.del1_negative_reads = (
+            self.get_long_del_reads(
+                self.del1_3p_pos1,
+                self.del1_3p_pos2,
+                self.del1_5p_pos1,
+                self.del1_5p_pos2,
+                self.deletion1_size,
+            )
         )
         self.check_smn1_smn2_presence()
         if self.has_smn1 is False and self.has_smn2 is False:
@@ -577,6 +581,7 @@ class Smn1Phaser(Phaser):
                 self.del2_3p_pos1,
                 self.del2_5p_pos2,
                 self.smn2_del_reads_partial,
+                self.del2_negative_reads,
                 "3",
                 self.deletion2_name,
             )
@@ -587,6 +592,7 @@ class Smn1Phaser(Phaser):
                 self.del1_3p_pos1,
                 self.del1_5p_pos2,
                 self.smn1_del_reads_partial,
+                self.del1_negative_reads,
                 "4",
                 self.deletion1_name,
             )
