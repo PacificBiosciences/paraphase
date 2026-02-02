@@ -3,7 +3,7 @@
 IKBKG, and the associated pseudogene IKBKGP1 are located on chromosome X. Mutations in the gene are associated with [Incontinentia Pigmenti](https://www.ncbi.nlm.nih.gov/books/NBK1472/).
 In this region, Paraphase calls small variants as well as the known 11.7kb deletion that can occur in either IKBKG or the pseudogene. 
 
-Paraphase differentiates IKBKG from the pseudogene based on clipping on the 5'end of the realigned reads.
+Paraphase differentiates IKBKG from the pseudogene based on whether the haplotype extends beyond the homology region into the unique region.
 
 ## Fields in the `json` file
 Fields shared across all genes are defined in the general [json file](json.md). The IKBKG locus includes several unique fields, listed below:
@@ -13,7 +13,7 @@ Fields shared across all genes are defined in the general [json file](json.md). 
 
 Note that this deletion is also reported in the VCF as a structural variant (SV). 
 
-The IKBKG haplotypes are labeled `ikbkg_ikbkghap#`, pseudogene `ikbkg_pseudohap#` and duplication `ikbkg_duphap#`.
+The IKBKG haplotypes are labeled `ikbkg_ikbkghap#`, pseudogene `ikbkg_pseudohap#` and duplication `ikbkg_duphap#` (for haplotypes corresponding to a duplication of the 11.7kb region).
 
 ## Visualizing haplotypes
 

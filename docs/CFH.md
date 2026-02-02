@@ -1,10 +1,10 @@
 # CFH gene cluster
 
-The CFH gene refers to a ~250kb genomic region on chromosome 1 containing the five genes CFH, CFHR1, CFHR2, CFHR3 and 
+The CFH gene cluster refers to a ~250kb genomic region on chromosome 1 containing the five genes CFH, CFHR1, CFHR2, CFHR3 and 
 CFHR4. This region is divided into two pairs of homology regions, where unequal crossing overs can lead to large 
 deletions or duplications. These SVs are related to diseases such as atypical hemolytic uremic syndrome and age-related 
 macular degeneration. Some of these SVs are quite common in the population. The simplified schematic of the region bellow 
-highlights the two main homology regions "A" and "B".
+highlights the two main homology regions "A" and "B". Region "A" contains the end of the CFH gene and the intergenic region between CFH and CFHR3. Region "B" contains part of CFHR3 and part of CFHR1, as well as the intergenic region between them. The paralogous regions of "A" and "B" are shown in the figure below.
 
 ![CFH schematic](figures/CFH-diagram.png)
 

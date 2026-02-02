@@ -1,11 +1,10 @@
 # OPN1LW/OPN1MW
 
-The [OPN1LW](https://medlineplus.gov/genetics/gene/opn1lw/) and [OPN1MW](https://medlineplus.gov/genetics/gene/opn1mw/) genes are highly similar genes located on chromosome X. The OPN1LW gene encodes for opsin, which 
-is sensitive to light in the yellow/orange, while the OPN1MW produce green-sensitive opsin. Recombination between the 
+The [OPN1LW](https://medlineplus.gov/genetics/gene/opn1lw/) and [OPN1MW](https://medlineplus.gov/genetics/gene/opn1mw/) genes are highly similar genes located on chromosome X. They encode opsins that are sensitive to light of different wavelengths. Recombination between the 
 two regions can cause different types of color vision deficiencies.
 
 Of note: only the first two copies of the OPN1LW/OPN1MW genes on each allele are expressed, generally corresponding to 
-the OPN1LW gene and to the first copy of the OPN1MW gene
+the OPN1LW gene and to the first copy of the OPN1MW gene.
 
 Paraphase resolves all OPN1LW/OPN1MW copies in a sample, phases them to identify the first two copies on each allele and 
 annotates the copies as either OPN1LW or OPN1MW. Paraphase also annotates known variants on these genes.
@@ -15,12 +14,11 @@ annotates the copies as either OPN1LW or OPN1MW. Paraphase also annotates known 
 Fields shared across all genes are defined in the general [json file](json.md). The OPN1LW/OPN1MW locus includes the following unique field:
 - `opn1lw_cn`: total copy number of OPN1LW
 - `opn1mw_cn`: total copy number of OPN1MW
-- `annotated_haplotypes`: annotates each haplotype against known pathogenic variants of exon 3, as summarized in
+- `annotated_haplotypes`: annotates each haplotype against known pathogenic variant sites of Exon 3, as summarized in
 [Neitz et al. 2021](https://www.mdpi.com/2073-4425/12/8/1180). The annotated variant amino acid positions are p.153, 
 p.171, p.174, p.178, and p.180, reported using the single letter code to indicate the amino acids specified at each 
 position. Please refer to the linked publication for detailed information.
-- `annotated_alleles`: final allele annotation, reporting the first two genes on each allele, together with any known 
-pathogenic variants. Occasionally, a `null` call (no-call) for the second copy on an allele indicates that Paraphase 
+- `annotated_alleles`: final allele annotation, reporting the first two genes on each allele, together with annotations at known pathogenic variant sites of Exon 3. Occasionally, a `null` call (no-call) for the second copy on an allele indicates that Paraphase 
 could not confidently identify the second copy.
 - `first_copies`, `last_copies`, `middle_copies`, `directional_links`, `links_loose`: these fields are used internally 
 to determine the order of genes on each allele and can be ignored.

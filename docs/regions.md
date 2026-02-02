@@ -11,7 +11,7 @@
 | f8                  | F8A1,F8A2,F8A3,H2AB1,H2AB2,H2AB3               |            x             |                    |
 | opn1lw              | OPN1LW,OPN1MW,OPN1MW2,OPN1MW3,TEX28            |            x             |                    |
 | hba                 | HBA1,HBA2                                      |            x             |                    |
-| TNXB                | TNXB                                           |            x             |                    |
+| TNXB                | TNXB                                           |                          |                    |
 | SSX2                | SSX2,SSX2B                                     |                          |                    |
 | SSX4                | SSX4,SSX4B                                     |                          |                    |
 | CENPVL2             | CENPVL1,CENPVL2                                |                          |                    |
