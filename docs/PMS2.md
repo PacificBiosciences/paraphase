@@ -1,10 +1,16 @@
 # PMS2
 
+The PMS2 gene and PMS2CL pseudogene are located on chromosome 7. 
+
+Paraphase differentiates the gene from pseudogene based on whether the haplotype extends beyond the homology region into 
+the unique region.
+
+
 ## Fields in the `json` file
 
 Fields shared across all genes are defined in the general [json file](json.md). The PMS2 locus does not include unique fields.
 
-The PMS2 haplotypes are labeled as gene (labeled `pms2_pms2hap#`) and pseudogene (labeled `pms2_pms2clhap#`) based on whether the haplotype extends beyond the homology region into the unique region.
+The PMS2 haplotypes are labeled `pms2_pms2hap#` and pseudogene `pms2_pms2clhap#`.
 
 ## Visualizing haplotypes
 

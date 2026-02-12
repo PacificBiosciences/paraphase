@@ -1,10 +1,14 @@
 # STRC
 
+The STRC gene and STRCP1 pseudogene are located on chromosome 15. Mutations in STRC are associated with hearing loss.
+
+Paraphase differentiates STRC from the pseudogene based on the presence of a known 314bp deletion located between exon 
+23 and 24 in the pseudogene.
+
 ## Fields in the `json` file
 
-- `total_cn`: total copy number of STRC and STRCP1
-- `gene_cn`: copy number of the gene of interest, i.e. STRC
-- `two_copy_haplotypes`: haplotypes that are present in two copies based on depth. This happens when (in a small number of cases) two haplotypes are identical and we infer that there exist two of them instead of one by checking the read depth.
+Fields shared across all genes are defined in the general [json file](json.md). The STRC locus includes the following unique field:
+- `intergenic_depth`: Coverage depth at the `depth_region` defined in the configuration file, corresponding to the region between STRC and STRCP1. This value is used to help identify deletions. A deletion of one copy of STRC or STRCP1 is associated with a deletion of the intergenic region, where the intergenic depth becomes comparable to the genome hapoid depth.
 
 ## Visualizing haplotypes
 

@@ -1,16 +1,22 @@
 # CFH gene cluster
 
-The CFH gene cluster is a ~250kb genomic region that contains several genes CFH/CFHR1/CFHR2/CFHR3/CFHR4. This region is divided into two pairs of homology regions, where unequal crossing overs can lead to large deletions or duplications. These SVs are related to diseases such as atypical hemolytic uremic syndrome and age-related macular degeneration. Some of these SVs are quite common in the population. 
+The CFH gene cluster refers to a ~250kb genomic region on chromosome 1 containing the five genes CFH, CFHR1, CFHR2, CFHR3 and 
+CFHR4. This region is divided into two pairs of homology regions, where unequal crossing overs can lead to large 
+deletions or duplications. These SVs are related to diseases such as atypical hemolytic uremic syndrome and age-related 
+macular degeneration. Some of these SVs are quite common in the population. The simplified schematic of the region bellow 
+highlights the two main homology regions "A" and "B". Region "A" contains the end of the CFH gene and the intergenic region between CFH and CFHR3. Region "B" contains part of CFHR3 and part of CFHR1, as well as the intergenic region between them. The paralogous regions of "A" and "B" are shown in the figure below.
 
-Paraphase resolves gene copies in two homology regions (named `CFH` and `CFHR3` in the config), and summarizes results under `CFHclust` in the `json` file. To analyze this region specifically, use `-g CFH,CFHR3` in the command. Note that only SVs/fusions are called in this region. No VCF is produced, as the sequence similarity is low enough so variant calling should be accurate using standard variant callers.
+![CFH schematic](figures/CFH-diagram.png)
 
-The `CFH` region contains the end of the CFH gene and the intergenic region between CFH and CFHR3. The `CFHR3` region contains part of CFHR3 all the way to part of CFHR1. In the genome, the order of these homology regions is as follows (also see examples below):
-
-`CFH`, followed by `CFHR3`, followed by `CFH(paralog)`, and followed by `CFHR3(paralog)`.
+Paraphase resolves gene copies in the two homology regions (with region "A" named `CFH` and "B" `CFHR3` in the config), 
+and summarizes results under `CFHclust` in the `json` file. To analyze this region specifically, use `-g CFH,CFHR3` in 
+the command. Note that only SVs/fusions are called in this region. No VCF is produced, as the sequence similarity is 
+low enough to allow variant calling with standard variant callers.
 
 ## Fields in the `json` file
 
-- `fusions_called`: fusions created by deletion or duplication of the region betweeen two breakpoints. Reports the SV type (deletion or duplication) and the breakpoint coordinates.
+Fields shared across all genes are defined in the general [json file](json.md). Note that the SVs/fusions will be 
+reported in the `fusions_called` field, along with the SV type and the breakpoint coordinates. The CFH locus does not include unique fields.
 
 ## Visualizing haplotypes
 
