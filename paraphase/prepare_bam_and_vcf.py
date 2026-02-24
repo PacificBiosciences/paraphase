@@ -114,12 +114,12 @@ class BamRealigner:
         if has_rq:
             realign_cmd = (
                 f'echo {self.extract_regions} | sed -e "s/ /\\n/g"  | sed -e "s/:/\\t/" | sed -e "s/-/\\t/" | '
-                + f"{self.samtools} view --region-file - -u -F 0x100 -F 0x200 -F 0x800 -e '[rq]>=0.99' -T {self.genome_reference} {self.bam} | {self.samtools} fastq -T MM,ML - | {self.minimap2} {self.use_r2k} -ayY -x map-pb {realign_ref} - | {self.samtools} view -bh | {self.samtools} sort -n | {self.samtools} sort > {realign_out_tmp}"
+                + f"{self.samtools} view --region-file - -u -F 0x100 -F 0x200 -F 0x800 -e '[rq]>=0.99' -T {self.genome_reference} {self.bam} | {self.samtools} fastq -T MM,ML - | {self.minimap2} {self.use_r2k} -ayY -k19 -w19 {realign_ref} - | {self.samtools} view -bh | {self.samtools} sort -n | {self.samtools} sort > {realign_out_tmp}"
             )
         else:
             realign_cmd = (
                 f'echo {self.extract_regions} | sed -e "s/ /\\n/g"  | sed -e "s/:/\\t/" | sed -e "s/-/\\t/" | '
-                + f"{self.samtools} view --region-file - -u -F 0x100 -F 0x200 -F 0x800 -T {self.genome_reference} {self.bam} | {self.samtools} fastq -T MM,ML - | {self.minimap2} {self.use_r2k} -ayY -x map-pb {realign_ref} - | {self.samtools} view -bh | {self.samtools} sort -n | {self.samtools} sort > {realign_out_tmp}"
+                + f"{self.samtools} view --region-file - -u -F 0x100 -F 0x200 -F 0x800 -T {self.genome_reference} {self.bam} | {self.samtools} fastq -T MM,ML - | {self.minimap2} {self.use_r2k} -ayY -k19 -w19 {realign_ref} - | {self.samtools} view -bh | {self.samtools} sort -n | {self.samtools} sort > {realign_out_tmp}"
             )
         result = subprocess.run(realign_cmd, capture_output=True, text=True, shell=True)
         result.check_returncode()
