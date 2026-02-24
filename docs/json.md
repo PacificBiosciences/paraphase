@@ -19,6 +19,7 @@ The json file contains fields that are common to all Paraphase target regions an
 - `genome_depth`: average sequencing depth across the whole genome.
 - `region_depth`: median and 80th percentile of the depth across positions in the target region, where the depth is the combined depth of all reads, i.e. considering genes and paralogs together.
 - `sample_sex`: inferred biological sex based on coverage of X and Y chromosomes.
+- `genes`: gene symbols for the genes and paralogs/pseudogenes analyzed in this region.
 
 ### Information on phased haplotypes
   - `sites_for_phasing` variant sites used for phasing (currently only using SNPs for phasing).
@@ -35,7 +36,7 @@ The json file contains fields that are common to all Paraphase target regions an
   - `read_details`: for each read aligning to the region, includes assignment info at each `sites_for_phasing` position.
   - `unique_supporting_reads`: reads that uniquely support one of the haplotypes in `final_haplotypes`.
   - `nonunique_supporting_reads`: reads that match to more than one haplotype and cannot uniquely be assigned. Lists all haplotypes that each read is consistent with.
-  - `assembled_haplotypes`: initial set of phased haplotypes before downstream filtering. 
+  - `assembled_haplotypes`: initial set of phased haplotypes before downstream filtering.
   - `het_sites_not_used_in_phasing`: heterozygous sites not used in phasing, either because they are indels or located in low confidence regions.
   - `heterozygous_sites`: sites that differ between haplotypes.
   - `homozygous_sites`: sites that are different from the reference, but identical across reads.

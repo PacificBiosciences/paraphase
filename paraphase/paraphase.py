@@ -154,6 +154,7 @@ class Paraphase:
 
                 phaser.set_parameter(config)
                 phaser_call = phaser.call()._asdict()
+                phaser_call["genes"] = config.get("genes")
                 phaser_calls.setdefault(gene, phaser_call)
 
                 logging.info(
