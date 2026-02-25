@@ -1,10 +1,13 @@
 # GBA
 
-Pathogenic variants in GBA cause Gaucher disease and leads to an increased risk of Parkinson’s disease. GBA has sequence homology with its pseudogene GBAP1 particularly in its last three exons, where gene conversion can bring pseudogene-like variants into GBA. Unequal crossing overs can result in fusion genes between GBA and GBAP1.
+The GBA gene and GBAP1 pseudogene are located on chromosome 1. Pathogenic variants in GBA cause Gaucher disease and 
+lead to an increased risk of Parkinson’s disease. GBA has sequence homology with its pseudogene GBAP1 particularly in 
+the last three exons, where gene conversion can bring pseudogene-like variants into GBA. Unequal crossing overs can 
+result in fusion genes between GBA and GBAP1.
 
 ## Fields in the `json` file
 
-- `fusions_called`: fusions created by deletion or duplication of the region betweeen two breakpoints. Reports the SV type (deletion or duplication) and the breakpoints.
+Fields shared across all genes are defined in the general [json file](json.md). The GBA locus does not include unique fields.
 
 ## Visualizing haplotypes
 

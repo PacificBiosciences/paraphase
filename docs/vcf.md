@@ -8,7 +8,9 @@ If provided with prior knowledge on paralog differentiation, Paraphase can assig
 
 ## VCF format
 
-We have repurposed the sample column to report haplotypes (gene copies) found in a region (gene family). Each column represents a haplotype. The haplotype names are consistent with those reported in the [json file](json.md). Haplotypes present in two copies are reported as separate columns in the vcf.
+We have repurposed the sample column to report haplotypes (gene copies) found in a region (gene family). Each column represents a haplotype. The haplotype names are consistent with those reported in the [json file](json.md). Haplotypes present in two copies are reported as separate columns in the VCF, one of which is labelled with the "_cp2" suffix.
+
+The Paraphase VCF follows the standard VCF format specifications. The QUAL field contains a placeholder value. The FILTER field can take two values `PASS`: when all quality checks are satisfied and `LowQual` (only when the `--write-nocalls-in-vcf` option is used in the command line), when at least one haplotype has low coverage (<=3) or variant with low support (<70%).
 
 In the INFO field, we report:
 - `HPBOUND`: the boundaries of haplotypes with two numbers for the start and end coordinates of the haplotype, i.e. phase block. In the case of complete phasing, these numbers represent the start and end of the region that Paraphase is designed to phase. The coordinates can be prefixed or appended by the word `truncated`, which means that the haplotypes are clipped right before or after the position. This marks the end of the homology and these truncated haplotypes are often those from the paralog or the pseudogene. The `HPBOUND` field is useful for annotating variants, as the boundaries and the truncated status can be compared against the gene/transcript coordinates to determine if we have full information for the complete gene.
@@ -21,9 +23,9 @@ The `FORMAT` field describes the entries in the haplotype columns:
 
 ## Example
 
-| #CHROM | POS      | ID | REF | ALT | QUAL | FILTER | INFO                                                                                                                                                                                  | FORMAT   | rccx_hap1 | rccx_hap2 | rccx_hap3 | rccx_hap4 | rccx_hap5 |
-| :------| :------- | :- | :-- | :-- | :--- | :----- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :--------| :---------| :---------| :---------| :---------| :---------|
-| chr6   | 32013369 | .  | T   | C   | .    | PASS   | HPBOUND=32013300-32046127truncated,32013300-32046200,32013300-32046200,32013300-32046127truncated,32013300-32046127truncated;ALLELE=rccx_hap2+rccx_hap4,rccx_hap1+rccx_hap3+rccx_hap5 | GT:DP:AD | 1:19:0,19 | 1:24:0,24 | 1:23:0,23 | 0:21:21,0 | 0:23:23,0 |
+| CHROM | POS      | ID | REF | ALT | QUAL | FILTER | INFO                                                                                                                                                                                  | FORMAT   | rccx_hap1 | rccx_hap2 | rccx_hap3 | rccx_hap4 | rccx_hap5 |
+|:------| :------- | :- | :-- | :-- | :--- | :----- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | :--------| :---------| :---------| :---------| :---------| :---------|
+| chr6  | 32013369 | .  | T   | C   | .    | PASS   | HPBOUND=32013300-32046127truncated,32013300-32046200,32013300-32046200,32013300-32046127truncated,32013300-32046127truncated;ALLELE=rccx_hap2+rccx_hap4,rccx_hap1+rccx_hap3+rccx_hap5 | GT:DP:AD | 1:19:0,19 | 1:24:0,24 | 1:23:0,23 | 0:21:21,0 | 0:23:23,0 |
 
 Here is one line from the VCF of the bottom sample in the figure below. Based on the `HPBOUND` and `ALLELE` INFO fields, we can infer the following:
 

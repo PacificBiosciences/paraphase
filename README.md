@@ -10,24 +10,27 @@ Many medically relevant genes fall into 'dark' regions where variant calling is 
 Paraphase takes all reads from a gene family, realigns to one representative gene of the family and then phases them into haplotypes. This approach bypasses the error-prone process of aligning reads to multiple similar regions and allows us to examine all copies of genes in a gene family. This gene-family-centered approach allows Paraphase to perform well when there is a copy number difference between an individual and the reference, as is often the case in segmental duplications.
 Futhermore, this approach also streamlines sequence comparisons between genes within the same family, making it straightforward to conduct analyses such as identifying non-allelic gene conversions.  
 
-Paraphase supports 160 segmental duplication [regions](docs/regions.md) in GRCh38. Among these, there are 11 medically relevant regions that are also supported in GRCh37/hg19:
-- SMN1/SMN2 (spinal muscular atrophy)
-- RCCX module
+Paraphase supports 160 segmental duplication [regions](docs/regions.md) in GRCh38. Among these, there are 11 regions that are also supported in GRCh37/hg19, and one region is currently supported in CHM13.
+
+Medically relevant regions include:
+
+- [SMN1/SMN2](docs/SMN1_SMN2.md) (spinal muscular atrophy)
+- [RCCX](docs/RCCX.md) module
   - CYP21A2 (21-Hydroxylase-Deficient Congenital Adrenal Hyperplasia)
   - TNXB (Ehlers-Danlos syndrome)
   - C4A/C4B (relevant in autoimmune diseases)
-- PMS2 (Lynch Syndrome)
-- STRC (hereditary hearing loss and deafness)
-- IKBKG (Incontinentia Pigmenti)
-- NCF1 (chronic granulomatous disease; Williams syndrome)
-- NEB (Nemaline myopathy)
-- F8 (intron 22 inversion, Hemophilia A)
+- [PMS2](docs/PMS2.md) (Lynch Syndrome)
+- [STRC](docs/STRC.md) (hereditary hearing loss and deafness)
+- [IKBKG](docs/IKBKG.md) (Incontinentia Pigmenti)
+- [NCF1](docs/NCF1.md) (chronic granulomatous disease; Williams syndrome)
+- [NEB](docs/NEB.md) (Nemaline myopathy)
+- [F8](docs/F8.md) (intron 22 inversion, Hemophilia A)
 - CFC1 (heterotaxy syndrome)
-- OPN1LW/OPN1MW (color vision deficiencies)
-- HBA1/HBA2 (Alpha-Thalassemia)
-- GBA (Gaucher disease and Parkison's disease)
+- [OPN1LW/OPN1MW](docs/OPN1LW_OPN1MW.md) (color vision deficiencies)
+- [HBA1/HBA2](docs/HBA1_HBA2.md) (Alpha-Thalassemia)
+- [GBA](docs/GBA.md) (Gaucher disease and Parkison's disease)
 - CYP11B1/CYP11B2 (Glucocorticoid-remediable aldosteronism)
-- CFH/CFHR1/CFHR2/CFHR3/CFHR4 (large deletions/duplications, atypical hemolytic uremic syndrome and age-related macular degeneration)
+- [CFH/CFHR1/CFHR2/CFHR3/CFHR4](docs/CFH.md) (large deletions/duplications, atypical hemolytic uremic syndrome and age-related macular degeneration)
 
 For more details about Paraphase, please check out our latest [paper](https://www.nature.com/articles/s41467-025-57505-2) and our earlier [paper](https://www.cell.com/ajhg/fulltext/S0002-9297(23)00001-0) on its application to the gene SMN1.
 

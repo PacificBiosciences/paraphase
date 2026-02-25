@@ -1,16 +1,24 @@
 # IKBKG
 
-In this region, Paraphase calls small variants in [IKBKG](https://www.ncbi.nlm.nih.gov/books/NBK1472/). In addition, there is a known 11.7kb deletion that can occur in either IKBKG or the pseudogene. Paraphase calls this deletion and locates it to IKBKG or the pseudogene.
+IKBKG, and the associated pseudogene IKBKGP1 are located on chromosome X. Mutations in the gene are associated with [Incontinentia Pigmenti](https://www.ncbi.nlm.nih.gov/books/NBK1472/).
+In this region, Paraphase calls small variants as well as the known 11.7kb deletion that can occur in either IKBKG or the pseudogene. 
+
+Paraphase differentiates IKBKG from the pseudogene based on whether the haplotype extends beyond the homology region into the unique region.
 
 ## Fields in the `json` file
+Fields shared across all genes are defined in the general [json file](json.md). The IKBKG locus includes several unique fields, listed below:
 
 - `deletion_haplotypes`: haplotypes carrying the 11.7kb deletion
+- `del_read_number`: number of reads with the 11.7kb deletion
 
 Note that this deletion is also reported in the VCF as a structural variant (SV). 
 
+The IKBKG haplotypes are labeled `ikbkg_ikbkghap#`, pseudogene `ikbkg_pseudohap#` and duplication `ikbkg_duphap#` (for haplotypes corresponding to a duplication of the 11.7kb region).
+
 ## Visualizing haplotypes
 
-To visualize phased haplotypes, load the output bam file in IGV, group reads by the `HP` tag and color alignments by `YC` tag. Reads are realigned to IKBKG. Green represents phased copies on one allele if there is duplication of the 11.7kb region. 
+To visualize phased haplotypes, load the output bam file in IGV, group reads by the `HP` tag and color alignments by `YC` 
+tag. Reads are realigned to IKBKG. Green represents phased copies on one allele if there is duplication of the 11.7kb region. 
 
 Reads in gray are either unassigned or consistent with more than one possible haplotype. When two haplotypes are identical over a region, there can be more than one haplotype consistent with a read, and the read is randomly assigned to a haplotype and colored in gray. 
 

@@ -1,12 +1,14 @@
 # NCF1
 
-NCF1 is differentiated from its pseudogenes NCF1B and NCF1C by the presence of GT at the begining of Exon 2 ([c.75_76del or p.Tyr26fs](https://www.ncbi.nlm.nih.gov/clinvar/variation/2249/)).
+The NCF1 gene and the two NCF1B and NCF1C pseudogenes are located on chromosome 7. NCF1 is associated with chronic 
+granulomatous disease and Williams syndrome. The pseudogenes are differentiated from the gene by the presence of a 2bp 
+(GT) deletion at the beginning of exon 2, making them nonfunctional ([c.75_76del or p.Tyr26fs](https://www.ncbi.nlm.nih.gov/clinvar/variation/2249/)).
 
 ## Fields in the `json` file
 
-- `total_cn`: total copy number of the family
-- `gene_cn`: copy number of the gene of interest, i.e. NCF1
-- `two_copy_haplotypes`: haplotypes that are present in two copies based on depth. This happens when (in a small number of cases) two haplotypes are identical and we infer that there exist two of them instead of one by checking the read depth.
+Fields shared across all genes are defined in the general [json file](json.md). The NCF1 locus includes the following unique field:
+- `gene_reads`: number of reads containing the GT sequence at the beginning of exon 2 characterising the gene.
+- `pseudo_reads`: number of reads with the GT deletion characterising the pseudogenes.
 
 ## Visualizing haplotypes
 

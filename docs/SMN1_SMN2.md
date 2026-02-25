@@ -1,24 +1,35 @@
 # SMN1 and SMN2
 
+SMN1 and SMN2 are two highly similar genes located on chromosome 5. Both genes encode the Survival Motor Neuron (SMN) 
+protein. However, while SMN1 produces a functional protein, the c.840C>T point mutation in SMN2 alters splicing regulation, 
+leading to frequent exon 7 skipping and truncated protein products, with only a small fraction of functional protein produced.
+
+Paraphase differentiates SMN1 from SMN2 based on the presence of the c.840C>T point mutation. It then calls variants in
+each haplotype against the appropriate reference region: the SMN1 region for haplotypes without the c.840C>T mutation
+and the SMN2 region for haplotypes carrying the mutation.
+
+Additionally, paraphase recognises the SMNΔ7–8 deletion haplotype, which corresponds to SMN with a deletion of exon7-8.
+
 ## Fields in the `json` file
+
+Fields shared across all genes are defined in the general [json file](json.md). The SMN1/2 locus includes several unique fields, listed below:
 
 - `smn1_cn`: copy number of SMN1, a `null` call indicates that Paraphase finds only one haplotype but depth does not unambiguously support a copy number of one or two.
 - `smn2_cn`: copy number of SMN2, a `null` call indicates that Paraphase finds only one haplotype but depth does not unambiguously support a copy number of one or two.
-- `smn_del78_cn`: copy number of SMNΔ7–8 (SMN with a deletion of Exon7-8)
+- `smn_del78_cn`: copy number of SMNΔ7–8
 - `smn1_read_number`: number of reads containing c.840C
 - `smn2_read_number`: number of reads containing c.840T
 - `smn_del78_read_number`: number of reads containing the known deletion of Exon7-8 on SMN
 - `smn1_haplotypes`: phased SMN1 haplotypes
 - `smn2_haplotypes`: phased SMN2 haplotypes
 - `smn_del78_haplotypes`: phased SMNΔ7–8 haplotypes
-- `two_copy_haplotypes`: haplotypes that are present in two copies based on depth. This happens when (in a small number of cases) two haplotypes are identical and we infer that there exist two of them instead of one by checking the read depth.
-- `haplotype_details`: lists information about each haplotype 
-  - `boundary`: The boundary of the region that is resolved on the haplotype. This is useful when a haplotype is only partially phased.
-  - `haplogroup`: The haplogroup that the haplotype is assigned to. For more information on haplogroups, please refer to our [paper](https://www.cell.com/ajhg/fulltext/S0002-9297(23)00001-0).
+- `haplotype_details`: In addition to the standard information, this field contains SMN1/SMN2-specific fields:
+  - `haplogroup`: SMN1/SMN2 haplogroup to which the haplotype is assigned, as defined in our [paper](https://www.cell.com/ajhg/fulltext/S0002-9297(23)00001-0).
 
 ## Visualizing haplotypes
 
-We can visualize the haplotypes by loading the Paraphase output bam file into IGV and grouping reads by the `HP` tag (also color alignments by `YC` tag).
+To visualize phased haplotypes, load the output bam file in IGV, group reads by the `HP` tag and color alignments by 
+`YC` tag. Reads are realigned to the SMN1 reference.
 
 ### Example 1
 
