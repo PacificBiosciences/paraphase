@@ -28,7 +28,7 @@ Medically relevant regions include:
 - CFC1 (heterotaxy syndrome)
 - [OPN1LW/OPN1MW](docs/OPN1LW_OPN1MW.md) (color vision deficiencies)
 - [HBA1/HBA2](docs/HBA1_HBA2.md) (Alpha-Thalassemia)
-- [GBA](docs/GBA.md) (Gaucher disease and Parkison's disease)
+- [GBA](docs/GBA.md) (Gaucher disease and Parkinson's disease)
 - CYP11B1/CYP11B2 (Glucocorticoid-remediable aldosteronism)
 - [CFH/CFHR1/CFHR2/CFHR3/CFHR4](docs/CFH.md) (large deletions/duplications, atypical hemolytic uremic syndrome and age-related macular degeneration)
 
