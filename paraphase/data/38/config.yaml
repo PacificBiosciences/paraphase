@@ -552,7 +552,7 @@ TRAPPC10:
   right_boundary: 44107051
   is_reverse: True
   expect_cn2: True
-  noisy_region: [[44088700, 44089100]]
+  noisy_region: [[44088700, 44089250]]
 PWP2:
   genes: PWP2
   realign_region: chr21:44106899-44131681
@@ -792,6 +792,7 @@ PRAMEF10:
   genes: PRAMEF10,PRAMEF33
   realign_region: chr1:12885583-12905583
   extract_regions: chr1:12885584-12905583 chr1:13296209-13316218
+  noisy_region: [[12888926, 12888963]]
   left_boundary: 12885585
   right_boundary: 12905582
   is_reverse: True
@@ -861,6 +862,7 @@ PTPN20:
   right_boundary: 47002822
   is_reverse: True
   clip_3p_positions: [46991847]
+  noisy_region: [[46932049, 46932095]]
 PWWP4:
   genes: PWWP4
   realign_region: chrX:153262648-153282648
@@ -1023,7 +1025,7 @@ UPK3BL1:
   genes: UPK3BL1,UPK3BL2
   realign_region: chr7:102629908-102646500
   extract_regions: chr7:102629909-102649908 chr7:102530825-102550815
-  noisy_region: [[102639951, 102640023]]
+  noisy_region: [[102630181, 102630441], [102639951, 102640023]]
 POLR2J2:
   genes: POLR2J2,POLR2J3
   realign_region: chr7:102658854-102678854
