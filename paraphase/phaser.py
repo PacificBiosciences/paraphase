@@ -515,6 +515,8 @@ class Phaser:
                                 in_deletion = True
                         if in_deletion is False:
                             self.clip_3p_positions.append(pos)
+        self.clip_3p_positions = sorted(self.clip_3p_positions)
+        self.clip_5p_positions = sorted(self.clip_5p_positions)
 
     @staticmethod
     def check_del(read, del_size, pos1, pos2):
