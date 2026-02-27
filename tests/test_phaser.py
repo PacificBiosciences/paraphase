@@ -123,6 +123,7 @@ class TestPhaser(object):
             70917199,
             70917201,
             del_reads_partial,
+            set(),
             "3",
             "del",
         )
@@ -155,6 +156,7 @@ class TestPhaser(object):
             70917100,
             70917100,
             del_reads_partial,
+            set(),
             "3",
             "del",
         )
@@ -188,6 +190,7 @@ class TestPhaser(object):
             70917500,
             70917600,
             del_reads_partial,
+            set(),
             "3",
             "del",
         )

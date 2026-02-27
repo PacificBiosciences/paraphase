@@ -19,29 +19,36 @@ class TestSmn1Phaser(object):
         assert self.phaser.has_smn2 is True
 
     def test_get_long_del_reads(self):
-        smn2_del_reads, smn2_del_reads_partial = self.phaser.get_long_del_reads(
-            self.phaser.del2_3p_pos1,
-            self.phaser.del2_3p_pos2,
-            self.phaser.del2_5p_pos1,
-            self.phaser.del2_5p_pos2,
-            self.phaser.deletion2_size,
+        smn2_del_reads, smn2_del_reads_partial, smn2_negative_reads = (
+            self.phaser.get_long_del_reads(
+                self.phaser.del2_3p_pos1,
+                self.phaser.del2_3p_pos2,
+                self.phaser.del2_5p_pos1,
+                self.phaser.del2_5p_pos2,
+                self.phaser.deletion2_size,
+            )
         )
-        smn1_del_reads, smn1_del_reads_partial = self.phaser.get_long_del_reads(
-            self.phaser.del1_3p_pos1,
-            self.phaser.del1_3p_pos2,
-            self.phaser.del1_5p_pos1,
-            self.phaser.del1_5p_pos2,
-            self.phaser.deletion1_size,
+        smn1_del_reads, smn1_del_reads_partial, smn1_negative_reads = (
+            self.phaser.get_long_del_reads(
+                self.phaser.del1_3p_pos1,
+                self.phaser.del1_3p_pos2,
+                self.phaser.del1_5p_pos1,
+                self.phaser.del1_5p_pos2,
+                self.phaser.deletion1_size,
+            )
         )
         assert smn2_del_reads != set()
         assert smn2_del_reads_partial != set()
+        assert smn2_negative_reads != set()
         assert smn1_del_reads == set()
         assert smn1_del_reads_partial == set()
+        assert smn1_negative_reads != set()
 
     def test_allow_del_bases(self):
         (
             self.phaser.smn2_del_reads,
             self.phaser.smn2_del_reads_partial,
+            self.phaser.smn2_negative_reads,
         ) = self.phaser.get_long_del_reads(
             self.phaser.del2_3p_pos1,
             self.phaser.del2_3p_pos2,
