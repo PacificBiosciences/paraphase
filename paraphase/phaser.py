@@ -42,6 +42,7 @@ class Phaser:
         "sample_sex",
         "heterozygous_sites",
         "phase_region",
+        "genes_in_region",
         "raw_alleles",
         "fusions_called",
     ]
@@ -87,6 +88,9 @@ class Phaser:
 
     def set_parameter(self, config):
         self.gene = config["gene"]
+        self.genes = None
+        if "genes" in config:
+            self.genes = config["genes"]
         self.bam = os.path.join(
             self.outdir, self.sample_id + f"_{self.gene}_realigned.bam"
         )
@@ -1624,6 +1628,8 @@ class Phaser:
                     region_depth=self.region_avg_depth._asdict(),
                     sample_sex=self.sample_sex,
                     heterozygous_sites=self.init_het_sites,
+                    phase_region=f"{self.genome_build}:{self.nchr}:{self.left_boundary}-{self.right_boundary}",
+                    genes_in_region=self.genes,
                 ),
                 None,
             )
@@ -2332,15 +2338,19 @@ class Phaser:
             two_cp_haps.append(ass_haps[cp2_hap])
         return two_cp_haps
 
+    def get_default_call(self):
+        return self.GeneCall(
+            genome_depth=self.mdepth,
+            region_depth=self.region_avg_depth._asdict(),
+            sample_sex=self.sample_sex,
+            phase_region=f"{self.genome_build}:{self.nchr}:{self.left_boundary}-{self.right_boundary}",
+            genes_in_region=self.genes,
+        )
+
     def call(self):
         """Main function to phase haplotypes and call copy numbers"""
         if self.check_coverage_before_analysis() is False:
-            return self.GeneCall(
-                genome_depth=self.mdepth,
-                region_depth=self.region_avg_depth._asdict(),
-                sample_sex=self.sample_sex,
-                phase_region=f"{self.genome_build}:{self.nchr}:{self.left_boundary}-{self.right_boundary}",
-            )
+            return self.get_default_call()
         self.get_homopolymer()
         self.find_big_deletion()
 
@@ -2596,6 +2606,7 @@ class Phaser:
             self.sample_sex,
             self.init_het_sites,
             f"{self.genome_build}:{self.nchr}:{self.left_boundary}-{self.right_boundary}",
+            self.genes,
             linked_haps,
             fusions_called,
         )

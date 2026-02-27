@@ -518,12 +518,7 @@ class Smn1Phaser(Phaser):
         Main function that calls SMN1/SMN2 copy number and variants
         """
         if self.check_coverage_before_analysis() is False:
-            return self.GeneCall(
-                genome_depth=self.mdepth,
-                region_depth=self.region_avg_depth._asdict(),
-                sample_sex=self.sample_sex,
-                phase_region=f"{self.genome_build}:{self.nchr}:{self.left_boundary}-{self.right_boundary}",
-            )
+            return self.get_default_call()
         self.get_homopolymer()
         # find known deletions
         self.smn2_del_reads, self.smn2_del_reads_partial, self.del2_negative_reads = (
@@ -726,4 +721,5 @@ class Smn1Phaser(Phaser):
             self.sample_sex,
             self.init_het_sites,
             f"{self.genome_build}:{self.nchr}:{self.left_boundary}-{self.right_boundary}",
+            self.genes,
         )

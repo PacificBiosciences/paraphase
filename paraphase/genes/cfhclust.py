@@ -55,6 +55,10 @@ class CfhClust(Phaser):
                 if total_cn < self.cfh["total_cn"] or total_cn < self.cfhr3["total_cn"]:
                     two_cp_haps = []
 
+        genes_in_region = self.cfh["genes_in_region"].split(",") + self.cfhr3[
+            "genes_in_region"
+        ].split(",")
+        genes_in_region = sorted(list(set(genes_in_region)))
         return self.GeneCall(
             total_cn,
             None,
@@ -76,6 +80,7 @@ class CfhClust(Phaser):
             None,
             None,
             f"{self.cfh['phase_region']},{self.cfhr3['phase_region']}",
+            ",".join(genes_in_region),
             None,
             fusions,
         )
