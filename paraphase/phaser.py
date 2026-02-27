@@ -88,9 +88,7 @@ class Phaser:
 
     def set_parameter(self, config):
         self.gene = config["gene"]
-        self.genes = None
-        if "genes" in config:
-            self.genes = config["genes"]
+        self.genes = config.get("genes")
         self.bam = os.path.join(
             self.outdir, self.sample_id + f"_{self.gene}_realigned.bam"
         )
