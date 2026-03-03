@@ -42,6 +42,7 @@ class Phaser:
         "sample_sex",
         "heterozygous_sites",
         "phase_region",
+        "genes_in_region",
         "raw_alleles",
         "fusions_called",
     ]
@@ -87,6 +88,7 @@ class Phaser:
 
     def set_parameter(self, config):
         self.gene = config["gene"]
+        self.genes = config.get("genes")
         self.bam = os.path.join(
             self.outdir, self.sample_id + f"_{self.gene}_realigned.bam"
         )
@@ -167,8 +169,10 @@ class Phaser:
 
         self.del1_reads = set()
         self.del1_reads_partial = set()
+        self.del1_negative_reads = set()
         self.del2_reads = set()
         self.del2_reads_partial = set()
+        self.del2_negative_reads = set()
         self.deletion1_size = config.get("deletion1_size")
         self.deletion2_size = config.get("deletion2_size")
         self.deletion1_name = config.get("deletion1_name")
@@ -513,6 +517,8 @@ class Phaser:
                                 in_deletion = True
                         if in_deletion is False:
                             self.clip_3p_positions.append(pos)
+        self.clip_3p_positions = sorted(self.clip_3p_positions)
+        self.clip_5p_positions = sorted(self.clip_5p_positions)
 
     @staticmethod
     def check_del(read, del_size, pos1, pos2):
@@ -536,6 +542,7 @@ class Phaser:
         del_size,
         min_clip_len=300,
         min_extend=1000,
+        padding=300,
     ):
         """
         Find reads having big deletions. (Improve to general SVs for future)
@@ -548,12 +555,18 @@ class Phaser:
         p5_reads = set()
         p3_reads = set()
         del_reads = set()
+        del_negative_reads = set()
         # 3 prime clip
         pos1 = p3_pos1
         pos2 = p3_pos2
         reference_start_cutoff = pos1 - min_extend
         for read in bamh.fetch(self.nchr, pos1, pos2):
             read_name = self.get_read_name(read)
+            if (
+                read.reference_start < pos1 - padding
+                and read.reference_end > pos2 + padding
+            ):
+                del_negative_reads.add(read_name)
             find_clip_3p = re.findall(self.clip_3p, read.cigarstring)
             if find_clip_3p != [] and pos1 < read.reference_end < pos2:
                 if (
@@ -570,6 +583,11 @@ class Phaser:
         reference_end_cutoff = pos2 + min_extend
         for read in bamh.fetch(self.nchr, pos1, pos2):
             read_name = self.get_read_name(read)
+            if (
+                read.reference_start < pos1 - padding
+                and read.reference_end > pos2 + padding
+            ):
+                del_negative_reads.add(read_name)
             find_clip_5p = re.findall(self.clip_5p, read.cigarstring)
             if find_clip_5p != [] and pos1 < read.reference_start < pos2:
                 if (
@@ -581,8 +599,9 @@ class Phaser:
             return (
                 del_reads.union(p3_reads.intersection(p5_reads)),
                 del_reads.union(p3_reads).union(p5_reads),
+                del_negative_reads,
             )
-        return set(), set()
+        return set(), set(), del_negative_reads
 
     def get_pivot_site_index(self):
         """Return the index of the pivot site in list of het sites"""
@@ -1351,15 +1370,25 @@ class Phaser:
                     return "0"
         return "."
 
-    @staticmethod
     def update_reads_for_deletions(
-        raw_read_haps, het_sites, n1, n2, del_reads_partial, base, del_name
+        self,
+        raw_read_haps,
+        het_sites,
+        n1,
+        n2,
+        del_reads_partial,
+        negative_reads,
+        base,
+        del_name,
     ):
         """
         For reads carrying known big deletions, update read haplotype to
         reflect the deletion. This is needed for downstream phasing
         """
         for read in del_reads_partial:
+            if read not in raw_read_haps:
+                raw_read_haps.setdefault(read, "x" * len(het_sites))
+        for read in negative_reads:
             if read not in raw_read_haps:
                 raw_read_haps.setdefault(read, "x" * len(het_sites))
         pos1 = -1
@@ -1387,11 +1416,10 @@ class Phaser:
                 pos1 = len(het_sites) - 1
                 if read in del_reads_partial:
                     hap[pos1] = base
-                elif hap[pos1 - 1] == "0" and pos1 - 1 >= 0:
+                elif pos1 - 1 >= 0 and hap[pos1 - 1] == "0":
                     hap[pos1] = "0"
-                else:
-                    if hap[pos1 - 1] != "x" and pos1 - 1 >= 0:
-                        hap[pos1] = "1"
+                elif read in negative_reads:
+                    hap[pos1] = "1"
                 raw_read_haps[read] = "".join(hap)
         if pos1 != -1 and pos2 != -1:
             if pos1 < pos2:
@@ -1402,27 +1430,40 @@ class Phaser:
                             hap[i] = base
                         raw_read_haps[read] = "".join(hap)
             elif pos1 == pos2:
-                het_sites.insert(pos1, del_name)
-                for read in raw_read_haps:
-                    hap = list(raw_read_haps[read])
-                    hap.insert(pos1, "x")
-                    if read in del_reads_partial:
-                        hap[pos1] = base
-                    elif (
-                        hap[pos1 - 1] == "0"
-                        and pos1 - 1 >= 0
-                        and hap[pos1 + 1] == "0"
-                        and pos1 + 1 < len(hap)
-                    ):
-                        hap[pos1] = "0"
-                    else:
-                        flanking_left = hap[max(0, pos1 - 2) : pos1]
-                        flanking_right = hap[
-                            min(pos1 + 1, len(hap)) : min(pos1 + 3, len(hap))
-                        ]
-                        if "x" not in flanking_left and "x" not in flanking_right:
+                if pos1 == 0:
+                    het_sites.insert(pos1, del_name)
+                    for read in raw_read_haps:
+                        hap = list(raw_read_haps[read])
+                        hap.insert(pos1, "x")
+                        if read in del_reads_partial:
+                            hap[pos1] = base
+                        elif pos1 + 1 < len(hap) and hap[pos1 + 1] == "0":
+                            hap[pos1] = "0"
+                        elif read in negative_reads:
                             hap[pos1] = "1"
-                    raw_read_haps[read] = "".join(hap)
+                        raw_read_haps[read] = "".join(hap)
+                else:
+                    het_sites.insert(pos1, del_name)
+                    for read in raw_read_haps:
+                        hap = list(raw_read_haps[read])
+                        hap.insert(pos1, "x")
+                        if read in del_reads_partial:
+                            hap[pos1] = base
+                        elif (
+                            pos1 - 1 >= 0
+                            and hap[pos1 - 1] == "0"
+                            and pos1 + 1 < len(hap)
+                            and hap[pos1 + 1] == "0"
+                        ):
+                            hap[pos1] = "0"
+                        else:
+                            flanking_left = hap[max(0, pos1 - 2) : pos1]
+                            flanking_right = hap[
+                                min(pos1 + 1, len(hap)) : min(pos1 + 3, len(hap))
+                            ]
+                            if "x" not in flanking_left and "x" not in flanking_right:
+                                hap[pos1] = "1"
+                        raw_read_haps[read] = "".join(hap)
         return raw_read_haps, het_sites
 
     def get_read_counts(self, uniquely_supporting_haps):
@@ -1585,6 +1626,8 @@ class Phaser:
                     region_depth=self.region_avg_depth._asdict(),
                     sample_sex=self.sample_sex,
                     heterozygous_sites=self.init_het_sites,
+                    phase_region=f"{self.genome_build}:{self.nchr}:{self.left_boundary}-{self.right_boundary}",
+                    genes_in_region=self.genes,
                 ),
                 None,
             )
@@ -1665,7 +1708,12 @@ class Phaser:
                 if len(var.split("_")) == 3:
                     pos, ref, alt = var.split("_")
                     pos = int(pos)
-                    if nstart < pos < nend and var in self.het_sites:
+                    if (
+                        nstart < pos < nend
+                        and var in self.het_sites
+                        and len(ref) == 1
+                        and len(alt) == 1
+                    ):
                         variants.add(var)
 
         for hap in haplotypes:
@@ -2288,33 +2336,41 @@ class Phaser:
             two_cp_haps.append(ass_haps[cp2_hap])
         return two_cp_haps
 
+    def get_default_call(self):
+        return self.GeneCall(
+            genome_depth=self.mdepth,
+            region_depth=self.region_avg_depth._asdict(),
+            sample_sex=self.sample_sex,
+            phase_region=f"{self.genome_build}:{self.nchr}:{self.left_boundary}-{self.right_boundary}",
+            genes_in_region=self.genes,
+        )
+
     def call(self):
         """Main function to phase haplotypes and call copy numbers"""
         if self.check_coverage_before_analysis() is False:
-            return self.GeneCall(
-                genome_depth=self.mdepth,
-                region_depth=self.region_avg_depth._asdict(),
-                sample_sex=self.sample_sex,
-                phase_region=f"{self.genome_build}:{self.nchr}:{self.left_boundary}-{self.right_boundary}",
-            )
+            return self.get_default_call()
         self.get_homopolymer()
         self.find_big_deletion()
 
         if self.deletion1_size is not None:
-            self.del1_reads, self.del1_reads_partial = self.get_long_del_reads(
-                self.del1_3p_pos1,
-                self.del1_3p_pos2,
-                self.del1_5p_pos1,
-                self.del1_5p_pos2,
-                self.deletion1_size,
+            self.del1_reads, self.del1_reads_partial, self.del1_negative_reads = (
+                self.get_long_del_reads(
+                    self.del1_3p_pos1,
+                    self.del1_3p_pos2,
+                    self.del1_5p_pos1,
+                    self.del1_5p_pos2,
+                    self.deletion1_size,
+                )
             )
         if self.deletion2_size is not None:
-            self.del2_reads, self.del2_reads_partial = self.get_long_del_reads(
-                self.del2_3p_pos1,
-                self.del2_3p_pos2,
-                self.del2_5p_pos1,
-                self.del2_5p_pos2,
-                self.deletion2_size,
+            self.del2_reads, self.del2_reads_partial, self.del2_negative_reads = (
+                self.get_long_del_reads(
+                    self.del2_3p_pos1,
+                    self.del2_3p_pos2,
+                    self.del2_5p_pos1,
+                    self.del2_5p_pos2,
+                    self.deletion2_size,
+                )
             )
 
         # scan for polymorphic sites
@@ -2366,6 +2422,7 @@ class Phaser:
                 self.del1_3p_pos1,
                 self.del1_5p_pos2,
                 self.del1_reads_partial,
+                self.del1_negative_reads,
                 "3",
                 self.deletion1_name,
             )
@@ -2377,6 +2434,7 @@ class Phaser:
                 self.del2_3p_pos1,
                 self.del2_5p_pos2,
                 self.del2_reads_partial,
+                self.del2_negative_reads,
                 "4",
                 self.deletion2_name,
             )
@@ -2546,6 +2604,7 @@ class Phaser:
             self.sample_sex,
             self.init_het_sites,
             f"{self.genome_build}:{self.nchr}:{self.left_boundary}-{self.right_boundary}",
+            self.genes,
             linked_haps,
             fusions_called,
         )

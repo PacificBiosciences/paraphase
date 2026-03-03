@@ -1047,7 +1047,11 @@ class VariantGraph:
 
         nstart, nend = self.get_nstart_nend()
         if nstart == nend:
-            return [a.split("-")[0] for a in self.nodes]
+            candidates_to_return = [a.split("-")[0] for a in self.nodes]
+            if candidates_to_return != [] and len(candidates_to_return[0]) == self.nvar:
+                return candidates_to_return
+            else:
+                return []
 
         # scan whole graph and merge when possible
 
@@ -1145,6 +1149,8 @@ class VariantGraph:
         """Run the whole haplotype phasing process"""
         self.initialize_graph(debug=debug)
         final_haps = self.assemble_haplotypes(debug=debug, make_plot=make_plot)
+        if final_haps == []:
+            return ([], [], 0)
         if debug:
             print("assembled_haps are", final_haps)
 

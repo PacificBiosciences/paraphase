@@ -47,24 +47,21 @@ class StrcPhaser(Phaser):
 
     def call(self):
         if self.check_coverage_before_analysis() is False:
-            return self.GeneCall(
-                genome_depth=self.mdepth,
-                region_depth=self.region_avg_depth._asdict(),
-                sample_sex=self.sample_sex,
-                phase_region=f"{self.genome_build}:{self.nchr}:{self.left_boundary}-{self.right_boundary}",
-            )
+            return self.get_default_call()
         genome_bamh = pysam_handle(self.genome_bam, self.reference_fasta)
         intergenic_depth = self.get_regional_depth(genome_bamh, self.depth_region)[
             0
         ].median
         genome_bamh.close()
         self.get_homopolymer()
-        self.del1_reads, self.del1_reads_partial = self.get_long_del_reads(
-            self.del1_3p_pos1,
-            self.del1_3p_pos2,
-            self.del1_5p_pos1,
-            self.del1_5p_pos2,
-            self.deletion1_size,
+        self.del1_reads, self.del1_reads_partial, self.del1_negative_reads = (
+            self.get_long_del_reads(
+                self.del1_3p_pos1,
+                self.del1_3p_pos2,
+                self.del1_5p_pos1,
+                self.del1_5p_pos2,
+                self.deletion1_size,
+            )
         )
         self.get_candidate_pos()
         self.het_sites = sorted(list(self.candidate_pos))
@@ -84,6 +81,7 @@ class StrcPhaser(Phaser):
                 self.del1_3p_pos1,
                 self.del1_5p_pos2,
                 self.del1_reads_partial,
+                self.del1_negative_reads,
                 "3",
                 self.deletion1_name,
             )
@@ -196,4 +194,5 @@ class StrcPhaser(Phaser):
             self.sample_sex,
             self.init_het_sites,
             f"{self.genome_build}:{self.nchr}:{self.left_boundary}-{self.right_boundary}",
+            self.genes,
         )

@@ -37,12 +37,7 @@ class Ncf1Phaser(Phaser):
 
     def call(self):
         if self.check_coverage_before_analysis() is False:
-            return self.GeneCall(
-                genome_depth=self.mdepth,
-                region_depth=self.region_avg_depth._asdict(),
-                sample_sex=self.sample_sex,
-                phase_region=f"{self.genome_build}:{self.nchr}:{self.left_boundary}-{self.right_boundary}",
-            )
+            return self.get_default_call()
         pivot_site = self.pivot_site
         for pileupcolumn in self._bamh.pileup(
             self.nchr, pivot_site, pivot_site + 1, truncate=True
@@ -184,4 +179,5 @@ class Ncf1Phaser(Phaser):
             self.sample_sex,
             self.init_het_sites,
             f"{self.genome_build}:{self.nchr}:{self.left_boundary}-{self.right_boundary}",
+            self.genes,
         )

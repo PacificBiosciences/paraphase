@@ -173,12 +173,7 @@ class Opn1lwPhaser(Phaser):
 
     def call(self):
         if self.check_coverage_before_analysis() is False:
-            return self.GeneCall(
-                genome_depth=self.mdepth,
-                region_depth=self.region_avg_depth._asdict(),
-                sample_sex=self.sample_sex,
-                phase_region=f"{self.genome_build}:{self.nchr}:{self.left_boundary}-{self.right_boundary}",
-            )
+            return self.get_default_call()
         self.get_homopolymer()
         self.get_candidate_pos(min_vaf=0.08)
         self.het_sites = sorted(list(self.candidate_pos))
@@ -456,5 +451,6 @@ class Opn1lwPhaser(Phaser):
             self.sample_sex,
             self.init_het_sites,
             f"{self.genome_build}:{self.nchr}:{self.left_boundary}-{self.right_boundary}",
+            self.genes,
             alleles_1st_2nd,
         )

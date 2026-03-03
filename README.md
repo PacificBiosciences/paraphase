@@ -28,7 +28,7 @@ Medically relevant regions include:
 - CFC1 (heterotaxy syndrome)
 - [OPN1LW/OPN1MW](docs/OPN1LW_OPN1MW.md) (color vision deficiencies)
 - [HBA1/HBA2](docs/HBA1_HBA2.md) (Alpha-Thalassemia)
-- [GBA](docs/GBA.md) (Gaucher disease and Parkison's disease)
+- [GBA](docs/GBA.md) (Gaucher disease and Parkinson's disease)
 - CYP11B1/CYP11B2 (Glucocorticoid-remediable aldosteronism)
 - [CFH/CFHR1/CFHR2/CFHR3/CFHR4](docs/CFH.md) (large deletions/duplications, atypical hemolytic uremic syndrome and age-related macular degeneration)
 
@@ -125,3 +125,4 @@ Tutorials/Examples are provided for further interpreting the `json` output and v
 - [GBA](docs/GBA.md)
 - [CFH gene cluster](docs/CFH.md)
 
+Finally, we have a proof-of-concept [script](annotation/) to give an example of how to annotate variants downstream of Paraphase.

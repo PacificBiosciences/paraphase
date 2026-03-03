@@ -19,6 +19,7 @@ The json file contains fields that are common to all Paraphase target regions an
 - `genome_depth`: average sequencing depth across the whole genome.
 - `region_depth`: median and 80th percentile of the depth across positions in the target region, where the depth is the combined depth of all reads, i.e. considering genes and paralogs together.
 - `sample_sex`: inferred biological sex based on coverage of X and Y chromosomes.
+- `genes_in_region`: genes encoded in the analyzed region (pseudogenes excluded).
 
 ### Information on phased haplotypes
   - `sites_for_phasing` variant sites used for phasing (currently only using SNPs for phasing).
