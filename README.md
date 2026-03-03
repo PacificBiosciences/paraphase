@@ -125,3 +125,4 @@ Tutorials/Examples are provided for further interpreting the `json` output and v
 - [GBA](docs/GBA.md)
 - [CFH gene cluster](docs/CFH.md)
 
+Finally, we have a proof-of-concept [script](annotation/) to give an example of how to annotate variants downstream of Paraphase.
