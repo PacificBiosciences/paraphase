@@ -24,3 +24,16 @@ smn1:
   del1_3p_pos2: 71374587
   del1_5p_pos1: 71377858
   del1_5p_pos2: 71378051
+pms2: 
+  genes: PMS2
+  check_nm: 0.1
+  use_r2k: True
+  realign_region: chr7:6082761-6127265
+  extract_regions: chr7:6082761-6127265 chr7:6852634-6878921
+  gene2_region: chr7:6852634-6878921
+  pivot_site: 6104336
+  noisy_region: [[6098646, 6098746], [6097429, 6097435], [6093717, 6093847], [6114344, 6114400], [6121059, 6121119], [6126498, 6126503]]
+  is_reverse: True
+  add_sites: ["6104336_G_A"]
+  clip_3p_positions: [6106854]
+  
