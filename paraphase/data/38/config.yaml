@@ -1305,3 +1305,10 @@ CFHR3:
   clip_3p_positions: [196827189]
   noisy_region: [[196809513, 196812537], [196817000, 196817020], [196826466, 196826515]]
   call_fusion: 5p
+CATSPER2:
+  genes: CATSPER2
+  check_nm: 0.1
+  use_r2k: True
+  realign_region: chr15:43628003-43649344
+  extract_regions: chr15:43628003-43649344 chr15:43724356-43746769
+  noisy_region: [[43630367, 43630567], [43636385, 43636785], [43638425, 43638825]]
