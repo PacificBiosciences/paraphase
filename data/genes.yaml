@@ -1,0 +1,5 @@
+genes_to_call: []
+priority_genes: ["ANKRD20A1", "FAM86B1", "CFHR3", "RGPD5", "PTPN20", "RGPD3", "ZNF595", "pms2", "opn1lw", "NSF", "NUTM2A", "OTOA"]
+no_genome_depth_genes: ["pms2", "neb", "cfc1", "ikbkg", "opn1lw", "rccx"]
+no_vcf_genes: ["CFH", "CFHR3"]
+two_reference_regions_genes: ["smn1", "pms2", "strc", "ikbkg", "ncf1"]

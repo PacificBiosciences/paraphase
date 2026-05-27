@@ -1,0 +1,15 @@
+[package]
+authors = ["Daniel Baker <dbaker@pacificbiosciences.com>"]
+name = "vstr"
+version = "0.1.7"
+edition = "2021"
+keywords = ["strings", "utf-8", "tooling"]
+categories = ["rust-patterns", "science"]
+description = "Viewable byte slices + vectors. Allows human-readable displays but random access into strings."
+license-file = "../../LICENSE.md"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+serde = { version = "1.0.104", features = ["derive"] }
+bincode = { version = "1.3.3"}
