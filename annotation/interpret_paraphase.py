@@ -25,7 +25,7 @@ DEFAULT_TRANSCRIPT_FILE = os.path.join(
 # Default config URL
 DEFAULT_CONFIG_URL = (
     "https://raw.githubusercontent.com/PacificBiosciences/paraphase/main/"
-    "paraphase/data/38/config.yaml"
+    "data/38/config.yaml"
 )
 
 # Variants to always include in ClinVar results
@@ -561,22 +561,22 @@ def get_json_info(json_file: str, region_name: str) -> Optional[RegionInfo]:
         # Region-specific information extraction
         if region_name == "smn1":
             known_nonfunctional_haplotypes = list(
-                gene_call["smn_del78_haplotypes"].values()
+                gene_call["region_specific_info"]["smn_del78_haplotypes"].values()
             )
             report_info = (
-                f"smn1_cn: {gene_call['smn1_cn']}; "
-                f"smn2_cn: {gene_call['smn2_cn']}; "
-                f"smn_del78_cn: {gene_call['smn_del78_cn']}"
+                f"smn1_cn: {gene_call["region_specific_info"]['smn1_cn']}; "
+                f"smn2_cn: {gene_call["region_specific_info"]['smn2_cn']}; "
+                f"smn_del78_cn: {gene_call["region_specific_info"]['smn_del78_cn']}"
             )
         elif region_name == "rccx":
             annotated_alleles = "-".join(
                 [
                     "'" + str(a).replace(",", "|") + "'"
-                    for a in gene_call["annotated_alleles"]
+                    for a in gene_call["region_specific_info"]["annotated_alleles"]
                 ]
             )
             report_info = (
-                f"Phasing success: {gene_call['phasing_success']}; "
+                f"Phasing success: {gene_call["region_specific_info"]['phasing_success']}; "
                 f"annotated_alleles: {annotated_alleles}"
             )
         elif region_name == "hba":
@@ -584,14 +584,16 @@ def get_json_info(json_file: str, region_name: str) -> Optional[RegionInfo]:
                 a for a in gene_call["final_haplotypes"].values() if "homology" in a
             ]
             report_info = (
-                f"genotype: {gene_call['genotype']}; "
-                f"sv_called: {gene_call['sv_called']}"
+                f"genotype: {gene_call["region_specific_info"]['genotype']}; "
+                f"sv_called: {gene_call["region_specific_info"]['sv_called']}"
             )
         elif region_name == "ikbkg":
-            known_nonfunctional_haplotypes = gene_call["deletion_haplotypes"]
-            report_info = f"deletion_haplotypes: {gene_call['deletion_haplotypes']}"
+            known_nonfunctional_haplotypes = gene_call["region_specific_info"][
+                "deletion_haplotypes"
+            ]
+            report_info = f"deletion_haplotypes: {gene_call["region_specific_info"]['deletion_haplotypes']}"
         elif region_name in ["GBA", "CFHclust"]:
-            fusion = gene_call["fusions_called"]
+            fusion = gene_call["region_specific_info"]["fusions_called"]
             if fusion == {}:
                 report_info = f"fusions_called: {fusion}"
             else:
@@ -605,13 +607,13 @@ def get_json_info(json_file: str, region_name: str) -> Optional[RegionInfo]:
                     )
                 report_info = f"fusions_called: {fusion_info}"
         elif region_name == "f8":
-            report_info = f"sv_called: {gene_call['sv_called']}"
+            report_info = f"sv_called: {gene_call["region_specific_info"]['sv_called']}"
         elif region_name in ["strc", "ncf1"]:
-            report_info = f"gene_cn: {gene_call['gene_cn']}"
+            report_info = f"gene_cn: {gene_call["region_specific_info"]['gene_cn']}"
         elif region_name == "opn1lw":
             report_info = (
-                f"Phasing success: {gene_call['phasing_success']}; "
-                f"annotated_alleles: {gene_call['annotated_alleles']}"
+                f"Phasing success: {gene_call["region_specific_info"]['phasing_success']}; "
+                f"annotated_alleles: {gene_call["region_specific_info"]['annotated_alleles']}"
             )
 
     return RegionInfo(
