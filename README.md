@@ -46,36 +46,32 @@ If you have suggestions or need assistance, please don't hesitate to reach out b
 
 Xiao Chen: xchen@pacificbiosciences.com
 
-## Dependencies
-
-- [samtools](http://www.htslib.org/)
-- [minimap2](https://github.com/lh3/minimap2)
-
 ## Installation
 
-Paraphase can be installed through pip or conda:
+Paraphase can be installed through conda:
 ```bash
-pip install paraphase
-# or
 conda install -c conda-forge -c bioconda paraphase
 ```
 
 Alternatively, Paraphase can be installed from GitHub.
 ```bash
-git clone https://github.com/PacificBiosciences/paraphase
-cd paraphase
-python setup.py install
+# Specify the version
+VERSION="v4.0.0"
+# Download the release file
+wget https://github.com/PacificBiosciences/paraphase/releases/download/${VERSION}/paraphase-${VERSION}-x86_64-unknown-linux-gnu.tar.gz
+# Decompress the file
+tar -xzvf paraphase-${VERSION}-x86_64-unknown-linux-gnu.tar.gz
+cd paraphase-${VERSION}-x86_64-unknown-linux-gnu
+# Check the md5 sum (optional)
+md5sum -c paraphase.md5
+# Execute help instructions
+./paraphase -h
 ```
 
 ## Running the program
 
 ```bash
 paraphase -b input.bam -o output_directory -r genome_fasta
-```
-
-Alternatively when you have a list of bam files
-```bash
-paraphase -l list.txt -o output_directory -r genome_fasta
 ```
 
 Required parameters:
@@ -96,8 +92,6 @@ Optional parameters:
 - `--targeted`: If specified, paraphase will not assume depth is uniform across the genome. See more information on running targeted data [here](docs/targeted_data.md).
 - `--min-variant-frequency`:  Minimum frequency for a variant to be used for phasing. The cutoff for variant-supporting reads is determined by max(5, total_depth * min_frequency). Note that total_depth is the combined depth of all paralogs for a paralog group. Default is 0.11.
 - `--min-haplotype-frequency`: Minimum frequency of unique supporting reads for a haplotype. The cutoff for haplotype-supporting reads is determined by max(4, total_depth * min_frequency). Note that total_depth is the combined depth of all paralogs for a paralog group. Default is 0.03.
-- `--samtools`: path to samtools. If the paths to samtools or minimap2 are not already in the PATH environment variable, they can be provided through the `--samtools` and `--minimap2` parameters.
-- `--minimap2`: path to minimap2
 
 See [demo](docs/demo.md) for a test run.
 
@@ -126,3 +120,7 @@ Tutorials/Examples are provided for further interpreting the `json` output and v
 - [CFH gene cluster](docs/CFH.md)
 
 Finally, we have a proof-of-concept [script](annotation/) to give an example of how to annotate variants downstream of Paraphase.
+
+## DISCLAIMER
+
+THIS WEBSITE AND CONTENT AND ALL SITE-RELATED SERVICES, INCLUDING ANY DATA, ARE PROVIDED "AS IS," WITH ALL FAULTS, WITH NO REPRESENTATIONS OR WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING, BUT NOT LIMITED TO, ANY WARRANTIES OF MERCHANTABILITY, SATISFACTORY QUALITY, NON-INFRINGEMENT OR FITNESS FOR A PARTICULAR PURPOSE. YOU ASSUME TOTAL RESPONSIBILITY AND RISK FOR YOUR USE OF THIS SITE, ALL SITE-RELATED SERVICES, AND ANY THIRD PARTY WEBSITES OR APPLICATIONS. NO ORAL OR WRITTEN INFORMATION OR ADVICE SHALL CREATE A WARRANTY OF ANY KIND. ANY REFERENCES TO SPECIFIC PRODUCTS OR SERVICES ON THE WEBSITES DO NOT CONSTITUTE OR IMPLY A RECOMMENDATION OR ENDORSEMENT BY PACIFIC BIOSCIENCES.

@@ -20,7 +20,7 @@ Two well-known structural variants in this region are the **3.7 kb** and **4.2 k
 
 ## Fields in the `json` file
 
-Fields shared across all genes are defined in the general [json file](json.md). The region includes several unique fields:
+Fields shared across all genes are defined in the general [json file](json.md). The region includes several unique fields under `region_specific_info`:
 
 - `genotype`: Reports the genotype for this region. Possible alleles include:
   - `aa`: wild-type

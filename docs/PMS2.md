@@ -8,7 +8,7 @@ the unique region.
 
 ## Fields in the `json` file
 
-Fields shared across all genes are defined in the general [json file](json.md). The PMS2 locus does not include unique fields.
+Fields shared across all genes are defined in the general [json file](json.md). The PMS2 locus does not include unique fields other than `gene_cn` under `region_specific_info`.
 
 The PMS2 haplotypes are labeled `pms2_pms2hap#` and pseudogene `pms2_pms2clhap#`.
 

@@ -12,7 +12,7 @@ Additionally, paraphase recognises the SMNΔ7–8 deletion haplotype, which corr
 
 ## Fields in the `json` file
 
-Fields shared across all genes are defined in the general [json file](json.md). The SMN1/2 locus includes several unique fields, listed below:
+Fields shared across all genes are defined in the general [json file](json.md). The SMN1/2 locus includes several unique fields under `region_specific_info`, listed below:
 
 - `smn1_cn`: copy number of SMN1, a `null` call indicates that Paraphase finds only one haplotype but depth does not unambiguously support a copy number of one or two.
 - `smn2_cn`: copy number of SMN2, a `null` call indicates that Paraphase finds only one haplotype but depth does not unambiguously support a copy number of one or two.

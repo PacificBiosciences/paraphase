@@ -6,7 +6,7 @@ granulomatous disease and Williams syndrome. The pseudogenes are differentiated 
 
 ## Fields in the `json` file
 
-Fields shared across all genes are defined in the general [json file](json.md). The NCF1 locus includes the following unique field:
+Fields shared across all genes are defined in the general [json file](json.md). The NCF1 locus includes the following unique field under `region_specific_info`:
 - `gene_reads`: number of reads containing the GT sequence at the beginning of exon 2 characterising the gene.
 - `pseudo_reads`: number of reads with the GT deletion characterising the pseudogenes.
 
