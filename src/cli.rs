@@ -31,7 +31,7 @@ pub struct Settings {
     #[clap(required = true)]
     #[clap(short = 'r')]
     #[clap(long = "reference")]
-    #[clap(help = "Path to reference genome FASTA")]
+    #[clap(help = "Path to reference genome FASTA file")]
     #[clap(value_name = "FASTA")]
     #[arg(value_parser = check_file_exists)]
     pub reference: PathBuf,
@@ -47,22 +47,23 @@ pub struct Settings {
     #[clap(required = true)]
     #[clap(short = 'o')]
     #[clap(long = "out")]
-    #[clap(help = "Output directory. Will contain tagged bamlets and JSON")]
+    #[clap(help = "Output directory")]
     #[clap(value_name = "outdir")]
     pub outdir: PathBuf,
 
-    /// Input config
-    /// If no path provided, defaults to HG38.
+    /// Optional path to a user-defined config file listing the full set of regions to analyze.
+    /// By default paraphase uses the config file in data/38/config.yaml
     #[clap(long, short)]
     #[arg(value_parser = check_file_exists)]
     pub config: Option<PathBuf>,
 
-    /// Sample prefix. If none given, uses a prefix of the input bam filename.
+    /// Prefix of output files for a single sample.
+    /// If not provided, prefix will be extracted from the header of the input BAM.
     #[clap(short, long)]
     pub prefix: Option<String>,
 
-    /// Optionally specify which gene(s) to run (separated by comma).
-    /// Will run all genes if not specified.
+    /// Optionally specify which region(s) to run (separated by comma).
+    /// Will run all regions if not specified.
     /// The full set of accepted regions are defined in the config file.
     #[clap(long, short, default_value = "")]
     pub gene: String,
@@ -76,7 +77,7 @@ pub struct Settings {
 
     #[clap(long)]
     #[clap(
-        help = "Optional. Minimum frequency for a variant to be used for phasing. Works with the targeted mode.
+        help = "Minimum frequency for a variant to be used for phasing. Works with the targeted mode.
         The cutoff for variant-supporting reads is determined by max(5, total_depth * min_frequency).
         Note that total_depth is the combined depth of all paralogs for a paralog group.
         Default is 0.11."
@@ -85,34 +86,33 @@ pub struct Settings {
 
     #[clap(long)]
     #[clap(
-        help = " Optional. Minimum frequency of unique supporting reads for a haplotype. Works with the targeted mode.
+        help = "Minimum frequency of unique supporting reads for a haplotype. Works with the targeted mode.
         The cutoff for haplotype-supporting reads is determined by max(4, total_depth * min_frequency).
-        Note that total_depth is the combined depth of all paralogs for a paralog group."
+        Note that total_depth is the combined depth of all paralogs for a paralog group.
+        Default is 0.03."
     )]
     #[clap(default_value = "0.03")]
     pub min_haplotype_frequency: f64,
 
     #[clap(long, action)]
-    #[clap(
-        help = "Optional. If specified, paraphase will not assume depth is uniform across the genome."
-    )]
+    #[clap(help = "If specified, paraphase will not assume depth is uniform across the genome.")]
     pub targeted: bool,
 
     #[clap(long, action)]
     #[clap(
-        help = "Optional. If specified, variant calls will be made against the main gene only.
+        help = "If specified, variant calls will be made against the main gene only.
         By default, for SMN1, PMS2, STRC, NCF1 and IKBKG, haplotypes are assigned to gene or
         paralog/pseudogene, and variants are called against gene or paralog/pseudogene, respectively."
     )]
     pub gene1only: bool,
 
     #[clap(long, action)]
-    #[clap(help = "If specified, paraphase will not write vcfs.")]
+    #[clap(help = "If specified, paraphase will not write VCFs.")]
     pub novcf: bool,
 
     #[clap(long, action)]
     #[clap(
-        help = "If specified, Paraphase will write no-call sites in the VCFs, marked with LowQual filter."
+        help = "If specified, paraphase will write no-call sites in the VCFs, marked with LowQual filter."
     )]
     pub write_nocalls_in_vcf: bool,
 
@@ -139,7 +139,7 @@ pub struct Settings {
     pub verbosity: u8,
 
     /// Values: "error", "warn", "info" (default), "debug", "trace".
-    /// Higher verbosity or log levels also emit more detailed diagnostic output.
+    /// Higher verbosity or log levels emit more detailed diagnostic output.
     #[clap(help_heading("Advanced"))]
     #[clap(long, verbatim_doc_comment, default_value = "info")]
     pub log_level: String,
