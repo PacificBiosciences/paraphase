@@ -36,14 +36,6 @@ pub struct Settings {
     #[arg(value_parser = check_file_exists)]
     pub reference: PathBuf,
 
-    #[clap(long = "genome")]
-    #[clap(
-        help = "Optionally specify which genome reference build the input BAM files are aligned against. 
-        Accepted values are 19, 37, chm13, and 38."
-    )]
-    #[clap(default_value = "38")]
-    pub genome: String,
-
     #[clap(required = true)]
     #[clap(short = 'o')]
     #[clap(long = "out")]
@@ -51,22 +43,34 @@ pub struct Settings {
     #[clap(value_name = "outdir")]
     pub outdir: PathBuf,
 
-    /// Optional path to a user-defined config file listing the full set of regions to analyze.
-    /// By default paraphase uses the config file in data/38/config.yaml
+    #[clap(short, long)]
+    #[clap(help = "Prefix of output files for a single sample.\n\
+If not provided, prefix is extracted from the header of the input BAM.")]
+    pub prefix: Option<String>,
+
+    #[clap(long, short, default_value = "")]
+    #[clap(
+        help = "Optionally specify which regions(s) to run (separated by comma).\n\
+If not provided, all regions are run.\n\
+The full set of accepted regions are defined in the config file."
+    )]
+    pub gene: String,
+
     #[clap(long, short)]
+    #[clap(
+        help = "Optional path to a user-defined config file listing the full set of regions to analyze.\n\
+By default paraphase uses the config file in data/38/config.yaml."
+    )]
     #[arg(value_parser = check_file_exists)]
     pub config: Option<PathBuf>,
 
-    /// Prefix of output files for a single sample.
-    /// If not provided, prefix will be extracted from the header of the input BAM.
-    #[clap(short, long)]
-    pub prefix: Option<String>,
-
-    /// Optionally specify which region(s) to run (separated by comma).
-    /// Will run all regions if not specified.
-    /// The full set of accepted regions are defined in the config file.
-    #[clap(long, short, default_value = "")]
-    pub gene: String,
+    #[clap(long = "genome")]
+    #[clap(
+        help = "Optionally specify which genome reference build the input BAM files are aligned against.\n\
+Accepted values are 19, 37, chm13, and 38."
+    )]
+    #[clap(default_value = "38")]
+    pub genome: String,
 
     #[clap(short = 't')]
     #[clap(long = "threads")]
@@ -75,36 +79,27 @@ pub struct Settings {
     #[arg(value_parser = threads_in_range)]
     pub num_threads: Option<usize>,
 
+    #[clap(long, action)]
+    #[clap(help = "If specified, paraphase will not assume depth is uniform across the genome.")]
+    pub targeted: bool,
+
     #[clap(long)]
     #[clap(
-        help = "Minimum frequency for a variant to be used for phasing. Works with the targeted mode.
-        The cutoff for variant-supporting reads is determined by max(5, total_depth * min_frequency).
-        Note that total_depth is the combined depth of all paralogs for a paralog group.
-        Default is 0.11."
+        help = "Minimum frequency for a variant to be used for phasing. Works with targeted mode.\n\
+The cutoff for variant-supporting reads is max(5, total_depth * min_frequency).\n\
+total_depth is the combined depth of all paralogs in a paralog group.\n\
+Default: 0.11."
     )]
     pub min_variant_frequency: Option<f64>,
 
     #[clap(long)]
     #[clap(
-        help = "Minimum frequency of unique supporting reads for a haplotype. Works with the targeted mode.
-        The cutoff for haplotype-supporting reads is determined by max(4, total_depth * min_frequency).
-        Note that total_depth is the combined depth of all paralogs for a paralog group.
-        Default is 0.03."
+        help = "Minimum frequency of unique supporting reads for a haplotype. Works with targeted mode.\n\
+The cutoff for haplotype-supporting reads is max(4, total_depth * min_frequency).\n\
+total_depth is the combined depth of all paralogs in a paralog group."
     )]
     #[clap(default_value = "0.03")]
     pub min_haplotype_frequency: f64,
-
-    #[clap(long, action)]
-    #[clap(help = "If specified, paraphase will not assume depth is uniform across the genome.")]
-    pub targeted: bool,
-
-    #[clap(long, action)]
-    #[clap(
-        help = "If specified, variant calls will be made against the main gene only.
-        By default, for SMN1, PMS2, STRC, NCF1 and IKBKG, haplotypes are assigned to gene or
-        paralog/pseudogene, and variants are called against gene or paralog/pseudogene, respectively."
-    )]
-    pub gene1only: bool,
 
     #[clap(long, action)]
     #[clap(help = "If specified, paraphase will not write VCFs.")]
@@ -116,60 +111,47 @@ pub struct Settings {
     )]
     pub write_nocalls_in_vcf: bool,
 
+    #[clap(long, action)]
+    #[clap(
+        help = "If specified, variant calls are made against the main gene only.\n\
+By default, for SMN1, PMS2, STRC, NCF1, and IKBKG, haplotypes are assigned to gene or\n\
+paralog/pseudogene, and variants are called against gene or paralog/pseudogene, respectively."
+    )]
+    pub gene1only: bool,
+
     #[cfg(feature = "pprof")]
-    /// Profiling sample frequency in Hz (samples/second). If unset, no profiling.
     #[clap(help_heading("Advanced"))]
     #[clap(long)]
+    #[clap(help = "Profiling sample frequency in Hz (samples/second). If unset, no profiling.")]
     pub profile_freq: Option<i32>,
 
-    /// Verbose output
-    /// Apply once for debug-level messages
-    /// Apply twice or more for trace-level messages
-    /// If --log-level is set, this option takes precedence.
-    /// Equivalence to --log-level:
-    ///       => "info"
-    ///    -v => "debug"
-    ///   -vv => "trace"
-    ///  -vvv => "trace"
     #[clap(help_heading("Advanced"))]
     #[clap(short = 'v')]
     #[clap(long = "verbose")]
-    #[clap(action = clap::ArgAction::Count, verbatim_doc_comment)]
-    #[clap(hide = true)]
+    #[clap(action = clap::ArgAction::Count)]
+    #[clap(help = "Verbose output.\n\
+`-v` enables debug-level logs.\n\
+`-vv` (or higher) enables trace-level logs.")]
     pub verbosity: u8,
 
-    /// Values: "error", "warn", "info" (default), "debug", "trace".
-    /// Higher verbosity or log levels emit more detailed diagnostic output.
     #[clap(help_heading("Advanced"))]
-    #[clap(long, verbatim_doc_comment, default_value = "info")]
-    pub log_level: String,
+    #[clap(short = 'q')]
+    #[clap(long = "quiet", action)]
+    #[clap(help = "Quiet output (errors only). If set, this overrides `-v` / `--verbose`.")]
+    pub quiet: bool,
 }
 
 impl Settings {
-    /// Resolve effective log level, with `-v`/`--verbose` taking precedence over `--log-level`.
+    /// Resolve effective log level from `-v` / `--verbose`.
     pub fn log_level(&self) -> log::LevelFilter {
         use log::LevelFilter;
-        if self.verbosity > 0 {
-            match self.verbosity {
-                0 => LevelFilter::Info,
-                1 => LevelFilter::Debug,
-                _ => LevelFilter::Trace,
-            }
-        } else {
-            match &self.log_level.clone().to_lowercase()[..] {
-                "info" => LevelFilter::Info,
-                "warn" => LevelFilter::Warn,
-                "debug" => LevelFilter::Debug,
-                "error" => LevelFilter::Error,
-                "trace" => LevelFilter::Trace,
-                _ => {
-                    log::warn!(
-                        "Unsupported log level '{}'; defaulting to 'info'.",
-                        self.log_level
-                    );
-                    LevelFilter::Info
-                }
-            }
+        if self.quiet {
+            return LevelFilter::Error;
+        }
+        match self.verbosity {
+            0 => LevelFilter::Info,
+            1 => LevelFilter::Debug,
+            _ => LevelFilter::Trace,
         }
     }
 
