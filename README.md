@@ -10,7 +10,7 @@ Many medically relevant genes fall into 'dark' regions where variant calling is 
 Paraphase takes all reads from a gene family, realigns to one representative gene of the family and then phases them into haplotypes. This approach bypasses the error-prone process of aligning reads to multiple similar regions and allows us to examine all copies of genes in a gene family. This gene-family-centered approach allows Paraphase to perform well when there is a copy number difference between an individual and the reference, as is often the case in segmental duplications.
 Futhermore, this approach also streamlines sequence comparisons between genes within the same family, making it straightforward to conduct analyses such as identifying non-allelic gene conversions.  
 
-Paraphase supports 160 segmental duplication [regions](docs/regions.md) in GRCh38. Among these, there are 11 regions that are also supported in GRCh37/hg19, and one region is currently supported in CHM13.
+Paraphase supports 162 segmental duplication [regions](docs/regions.md) in GRCh38. Among these, there are 11 regions that are also supported in GRCh37/hg19, and two regions are currently supported in CHM13.
 
 Medically relevant regions include:
 
@@ -50,7 +50,7 @@ Xiao Chen: xchen@pacificbiosciences.com
 
 Paraphase can be installed through conda:
 ```bash
-conda install -c conda-forge -c bioconda paraphase
+conda install -c bioconda paraphase
 ```
 
 Alternatively, Paraphase can be installed from GitHub.
@@ -75,7 +75,7 @@ paraphase -b input.bam -o output_directory -r genome_fasta
 ```
 
 Required parameters:
-- `-b`: Input BAM file or `-l`: text file listing BAM files one per line (a BAI file needs to exist in the same directory)
+- `-b`: Input BAM file (a BAI file needs to exist in the same directory)
 - `-o`: Output directory
 - `-r`: Path to the reference genome fasta file
 
