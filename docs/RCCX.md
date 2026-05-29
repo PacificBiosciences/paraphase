@@ -11,7 +11,7 @@ Below is a simplified schematic of the region:
 
 ## Region specific fields in the `json` file
 
-Fields shared across all genes are defined in the general [json file](json.md). The RCCX module includes several unique fields, listed below:
+Fields shared across all genes are defined in the general [json file](json.md). The RCCX module includes several unique fields under `region_specific_info`, listed below:
 
 - `ending_hap`: Indicates the last RCCX copy on each allele. These haplotypes have unique sequences from the unique region downstream of RCCX. Only these final copies contain the gene TNXB; all earlier copies on the same haplotype contain TNXA (the pseudogene). This field can be used to infer the order of RCCX haplotypes on an allele.
 - `starting_hap`: Indicates the first RCCX copy on each allele. These haplotypes have unique sequences from the unique region upstream of RCCX. This field can be used to infer the order of RCCX haplotypes on an allele.

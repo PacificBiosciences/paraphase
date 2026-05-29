@@ -10,7 +10,7 @@ Many medically relevant genes fall into 'dark' regions where variant calling is 
 Paraphase takes all reads from a gene family, realigns to one representative gene of the family and then phases them into haplotypes. This approach bypasses the error-prone process of aligning reads to multiple similar regions and allows us to examine all copies of genes in a gene family. This gene-family-centered approach allows Paraphase to perform well when there is a copy number difference between an individual and the reference, as is often the case in segmental duplications.
 Futhermore, this approach also streamlines sequence comparisons between genes within the same family, making it straightforward to conduct analyses such as identifying non-allelic gene conversions.  
 
-Paraphase supports 160 segmental duplication [regions](docs/regions.md) in GRCh38. Among these, there are 11 regions that are also supported in GRCh37/hg19, and one region is currently supported in CHM13.
+Paraphase supports 162 segmental duplication [regions](docs/regions.md) in GRCh38. Among these, there are 11 regions that are also supported in GRCh37/hg19, and two regions are currently supported in CHM13.
 
 Medically relevant regions include:
 
@@ -46,25 +46,26 @@ If you have suggestions or need assistance, please don't hesitate to reach out b
 
 Xiao Chen: xchen@pacificbiosciences.com
 
-## Dependencies
-
-- [samtools](http://www.htslib.org/)
-- [minimap2](https://github.com/lh3/minimap2)
-
 ## Installation
 
-Paraphase can be installed through pip or conda:
+Paraphase can be installed through conda:
 ```bash
-pip install paraphase
-# or
-conda install -c conda-forge -c bioconda paraphase
+conda install -c bioconda paraphase
 ```
 
 Alternatively, Paraphase can be installed from GitHub.
 ```bash
-git clone https://github.com/PacificBiosciences/paraphase
-cd paraphase
-python setup.py install
+# Specify the version
+VERSION="v4.0.0"
+# Download the release file
+wget https://github.com/PacificBiosciences/paraphase/releases/download/${VERSION}/paraphase-${VERSION}-x86_64-unknown-linux-gnu.tar.gz
+# Decompress the file
+tar -xzvf paraphase-${VERSION}-x86_64-unknown-linux-gnu.tar.gz
+cd paraphase-${VERSION}-x86_64-unknown-linux-gnu
+# Check the md5 sum (optional)
+md5sum -c paraphase.md5
+# Execute help instructions
+./paraphase -h
 ```
 
 ## Running the program
@@ -73,31 +74,24 @@ python setup.py install
 paraphase -b input.bam -o output_directory -r genome_fasta
 ```
 
-Alternatively when you have a list of bam files
-```bash
-paraphase -l list.txt -o output_directory -r genome_fasta
-```
-
 Required parameters:
-- `-b`: Input BAM file or `-l`: text file listing BAM files one per line (a BAI file needs to exist in the same directory)
+- `-b`: Input BAM file (a BAI file needs to exist in the same directory)
 - `-o`: Output directory
 - `-r`: Path to the reference genome fasta file
 
 Please note that the input BAM should be one that's aligned to the ENTIRE reference genome (GRCh38, GRCh37/hg19 or CHM13), and this reference should NOT include ALT contigs. The fasta file of this reference genome should be provided to Paraphase with `-r`. Recommendations on reference genomes to use are documented [here](https://github.com/PacificBiosciences/reference_genomes).
 
 Optional parameters:
-- `-g`: Region(s) to analyze, separated by comma. All supported [regions](docs/regions.md) will be analyzed if not specified. Please use region name, i.e. first column in the doc.
+- `-g`: Region(s) to analyze, separated by comma. All supported [regions](docs/regions.md) will be analyzed if not specified. Please use region name, i.e. first column in the [regions file](docs/regions.md).
 - `-t`: Number of threads.
-- `-p`: Prefix of output files when the input is a single sample, i.e. use with `-b`. If not provided, prefix will be extracted from the header of the input BAM. 
-- `--genome`: Genome reference build. Default is `38`. If `37` or `19` is specified, Paraphase will run the analysis for GRCh37 or hg19, respectively (note that only 11 medically relevant [regions](docs/regions.md) are supported now for GRCh37/hg19). `chm13` for T2T-CHM13 reference (note that only smn1 is currently supported).
+- `-p`: Prefix of output files. If not provided, prefix will be extracted from the header of the input BAM. 
+- `--genome`: Genome reference build. Default is `38`. If `37` or `19` is specified, Paraphase will run the analysis for GRCh37 or hg19, respectively (note that only 11 medically relevant [regions](docs/regions.md) are supported now for GRCh37/hg19). `chm13` for T2T-CHM13 reference (note that only `smn1` and `pms2` are currently supported).
 - `--gene1only`: If specified, variants calls will be made against the main gene only for SMN1, PMS2, STRC, NCF1 and IKBKG, see more information [here](docs/vcf.md).
 - `--novcf`: If specified, no VCF files will be produced.
 - `--write-nocalls-in-vcf`: If specified, Paraphase will write no-call sites in the VCFs, marked with LowQual filter.
 - `--targeted`: If specified, paraphase will not assume depth is uniform across the genome. See more information on running targeted data [here](docs/targeted_data.md).
 - `--min-variant-frequency`:  Minimum frequency for a variant to be used for phasing. The cutoff for variant-supporting reads is determined by max(5, total_depth * min_frequency). Note that total_depth is the combined depth of all paralogs for a paralog group. Default is 0.11.
 - `--min-haplotype-frequency`: Minimum frequency of unique supporting reads for a haplotype. The cutoff for haplotype-supporting reads is determined by max(4, total_depth * min_frequency). Note that total_depth is the combined depth of all paralogs for a paralog group. Default is 0.03.
-- `--samtools`: path to samtools. If the paths to samtools or minimap2 are not already in the PATH environment variable, they can be provided through the `--samtools` and `--minimap2` parameters.
-- `--minimap2`: path to minimap2
 
 See [demo](docs/demo.md) for a test run.
 
@@ -126,3 +120,7 @@ Tutorials/Examples are provided for further interpreting the `json` output and v
 - [CFH gene cluster](docs/CFH.md)
 
 Finally, we have a proof-of-concept [script](annotation/) to give an example of how to annotate variants downstream of Paraphase.
+
+## DISCLAIMER
+
+THIS WEBSITE AND CONTENT AND ALL SITE-RELATED SERVICES, INCLUDING ANY DATA, ARE PROVIDED "AS IS," WITH ALL FAULTS, WITH NO REPRESENTATIONS OR WARRANTIES OF ANY KIND, EITHER EXPRESS OR IMPLIED, INCLUDING, BUT NOT LIMITED TO, ANY WARRANTIES OF MERCHANTABILITY, SATISFACTORY QUALITY, NON-INFRINGEMENT OR FITNESS FOR A PARTICULAR PURPOSE. YOU ASSUME TOTAL RESPONSIBILITY AND RISK FOR YOUR USE OF THIS SITE, ALL SITE-RELATED SERVICES, AND ANY THIRD PARTY WEBSITES OR APPLICATIONS. NO ORAL OR WRITTEN INFORMATION OR ADVICE SHALL CREATE A WARRANTY OF ANY KIND. ANY REFERENCES TO SPECIFIC PRODUCTS OR SERVICES ON THE WEBSITES DO NOT CONSTITUTE OR IMPLY A RECOMMENDATION OR ENDORSEMENT BY PACIFIC BIOSCIENCES.

@@ -4,24 +4,21 @@ Paraphase produces a single json file per sample, containing data across all ana
 
 This file includes summary information about the gene family, as well as details on haplotype phasing. Certain structural variants called from the presence of hybrid haplotypes, such as SVs in the `fusions_called` field described below and SVs in HBA1/2, RCCX or F8, are reported in the json file, as they are per-allele events instead of per-haplotype events that can be described in the vcf. In contrast, small variants like SNPs and InDels should be interpreted from the Paraphase [vcf file](vcf.md).
 
-As described in the [vcf file](vcf.md) documentation, Paraphase can assign and label haplotypes to specific genes within a family in some regions where prior knowledge on paralog differentiation is provided. Certain json fields are unique to families where such prior knowledge has been used.
+As described in the [vcf file](vcf.md) documentation, Paraphase can assign and label haplotypes to specific genes within a family in some regions where prior knowledge on paralog differentiation is provided. Certain json fields are unique to families where such prior knowledge has been used and they can be found under the `region_specific_info` field.
 
-## json fields
-
-The json file contains fields that are common to all Paraphase target regions and fields specific to individual region. Region-specific fields are documented separately in region-specific tutorial files. Common fields are described here:
-
-### General fields:
+## General fields:
 
 - `total_cn`: total copy number of the entire gene family (sum of gene and paralog/pseudogene).
-- `gene_cn`: total copy number for the gene (not including pseudogenes). Present only when Paraphase performs paralog differentiation and assigns haplotypes to genes or pseudogenes.
 - `two_copy_haplotypes`: haplotypes inferred to exist in two identical copies based on depth. This happens when there is a haplotype that is present at twice the depth of other haplotypes and we infer that there exist two of them instead of one.
 - `phase_region`: coordinates of the region over which phasing was performed. Can be used to quickly locate the region when visualizing Paraphase BAM with IGV.
 - `genome_depth`: average sequencing depth across the whole genome.
 - `region_depth`: median and 80th percentile of the depth across positions in the target region, where the depth is the combined depth of all reads, i.e. considering genes and paralogs together.
 - `sample_sex`: inferred biological sex based on coverage of X and Y chromosomes.
 - `genes_in_region`: genes encoded in the analyzed region (pseudogenes excluded).
+- `region_specific_info`: information specific to the analyzed region, see [below](#region-specific-information). This field will be empty for regions where Paraphase is not designed to output region-specific information.
 
-### Information on phased haplotypes
+## Information on phased haplotypes
+
   - `sites_for_phasing` variant sites used for phasing (currently only using SNPs for phasing).
   - `final_haplotypes` list of phased haplotypes for all gene copies in the family. Each haplotype is encoded based on the positions in `sites_for_phasing` using the following scheme:
     - `1`: reference base
@@ -42,10 +39,13 @@ The json file contains fields that are common to all Paraphase target regions an
   - `homozygous_sites`: sites that are different from the reference, but identical across reads.
   - `highest_total_cn`: internal-use field indicating the highest number of haplotypes seen across a region. This value could be higher than `total_cn` due to noisy alignments.
 
-### Phasing haplotypes into alleles
-  - `alleles_final`: haplotypes phased into alleles (this is possible when the segmental duplication is in tandem).
-  - `raw_alleles`: initial (pre-filtering) alleles phased among haplotypes.
-  - `haplotype links`: pairs of haplotypes supported by read-level evidence indicating linkage. When present, these links help phase haplotypes into alleles.
+## Region specific information
 
-### Structural variants
+- `gene_cn`: total copy number for the gene (not including pseudogenes). Present only when Paraphase performs paralog differentiation and assigns haplotypes to genes or pseudogenes.
 - `fusions_called`: deletions or duplications from unequal crossing over between paralogs, called by checking the flanking sequences of phased haplotypes. Currently supported for: CYP2D6, GBA, CYP11B1, and the CFH gene cluster.
+- Phasing haplotypes into alleles: this information is available when the segmental duplication is in tandem.
+  - `alleles_final`: haplotypes phased into alleles.
+  - `raw_alleles`: initial (pre-filtering) alleles phased among haplotypes.
+  - `haplotype links`: pairs of haplotypes supported by read-level evidence indicating linkage. When present, these links help phase haplotypes into alleles.  
+
+There are a few other fields specific to some medically relevant target regions, which are documented separately in region-specific tutorial files.

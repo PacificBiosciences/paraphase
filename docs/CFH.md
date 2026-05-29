@@ -8,15 +8,11 @@ highlights the two main homology regions "A" and "B". Region "A" contains the en
 
 ![CFH schematic](figures/CFH-diagram.png)
 
-Paraphase resolves gene copies in the two homology regions (with region "A" named `CFH` and "B" `CFHR3` in the config), 
-and summarizes results under `CFHclust` in the `json` file. To analyze this region specifically, use `-g CFH,CFHR3` in 
-the command. Note that only SVs/fusions are called in this region. No VCF is produced, as the sequence similarity is 
-low enough to allow variant calling with standard variant callers.
+Paraphase resolves gene copies in the two homology regions (with region "A" named `CFH` and "B" `CFHR3` in the config), and summarizes results under `CFHclust` in the `json` file. To analyze this region specifically, use `-g CFH,CFHR3` in the command. Note that only SVs/fusions are called in this region. No VCF is produced, as the sequence similarity is low enough to allow variant calling with standard variant callers.
 
 ## Fields in the `json` file
 
-Fields shared across all genes are defined in the general [json file](json.md). Note that the SVs/fusions will be 
-reported in the `fusions_called` field, along with the SV type and the breakpoint coordinates. The CFH locus does not include unique fields.
+Fields shared across all genes are defined in the general [json file](json.md). Note that the SVs/fusions will be reported in the `fusions_called` field, along with the SV type and the breakpoint coordinates. The CFH locus does not include other unique fields.
 
 ## Visualizing haplotypes
 

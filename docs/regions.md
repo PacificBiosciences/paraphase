@@ -1,7 +1,7 @@
 | Region name         | Genes encoded                                  | Supported in GRCh37/hg19 | Supported in chm13 | 
 | :------------------ | :--------------------------------------------- | :----------------------: | :----------------: |
 | smn1                | SMN1,SMN2                                      |            x             |         x          |
-| pms2                | PMS2                                           |            x             |                    |
+| pms2                | PMS2                                           |            x             |         x          |
 | rccx                | CYP21A2,C4A,C4B                                |            x             |                    |
 | strc                | STRC                                           |            x             |                    |
 | cfc1                | CFC1,CFC1B                                     |            x             |                    |
@@ -161,3 +161,4 @@
 | GBA                 | GBA1                                           |                          |                    |
 | CYP11B1             | CYP11B1,CYP11B2                                |                          |                    |
 | CFHclust(CFH,CFHR3) | CFH,CFHR1,CFHR2,CFHR3,CFHR4                    |                          |                    |
+| CATSPER2            | CATSPER2                                       |                          |                    |

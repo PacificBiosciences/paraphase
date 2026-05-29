@@ -1,0 +1,49 @@
+[package]
+name = "paraphase"
+version = "4.0.0"
+edition = "2021"
+build = "build.rs"
+default-run = "paraphase"
+license-file = "LICENSE.md"
+authors = ["Xiao Chen <xchen@pacificbiosciences.com>", "Daniel Baker <dbaker@pacificbiosciences.com>"]
+repository = "https://github.com/PacificBiosciences/paraphase"
+description = "Paraphase: HiFi-based caller for highly similar paralogous genes"
+
+[workspace]
+members = ["crates/vstr"]
+
+[build-dependencies]
+vergen = { version = "8.2.4", features = ["git", "gitcl"] }
+
+[dependencies]
+env_logger = "0.10.1"
+log = "0.4.20"
+clap = { version = "4", features = ["derive"] }
+chrono = "0.4.31"
+rust-htslib = { version = "0.49.0", default-features = false }
+counter = "0.5.7"
+lazy_static = "1.4.0"
+serde = { version = "1.0.104", features = ["derive"] }
+serde_json = {version = "1.0.48", features = ["std"]}
+serde_yaml = "0.9.27"
+simple-error = "0.3"
+regex = "1.10.2"
+vstr = {path = "crates/vstr"}
+itertools = "0.10.5"
+static_assertions = "1.1.0"
+indexmap = "2.1"
+anyhow = "1.0.75"
+rayon = "1.6.1"
+fnv = "1.0.7"
+pprof = { version = "0.15", features = ["flamegraph", "protobuf-codec", "cpp", "frame-pointer", "prost-codec"], optional=true}
+tempfile = "3.3.0"
+statrs = "0.16.0"
+url = "2.5.4"
+bytecount = "0.6.7"
+thiserror = "1.0.50"
+minimap2 = { version = "0.1.23", features = ["simde", "htslib"]}
+rand = {version = "0.8.5", features = ["small_rng"]}
+
+[dependencies.petgraph]
+version = "0.6.4"
+features = ["serde-1"]

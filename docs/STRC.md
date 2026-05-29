@@ -7,7 +7,7 @@ Paraphase differentiates STRC from the pseudogene based on the presence of a kno
 
 ## Fields in the `json` file
 
-Fields shared across all genes are defined in the general [json file](json.md). The STRC locus includes the following unique field:
+Fields shared across all genes are defined in the general [json file](json.md). The STRC locus includes the following unique field under `region_specific_info`:
 - `intergenic_depth`: Coverage depth at the `depth_region` defined in the configuration file, corresponding to the region between STRC and STRCP1. This value is used to help identify deletions. A deletion of one copy of STRC or STRCP1 is associated with a deletion of the intergenic region, where the intergenic depth becomes comparable to the genome hapoid depth.
 
 ## Visualizing haplotypes

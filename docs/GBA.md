@@ -7,7 +7,7 @@ result in fusion genes between GBA and GBAP1.
 
 ## Fields in the `json` file
 
-Fields shared across all genes are defined in the general [json file](json.md). The GBA locus does not include unique fields.
+Fields shared across all genes are defined in the general [json file](json.md). Note that the SVs/fusions will be reported in the `fusions_called` field, along with the SV type and the breakpoint coordinates. The GBA locus does not include other unique fields.
 
 ## Visualizing haplotypes
 

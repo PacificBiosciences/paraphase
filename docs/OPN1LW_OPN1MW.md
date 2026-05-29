@@ -11,7 +11,7 @@ annotates the copies as either OPN1LW or OPN1MW. Paraphase also annotates known 
 
 ## Fields in the `json` file
 
-Fields shared across all genes are defined in the general [json file](json.md). The OPN1LW/OPN1MW locus includes the following unique field:
+Fields shared across all genes are defined in the general [json file](json.md). The OPN1LW/OPN1MW locus includes the following unique field under `region_specific_info`:
 - `opn1lw_cn`: total copy number of OPN1LW
 - `opn1mw_cn`: total copy number of OPN1MW
 - `annotated_haplotypes`: annotates each haplotype against known pathogenic variant sites of Exon 3, as summarized in

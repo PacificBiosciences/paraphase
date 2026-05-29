@@ -6,7 +6,7 @@ In this region, Paraphase calls small variants as well as the known 11.7kb delet
 Paraphase differentiates IKBKG from the pseudogene based on whether the haplotype extends beyond the homology region into the unique region.
 
 ## Fields in the `json` file
-Fields shared across all genes are defined in the general [json file](json.md). The IKBKG locus includes several unique fields, listed below:
+Fields shared across all genes are defined in the general [json file](json.md). The IKBKG locus includes several unique fields under `region_specific_info`, listed below:
 
 - `deletion_haplotypes`: haplotypes carrying the 11.7kb deletion
 - `del_read_number`: number of reads with the 11.7kb deletion
