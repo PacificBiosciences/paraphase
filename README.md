@@ -119,6 +119,8 @@ Tutorials/Examples are provided for further interpreting the `json` output and v
 - [GBA](docs/GBA.md)
 - [CFH gene cluster](docs/CFH.md)
 
+[Paraviewer](https://github.com/PacificBiosciences/paraviewer) is a tool that can assist in visualizing Paraphase results.
+
 Finally, we have a proof-of-concept [script](annotation/) to give an example of how to annotate variants downstream of Paraphase.
 
 ## DISCLAIMER
