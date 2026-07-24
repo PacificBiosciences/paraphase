@@ -17,6 +17,7 @@ Two well-known structural variants in this region are the **3.7 kb** and **4.2 k
 - **4.2 kb deletion or duplication**  
   Results from recombination between the "A" boxes, leading to a deletion or duplication of HBA2.
 
+Note that Paraphase does not directly detect large structural variants (SVs) covering the entire HBA1/HBA2 region, such as the SEA deletion, because the breakpoints lie outside of the analysed regions. In WGS, these events can be inferred by comparing the read depth across the HBA1/HBA2 region with the coverage of the surrounding regions. This approach does not work for targeted sequencing due to the lack of information in surrounding regions. For targeted sequencing data, when Paraphase detects only a single HBA1 haplotype and a single HBA2 haplotype, it assumes that each haplotype is present in two copies, rather than reporting a deletion. This is to avoid reporting deletions in the relatively common case where both copies of HBA1 are identical and both copies of HBA2 are identical.
 
 ## Fields in the `json` file
 
