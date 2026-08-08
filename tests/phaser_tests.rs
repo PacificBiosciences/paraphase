@@ -30,6 +30,33 @@ fn slice_matches_with_gaps(x: &[impl AsRef<[u8]>], y: &[impl AsRef<[u8]>]) -> bo
             .all(|z| x.iter().any(|w| w.as_ref().same_without_dels(&z.as_ref())))
 }
 
+fn strc_haplotype_class(name: &str) -> &'static str {
+    let identity = name
+        .rsplit('_')
+        .next()
+        .expect("STRC haplotype name should contain an identity label");
+    let has_numeric_suffix = |prefix: &str| {
+        identity.strip_prefix(prefix).is_some_and(|suffix| {
+            !suffix.is_empty() && suffix.chars().all(|digit| digit.is_ascii_digit())
+        })
+    };
+
+    if has_numeric_suffix("strchap") {
+        "strc"
+    } else if has_numeric_suffix("strcp1hap") {
+        "strcp1"
+    } else {
+        panic!("Unexpected STRC haplotype identity label in {name}");
+    }
+}
+
+#[test]
+fn strc_haplotype_class_is_closed_over_known_identities() {
+    assert_eq!(strc_haplotype_class("strc_strchap1"), "strc");
+    assert_eq!(strc_haplotype_class("strc_strcp1hap1"), "strcp1");
+    assert!(std::panic::catch_unwind(|| strc_haplotype_class("strc_otherhap1")).is_err());
+}
+
 #[test]
 fn smn1_ok() -> DResult {
     util::init_log(log::LevelFilter::Info);
@@ -182,17 +209,10 @@ fn strc_ok() -> DResult {
             .ok_or("Missing STRC final_haplotypes in expected json")?
             .clone(),
     )?;
-    let haplotype_class = |name: &str| {
-        if name.contains("strcp1") {
-            "strcp1"
-        } else {
-            "strc"
-        }
-    };
     let final_classes_by_sequence = |haplotypes: &BTreeMap<String, String>| {
         haplotypes
             .iter()
-            .map(|(sequence, name)| (sequence.clone(), haplotype_class(name)))
+            .map(|(sequence, name)| (sequence.clone(), strc_haplotype_class(name)))
             .collect::<BTreeMap<_, _>>()
     };
     assert_eq!(
@@ -209,7 +229,7 @@ fn strc_ok() -> DResult {
     let two_copy_classes = |haplotypes: &[String]| {
         haplotypes
             .iter()
-            .map(|name| haplotype_class(name))
+            .map(|name| strc_haplotype_class(name))
             .sorted()
             .collect::<Vec<_>>()
     };
@@ -231,6 +251,43 @@ fn strc_ok() -> DResult {
         .sorted()
         .collect::<Vec<_>>();
     assert_eq!(expected_sites, found_sites);
+
+    let marker_index = |site: &str| {
+        let indices = call
+            .sites_for_phasing
+            .iter()
+            .enumerate()
+            .filter_map(|(index, found_site)| (found_site == site).then_some(index))
+            .collect::<Vec<_>>();
+        assert_eq!(
+            indices.len(),
+            1,
+            "Expected exactly one {site} site for STRC identity markers"
+        );
+        indices[0]
+    };
+    let strc_snv_index = marker_index("43602487_C_G");
+    let strc_deletion_index = marker_index("43602630_del_314");
+    for (sequence, name) in &call.final_haplotypes {
+        let marker = |index: usize| {
+            sequence
+                .as_bytes()
+                .get(index)
+                .copied()
+                .map(char::from)
+                .unwrap_or_else(|| panic!("Missing STRC identity marker in haplotype {sequence}"))
+        };
+        let found_marker_pair = (marker(strc_snv_index), marker(strc_deletion_index));
+        let expected_marker_pair = match strc_haplotype_class(name) {
+            "strc" => ('1', '1'),
+            "strcp1" => ('2', '3'),
+            identity => unreachable!("Unhandled STRC haplotype identity {identity}"),
+        };
+        assert_eq!(
+            found_marker_pair, expected_marker_pair,
+            "Unexpected identity markers for {name} on haplotype {sequence}"
+        );
+    }
 
     let expected_haplotypes = gene_data
         .assembled_haps
