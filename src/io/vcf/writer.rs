@@ -19,6 +19,22 @@ use std::path::PathBuf;
 use super::helpers::*;
 use super::types::*;
 
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum StrcVcfReference {
+    Strc,
+    Strcp1,
+}
+
+fn strc_vcf_reference(haplotype_name: &str) -> Option<StrcVcfReference> {
+    if haplotype_name.contains("_strcp1hap") {
+        Some(StrcVcfReference::Strcp1)
+    } else if haplotype_name.contains("_strchap") {
+        Some(StrcVcfReference::Strc)
+    } else {
+        None
+    }
+}
+
 pub struct VcfWriter<'a> {
     phaser: &'a Phaser,
     call: &'a GeneCall,
@@ -1128,13 +1144,39 @@ impl<'a> VcfWriter<'a> {
             }
         } else if gene_name == "strc" {
             for (hap, hap_name) in all_haplotypes {
-                if hap_name.contains("strcp1") {
-                    gene2_haps.insert(hap.to_string(), hap_name.to_string());
-                } else {
-                    gene1_haps.insert(hap.to_string(), hap_name.to_string());
+                match strc_vcf_reference(hap_name) {
+                    Some(StrcVcfReference::Strc) => {
+                        gene1_haps.insert(hap.to_string(), hap_name.to_string());
+                    }
+                    Some(StrcVcfReference::Strcp1) => {
+                        gene2_haps.insert(hap.to_string(), hap_name.to_string());
+                    }
+                    None => {
+                        log::warn!(
+                            "Skipping STRC haplotype without a confident locus assignment from VCF output: hap_name={hap_name}"
+                        );
+                    }
                 }
             }
         }
         (gene1_haps, gene2_haps)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn strc_vcf_reference_requires_a_confident_locus_label() {
+        assert_eq!(
+            strc_vcf_reference("strc_strchap1"),
+            Some(StrcVcfReference::Strc)
+        );
+        assert_eq!(
+            strc_vcf_reference("strc_strcp1hap1"),
+            Some(StrcVcfReference::Strcp1)
+        );
+        assert_eq!(strc_vcf_reference("strc_unknownhap1"), None);
     }
 }
