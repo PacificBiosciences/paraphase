@@ -104,6 +104,183 @@ fn smn1_ok() -> DResult {
     Ok(())
 }
 
+// Same-input oracle: Paraphase v3.5.0 c8016dff40d105501868719bdae0defd9937abfe
+// on the public HPRC HG00733 GRCh38 HiFi locus fixture (m54329U_2019).
+// Genome depth 31 comes from the same source BAM's bundled depth-probe union.
+#[test]
+fn strc_ok() -> DResult {
+    util::init_log(log::LevelFilter::Info);
+
+    let outdir = tempfile::TempDir::new()?;
+    let genome_bam = test_file("bams/HG00733.strc.bam");
+    let genome_path = if let Ok(x) = std::env::var("HG38") {
+        x.trim_end_matches(".mmi").to_string()
+    } else {
+        log::warn!("Skipping test: HG38 env is not set.");
+        return Ok(());
+    };
+    let gene_name = "strc";
+    let depth = depth::Result {
+        median: 31.0,
+        median_absolute_difference: 0.1,
+        sex: depth::Sex::Other,
+    };
+    let region_config = config::Region::try_load(None)?;
+    let settings = phaser::Settings::new(
+        "HG00733",
+        (genome_path, genome_bam),
+        outdir.path(),
+        gene_name,
+        &region_config,
+        /* genome depth= */ Some(depth),
+        /* sex = */ None,
+        String::from("38"),
+        None,
+        0.03,
+        false,
+    );
+
+    let gene_config = config::Gene::try_load(None)?;
+    let mut phaser = Phaser::new(
+        settings,
+        Some(gene_config),
+        None, // Option<SiteSelectionSettings>
+        None, // Option<RealignSettings>
+    )?;
+    let call = phaser.run()?;
+    assert_eq!(phaser.region_avg_depth[0], (71.0f32, 82.0f32));
+
+    let json_to_match = test_file("jsons/HG00733.strc.v3.5.0.json.xz");
+    let json_data = ParsedParaphaseOutputJSON::from_path(&json_to_match, Some(&region_config))?;
+    let expected_call = json_data
+        .object
+        .get(gene_name)
+        .and_then(serde_json::Value::as_object)
+        .ok_or("Missing STRC call in expected json")?;
+    let gene_data = json_data
+        .gene_data
+        .get(gene_name)
+        .ok_or("Missing STRC gene data in expected json")?;
+
+    assert_eq!(call.total_cn, Some(4));
+    assert_eq!(
+        call.region_specific_info
+            .get("gene_cn")
+            .and_then(serde_json::Value::as_i64),
+        Some(2)
+    );
+    assert_eq!(
+        call.region_specific_info
+            .get("intergenic_depth")
+            .and_then(serde_json::Value::as_f64),
+        Some(31.0)
+    );
+
+    let expected_final_haplotypes = serde_json::from_value::<BTreeMap<String, String>>(
+        expected_call
+            .get("final_haplotypes")
+            .ok_or("Missing STRC final_haplotypes in expected json")?
+            .clone(),
+    )?;
+    let haplotype_class = |name: &str| {
+        if name.contains("strcp1") {
+            "strcp1"
+        } else {
+            "strc"
+        }
+    };
+    let final_classes_by_sequence = |haplotypes: &BTreeMap<String, String>| {
+        haplotypes
+            .iter()
+            .map(|(sequence, name)| (sequence.clone(), haplotype_class(name)))
+            .collect::<BTreeMap<_, _>>()
+    };
+    assert_eq!(
+        final_classes_by_sequence(&call.final_haplotypes),
+        final_classes_by_sequence(&expected_final_haplotypes)
+    );
+
+    let expected_two_copy_haplotypes = serde_json::from_value::<Vec<String>>(
+        expected_call
+            .get("two_copy_haplotypes")
+            .ok_or("Missing STRC two_copy_haplotypes in expected json")?
+            .clone(),
+    )?;
+    let two_copy_classes = |haplotypes: &[String]| {
+        haplotypes
+            .iter()
+            .map(|name| haplotype_class(name))
+            .sorted()
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        two_copy_classes(&call.two_copy_haplotypes),
+        two_copy_classes(&expected_two_copy_haplotypes)
+    );
+
+    let expected_sites = gene_data
+        .sites_for_phasing
+        .iter()
+        .map(std::string::ToString::to_string)
+        .sorted()
+        .collect::<Vec<_>>();
+    let found_sites = call
+        .sites_for_phasing
+        .iter()
+        .cloned()
+        .sorted()
+        .collect::<Vec<_>>();
+    assert_eq!(expected_sites, found_sites);
+
+    let expected_haplotypes = gene_data
+        .assembled_haps
+        .as_ref()
+        .ok_or("Missing STRC assembled_haplotypes in expected json")?
+        .iter()
+        .map(std::string::ToString::to_string)
+        .sorted()
+        .collect::<Vec<_>>();
+    let found_haplotypes = call
+        .assembled_haplotypes
+        .iter()
+        .cloned()
+        .sorted()
+        .collect::<Vec<_>>();
+    assert_eq!(expected_haplotypes, found_haplotypes);
+
+    let expected_haplotype_details =
+        serde_json::from_value::<BTreeMap<String, paraphase::phaser::HapInfoForJson>>(
+            expected_call
+                .get("haplotype_details")
+                .ok_or("Missing STRC haplotype_details in expected json")?
+                .clone(),
+        )?;
+    let variants_by_sequence =
+        |haplotypes: &BTreeMap<String, String>,
+         details: &BTreeMap<String, paraphase::phaser::HapInfoForJson>| {
+            haplotypes
+                .iter()
+                .map(|(sequence, name)| {
+                    let variants = details
+                        .get(name)
+                        .expect("Missing STRC haplotype details")
+                        .variants
+                        .iter()
+                        .cloned()
+                        .sorted()
+                        .collect::<Vec<_>>();
+                    (sequence.clone(), variants)
+                })
+                .collect::<BTreeMap<_, _>>()
+        };
+    assert_eq!(
+        variants_by_sequence(&call.final_haplotypes, &call.haplotype_details),
+        variants_by_sequence(&expected_final_haplotypes, &expected_haplotype_details)
+    );
+
+    Ok(())
+}
+
 #[test]
 fn amy1_ok() -> DResult {
     util::init_log(log::LevelFilter::Info);
