@@ -88,6 +88,7 @@ Optional parameters:
 - `--genome`: Genome reference build. Default is `38`. If `37` or `19` is specified, Paraphase will run the analysis for GRCh37 or hg19, respectively (note that only 11 medically relevant [regions](docs/regions.md) are supported now for GRCh37/hg19). `chm13` for T2T-CHM13 reference (note that only `smn1` and `pms2` are currently supported).
 - `--gene1only`: If specified, variants calls will be made against the main gene only for SMN1, PMS2, STRC, NCF1 and IKBKG, see more information [here](docs/vcf.md).
 - `--novcf`: If specified, no VCF files will be produced.
+- `--file-prefix`: Customize the fixed `paraphase` label used in output names. Default is `paraphase`.
 - `--write-nocalls-in-vcf`: If specified, Paraphase will write no-call sites in the VCFs, marked with LowQual filter.
 - `--targeted`: If specified, paraphase will not assume depth is uniform across the genome. See more information on running targeted data [here](docs/targeted_data.md).
 - `--min-variant-frequency`:  Minimum frequency for a variant to be used for phasing. The cutoff for variant-supporting reads is determined by max(5, total_depth * min_frequency). Note that total_depth is the combined depth of all paralogs for a paralog group. Default is 0.11.
@@ -97,7 +98,7 @@ See [demo](docs/demo.md) for a test run.
 
 ## Interpreting the output
 
-Paraphase produces a few output files in the directory specified by `-o`, with the specified or default prefix.
+Paraphase produces a few output files in the directory specified by `-o`, with the specified or default sample prefix. The fixed `paraphase` portion can be customized with `--file-prefix`.
 
 1. `.vcf` in `${prefix}_paraphase_vcfs` folder. A VCF file is written for each region (gene family). More descriptions on the VCF can be found [here](docs/vcf.md).
 

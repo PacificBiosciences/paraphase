@@ -327,7 +327,7 @@ impl Phaser {
             self.genome_bam_path().display().to_string(),
             &self.settings.genome_reference,
         )
-            .map_err(|e| Exception::new(format!("Failed to open genome alignment file: {e}")))
+        .map_err(|e| Exception::new(format!("Failed to open genome alignment file: {e}")))
     }
 
     /// Open a `bam::IndexedReader` from `self.genome_bam_path()`.

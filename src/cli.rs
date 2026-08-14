@@ -48,6 +48,15 @@ pub struct Settings {
 If not provided, prefix is extracted from the header of the input BAM/CRAM.")]
     pub prefix: Option<String>,
 
+    #[clap(long = "file-prefix")]
+    #[clap(default_value = "paraphase")]
+    #[clap(
+        help = "Customize the fixed output label used in generated file and directory names.\n\
+This replaces the default `paraphase` portion in outputs such as `.paraphase.bam`,\n\
+`.paraphase.json`, and `_paraphase_vcfs`."
+    )]
+    pub file_prefix: String,
+
     #[clap(long, short, default_value = "")]
     #[clap(
         help = "Optionally specify which regions(s) to run (separated by comma).\n\

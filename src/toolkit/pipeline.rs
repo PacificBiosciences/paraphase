@@ -145,20 +145,20 @@ pub fn should_create_vcf_dir(
 
 /// Build the VCF output directory path for a sample.
 #[must_use]
-pub fn vcf_output_dir(outdir: &Path, sample: &str) -> PathBuf {
-    outdir.join(format!("{sample}_paraphase_vcfs"))
+pub fn vcf_output_dir(outdir: &Path, sample: &str, file_prefix: &str) -> PathBuf {
+    outdir.join(format!("{sample}_{file_prefix}_vcfs"))
 }
 
 /// Build the tagged BAM output path for a sample.
 #[must_use]
-pub fn output_bam_path(outdir: &Path, sample: &str) -> PathBuf {
-    outdir.join(format!("{sample}.paraphase.bam"))
+pub fn output_bam_path(outdir: &Path, sample: &str, file_prefix: &str) -> PathBuf {
+    outdir.join(format!("{sample}.{file_prefix}.bam"))
 }
 
 /// Build the JSON output path for a sample.
 #[must_use]
-pub fn output_json_path(outdir: &Path, sample: &str) -> PathBuf {
-    outdir.join(format!("{sample}.paraphase.json"))
+pub fn output_json_path(outdir: &Path, sample: &str, file_prefix: &str) -> PathBuf {
+    outdir.join(format!("{sample}.{file_prefix}.json"))
 }
 
 /// Return whether VCF writing is enabled for one gene.
@@ -266,14 +266,14 @@ pub fn load_region_config(args: &Settings) -> Result<RegionConfig, DError> {
 
 #[must_use]
 /// Build per-sample BAM shard directory path.
-pub fn bam_shard_dir(outdir: &Path, sample: &str) -> PathBuf {
-    outdir.join(format!("{sample}.paraphase.bam_shards"))
+pub fn bam_shard_dir(outdir: &Path, sample: &str, file_prefix: &str) -> PathBuf {
+    outdir.join(format!("{sample}.{file_prefix}.bam_shards"))
 }
 
 #[must_use]
 /// Build the shard BAM path for one gene under the sample shard directory.
-pub fn gene_bam_shard_path(outdir: &Path, sample: &str, gene: &str) -> PathBuf {
-    bam_shard_dir(outdir, sample).join(format!("{sample}_{gene}.bam"))
+pub fn gene_bam_shard_path(outdir: &Path, sample: &str, file_prefix: &str, gene: &str) -> PathBuf {
+    bam_shard_dir(outdir, sample, file_prefix).join(format!("{sample}_{gene}.bam"))
 }
 
 /// Log the canonicalized CLI invocation and current working directory.
@@ -303,14 +303,15 @@ pub fn log_cli_invocation() {
 pub fn prepare_output_directories(
     outdir: &Path,
     sample: &str,
+    file_prefix: &str,
     novcf: bool,
     genes: &[String],
     no_vcf_genes: &BTreeSet<String>,
 ) -> DResult {
     std::fs::create_dir_all(outdir)?;
-    std::fs::create_dir_all(bam_shard_dir(outdir, sample))?;
+    std::fs::create_dir_all(bam_shard_dir(outdir, sample, file_prefix))?;
     if should_create_vcf_dir(novcf, genes, no_vcf_genes) {
-        let vcf_dir = vcf_output_dir(outdir, sample);
+        let vcf_dir = vcf_output_dir(outdir, sample, file_prefix);
         std::fs::create_dir_all(vcf_dir)?;
     }
     Ok(())
@@ -324,8 +325,9 @@ pub fn write_json_output(
     phasing_results: &BTreeMap<String, GeneCall>,
     outdir: &Path,
     sample: &str,
+    file_prefix: &str,
 ) -> DResult {
-    let output_path = output_json_path(outdir, sample);
+    let output_path = output_json_path(outdir, sample, file_prefix);
     write_outputs(
         phasing_results,
         &mut std::io::BufWriter::new(std::fs::File::create(output_path)?),
@@ -559,6 +561,7 @@ pub fn run_pipeline_for_sample(
     prepare_output_directories(
         args.outdir.as_path(),
         sample,
+        &args.file_prefix,
         args.novcf,
         genes,
         &gene_config.no_vcf_genes,
@@ -576,7 +579,12 @@ pub fn run_pipeline_for_sample(
     apply_gene_results(genes, &results, &mut phasing_results, &mut bam_shards)?;
     update_calls_after_per_gene_analysis(&mut phasing_results)?;
     merge_bam_shards(args, sample, &bam_shards)?;
-    write_json_output(&phasing_results, args.outdir.as_path(), sample)?;
+    write_json_output(
+        &phasing_results,
+        args.outdir.as_path(),
+        sample,
+        &args.file_prefix,
+    )?;
     Ok(())
 }
 
@@ -630,7 +638,7 @@ pub fn process_gene(
     )?;
     let res = phaser.run()?;
     let tagged_bams = collect_gene_bam_paths(&phaser, &res)?;
-    let bam_shard = gene_bam_shard_path(args.outdir.as_path(), &sample, &gene);
+    let bam_shard = gene_bam_shard_path(args.outdir.as_path(), &sample, &args.file_prefix, &gene);
     merge_tagged_gene_bams(&tagged_bams, &bam_shard)?;
     maybe_write_gene_vcf(&phaser, &res, &args, &sample, write_gene_vcf)?;
     tmp_dir.close()?;
@@ -795,7 +803,7 @@ fn merge_tagged_gene_bams(tagged_bams: &[PathBuf], output_bam: &Path) -> DResult
 fn merge_bam_shards(args: &Settings, sample: &str, bam_shards: &[PathBuf]) -> DResult {
     let reader = util::read_bam_with_reference(&args.bam, &args.reference)
         .map_err(|e| std::io::Error::other(e))?;
-    let output_bam = output_bam_path(args.outdir.as_path(), sample);
+    let output_bam = output_bam_path(args.outdir.as_path(), sample, &args.file_prefix);
     let mut writer = bam::Writer::from_path(
         &output_bam,
         &output_bam_header(reader.header()),
@@ -813,7 +821,7 @@ fn merge_bam_shards(args: &Settings, sample: &str, bam_shards: &[PathBuf]) -> DR
             std::fs::remove_file(shard_path)?;
         }
     }
-    let shard_dir = bam_shard_dir(args.outdir.as_path(), sample);
+    let shard_dir = bam_shard_dir(args.outdir.as_path(), sample, &args.file_prefix);
     if shard_dir.exists() {
         std::fs::remove_dir_all(shard_dir)?;
     }
@@ -833,7 +841,7 @@ fn maybe_write_gene_vcf(
     enabled: bool,
 ) -> DResult {
     if enabled {
-        let vcf_dir = &vcf_output_dir(&args.outdir, sample);
+        let vcf_dir = &vcf_output_dir(&args.outdir, sample, &args.file_prefix);
         let vcf_writer = VcfWriter::new(phaser, res, args.write_nocalls_in_vcf, args.gene1only);
         vcf_writer.write_vcf(vcf_dir)?;
     }
@@ -894,7 +902,7 @@ mod tests {
 
     #[test]
     fn vcf_output_dir_uses_sample_suffix() {
-        let out = vcf_output_dir(Path::new("/tmp/out"), "S1");
+        let out = vcf_output_dir(Path::new("/tmp/out"), "S1", "paraphase");
         assert_eq!(out, PathBuf::from("/tmp/out/S1_paraphase_vcfs"));
     }
 
@@ -902,12 +910,29 @@ mod tests {
     fn output_paths_use_sample_suffixes() {
         let outdir = Path::new("/tmp/out");
         assert_eq!(
-            output_bam_path(outdir, "S1"),
+            output_bam_path(outdir, "S1", "paraphase"),
             PathBuf::from("/tmp/out/S1.paraphase.bam")
         );
         assert_eq!(
-            output_json_path(outdir, "S1"),
+            output_json_path(outdir, "S1", "paraphase"),
             PathBuf::from("/tmp/out/S1.paraphase.json")
+        );
+    }
+
+    #[test]
+    fn output_paths_support_custom_file_prefix() {
+        let outdir = Path::new("/tmp/out");
+        assert_eq!(
+            vcf_output_dir(outdir, "S1", "workflow"),
+            PathBuf::from("/tmp/out/S1_workflow_vcfs")
+        );
+        assert_eq!(
+            output_bam_path(outdir, "S1", "workflow"),
+            PathBuf::from("/tmp/out/S1.workflow.bam")
+        );
+        assert_eq!(
+            output_json_path(outdir, "S1", "workflow"),
+            PathBuf::from("/tmp/out/S1.workflow.json")
         );
     }
 
@@ -916,9 +941,9 @@ mod tests {
         let tmp = tempfile::tempdir()?;
         let genes = vec![String::from("smn1")];
         let no_vcf_genes = BTreeSet::new();
-        prepare_output_directories(tmp.path(), "S1", true, &genes, &no_vcf_genes)?;
+        prepare_output_directories(tmp.path(), "S1", "paraphase", true, &genes, &no_vcf_genes)?;
         assert!(tmp.path().exists());
-        assert!(!vcf_output_dir(tmp.path(), "S1").exists());
+        assert!(!vcf_output_dir(tmp.path(), "S1", "paraphase").exists());
         Ok(())
     }
 
@@ -927,8 +952,8 @@ mod tests {
         let tmp = tempfile::tempdir()?;
         let genes = vec![String::from("smn1")];
         let no_vcf_genes = BTreeSet::new();
-        prepare_output_directories(tmp.path(), "S1", false, &genes, &no_vcf_genes)?;
-        assert!(vcf_output_dir(tmp.path(), "S1").exists());
+        prepare_output_directories(tmp.path(), "S1", "paraphase", false, &genes, &no_vcf_genes)?;
+        assert!(vcf_output_dir(tmp.path(), "S1", "paraphase").exists());
         Ok(())
     }
 

@@ -223,7 +223,12 @@ impl Calculator {
         reference: impl AsRef<Path>,
         settings: Option<Settings>,
     ) -> std::result::Result<Self, DError> {
-        Self::try_from_bed_slice_with_reference(bam, reference, &GENOME_BACKGROUND_BYTES_38, settings)
+        Self::try_from_bed_slice_with_reference(
+            bam,
+            reference,
+            &GENOME_BACKGROUND_BYTES_38,
+            settings,
+        )
     }
 
     /// Generate coverage calculator with bundled hg19 background regions using a CRAM-aware reader.
@@ -232,7 +237,12 @@ impl Calculator {
         reference: impl AsRef<Path>,
         settings: Option<Settings>,
     ) -> std::result::Result<Self, DError> {
-        Self::try_from_bed_slice_with_reference(bam, reference, &GENOME_BACKGROUND_BYTES_19, settings)
+        Self::try_from_bed_slice_with_reference(
+            bam,
+            reference,
+            &GENOME_BACKGROUND_BYTES_19,
+            settings,
+        )
     }
 
     /// Generate coverage calculator with bundled CHM13 background regions using a CRAM-aware reader.
@@ -241,7 +251,12 @@ impl Calculator {
         reference: impl AsRef<Path>,
         settings: Option<Settings>,
     ) -> std::result::Result<Self, DError> {
-        Self::try_from_bed_slice_with_reference(bam, reference, &GENOME_BACKGROUND_BYTES_13, settings)
+        Self::try_from_bed_slice_with_reference(
+            bam,
+            reference,
+            &GENOME_BACKGROUND_BYTES_13,
+            settings,
+        )
     }
 
     /// Generate coverage calculation from a text slice.
