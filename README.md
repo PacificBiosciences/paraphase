@@ -4,7 +4,7 @@
 
 <h3 align="center">HiFi-based caller for highly similar paralogous genes</h3>
 
-Many medically relevant genes fall into 'dark' regions where variant calling is limited due to high sequence homology with paralogs or pseudogenes. Paraphase is a Python tool that takes HiFi aligned BAMs as input (whole-genome or enrichment), phases haplotypes for genes of the same family, determines copy numbers and makes phased variant calls. 
+Many medically relevant genes fall into 'dark' regions where variant calling is limited due to high sequence homology with paralogs or pseudogenes. Paraphase is a Python tool that takes HiFi aligned BAM or CRAM files as input (whole-genome or enrichment), phases haplotypes for genes of the same family, determines copy numbers and makes phased variant calls. 
 
 ![Paraphase diagram](docs/figures/paraphase_diagram.png)
 Paraphase takes all reads from a gene family, realigns to one representative gene of the family and then phases them into haplotypes. This approach bypasses the error-prone process of aligning reads to multiple similar regions and allows us to examine all copies of genes in a gene family. This gene-family-centered approach allows Paraphase to perform well when there is a copy number difference between an individual and the reference, as is often the case in segmental duplications.
@@ -75,16 +75,16 @@ paraphase -b input.bam -o output_directory -r genome_fasta
 ```
 
 Required parameters:
-- `-b`: Input BAM file (a BAI file needs to exist in the same directory)
+- `-b`: Input BAM or CRAM file (a BAI file needs to exist for BAM input, and a CRAI file needs to exist for CRAM input)
 - `-o`: Output directory
 - `-r`: Path to the reference genome fasta file
 
-Please note that the input BAM should be one that's aligned to the ENTIRE reference genome (GRCh38, GRCh37/hg19 or CHM13), and this reference should NOT include ALT contigs. The fasta file of this reference genome should be provided to Paraphase with `-r`. Recommendations on reference genomes to use are documented [here](https://github.com/PacificBiosciences/reference_genomes).
+Please note that the input BAM/CRAM should be one that's aligned to the ENTIRE reference genome (GRCh38, GRCh37/hg19 or CHM13), and this reference should NOT include ALT contigs. The fasta file of this reference genome should be provided to Paraphase with `-r`. For CRAM input, this matching reference is required for decoding. Recommendations on reference genomes to use are documented [here](https://github.com/PacificBiosciences/reference_genomes).
 
 Optional parameters:
 - `-g`: Region(s) to analyze, separated by comma. All supported [regions](docs/regions.md) will be analyzed if not specified. Please use region name, i.e. first column in the [regions file](docs/regions.md).
 - `-t`: Number of threads.
-- `-p`: Prefix of output files. If not provided, prefix will be extracted from the header of the input BAM. 
+- `-p`: Prefix of output files. If not provided, prefix will be extracted from the header of the input BAM/CRAM. 
 - `--genome`: Genome reference build. Default is `38`. If `37` or `19` is specified, Paraphase will run the analysis for GRCh37 or hg19, respectively (note that only 11 medically relevant [regions](docs/regions.md) are supported now for GRCh37/hg19). `chm13` for T2T-CHM13 reference (note that only `smn1` and `pms2` are currently supported).
 - `--gene1only`: If specified, variants calls will be made against the main gene only for SMN1, PMS2, STRC, NCF1 and IKBKG, see more information [here](docs/vcf.md).
 - `--novcf`: If specified, no VCF files will be produced.

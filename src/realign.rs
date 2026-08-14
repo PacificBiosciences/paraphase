@@ -404,17 +404,18 @@ pub fn seq2seq(
 pub fn align_mm2_intrinsic(
     input: &Path,
     local_realigned: &Path,
+    input_reference_path: &Path,
     reference_path: &Path,
     region_str: &[impl std::convert::AsRef<std::ffi::OsStr> + std::fmt::Debug],
     opts: (usize, Option<i32>, RealignSettings, i64),
 ) -> Result<PathBuf, DError> {
     let (_threads, chain_bandwidth, settings, ref_offset) = opts;
     log::debug!(
-        "Running intrinsic realignment: input={input:?}, output={local_realigned:?}, reference={reference_path:?}, regions={region_str:?}, options={opts:?}"
+        "Running intrinsic realignment: input={input:?}, output={local_realigned:?}, input_reference={input_reference_path:?}, reference={reference_path:?}, regions={region_str:?}, options={opts:?}"
     );
-    for (file, name) in [input, reference_path]
+    for (file, name) in [input, input_reference_path, reference_path]
         .iter()
-        .zip(["input", "reference_path"])
+        .zip(["input", "input_reference_path", "reference_path"])
     {
         if !file.exists() {
             return Err(Exception::new(format!("File {file:?} ({name}) does not exist")).into());
@@ -464,7 +465,10 @@ pub fn align_mm2_intrinsic(
         "Using reference contig {seq_name} with length {} bases",
         seq.len()
     );
-    let mut reader = util::read_indexed_bam(input.display().to_string())?;
+    let mut reader = util::read_indexed_bam_with_reference(
+        input.display().to_string(),
+        input_reference_path,
+    )?;
     let header = bam::Header::from_template(reader.header());
     let mut record = bam::Record::new();
     let mut ret = std::collections::BTreeMap::<u64, Vec<bam::Record>>::new();

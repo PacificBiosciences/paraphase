@@ -173,20 +173,21 @@ pub fn should_write_gene_vcf(novcf: bool, gene: &str, no_vcf_genes: &BTreeSet<St
 /// Returns an error if depth calculation setup fails (e.g. BAM/bed loading).
 pub fn compute_depth_result(args: &Settings) -> Result<DepthResult, DError> {
     let mut calculator = if args.genome == "19" {
-        depth::Calculator::from_hg19(&args.bam, None)
+        depth::Calculator::from_hg19_with_reference(&args.bam, &args.reference, None)
     } else if args.genome == "37" {
-        depth::Calculator::from_hg19(
+        depth::Calculator::from_hg19_with_reference(
             &args.bam,
+            &args.reference,
             Some(DepthSettings {
                 strip_chr: true,
                 ..Default::default()
             }),
         )
     } else if args.genome == "chm13" {
-        depth::Calculator::from_chm13(&args.bam, None)
+        depth::Calculator::from_chm13_with_reference(&args.bam, &args.reference, None)
     } else {
         log::debug!("Using HG38 background depth coordinates.");
-        depth::Calculator::from_hg38(&args.bam, None)
+        depth::Calculator::from_hg38_with_reference(&args.bam, &args.reference, None)
     }?;
     Ok(calculator.compute())
 }
@@ -195,10 +196,10 @@ pub fn compute_depth_result(args: &Settings) -> Result<DepthResult, DError> {
 #[must_use]
 pub fn resolve_sample_name(args: &Settings) -> String {
     args.prefix.clone().unwrap_or_else(|| {
-        util::sample_names_from_input(&args.bam)
+        util::sample_names_from_input_with_reference(&args.bam, &args.reference)
             .and_then(|names| {
                 log::debug!(
-                    "Sample names discovered in BAM {}: {names:?}",
+                    "Sample names discovered in input alignment {}: {names:?}",
                     args.bam.display()
                 );
                 match names.len() {
@@ -792,7 +793,8 @@ fn merge_tagged_gene_bams(tagged_bams: &[PathBuf], output_bam: &Path) -> DResult
 }
 
 fn merge_bam_shards(args: &Settings, sample: &str, bam_shards: &[PathBuf]) -> DResult {
-    let reader = bam::Reader::from_path(&args.bam)?;
+    let reader = util::read_bam_with_reference(&args.bam, &args.reference)
+        .map_err(|e| std::io::Error::other(e))?;
     let output_bam = output_bam_path(args.outdir.as_path(), sample);
     let mut writer = bam::Writer::from_path(
         &output_bam,

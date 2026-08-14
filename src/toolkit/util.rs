@@ -169,6 +169,21 @@ pub fn read_indexed_bam(
     }
 }
 
+/// Read an indexed BAM or CRAM file, attaching the reference when needed for CRAM decoding.
+///
+/// This can take a URL or a local path.
+///
+/// # Errors
+/// 1. `rust_htslib::errors::Error` if file not found, corrupted, or CRAM reference setup fails.
+pub fn read_indexed_bam_with_reference(
+    input: impl Into<String>,
+    reference: impl AsRef<Path>,
+) -> Result<bam::IndexedReader, rust_htslib::errors::Error> {
+    let mut reader = read_indexed_bam(input)?;
+    let _ = reader.set_reference(reference);
+    Ok(reader)
+}
+
 ///
 /// This comes from pysam's base-quality filtering in the pileups, which uses the next base position after a deletion.
 /// in `rust-htslib`, it returns `Option<usize>` and `None` if `is_del`.
@@ -244,6 +259,28 @@ pub fn read_bam(input: impl AsRef<Path>) -> Result<bam::Reader, String> {
     .map_err(|x| format!("Error: {x}"))
 }
 
+/// Read a BAM or CRAM file, attaching the reference when needed for CRAM decoding.
+///
+/// # Errors
+/// 1. `rust_htslib::errors::Error` if file not found, corrupted, or CRAM reference setup fails.
+pub fn read_bam_with_reference(
+    input: impl AsRef<Path>,
+    reference: impl AsRef<Path>,
+) -> Result<bam::Reader, String> {
+    let input = input.as_ref().to_string_lossy().into_owned();
+    let mut reader = if let Ok(url) = url::Url::parse(&input) {
+        bam::Reader::from_url(&url)
+    } else if input == "-" || input == "/dev/stdin" {
+        bam::Reader::from_stdin()
+    } else {
+        bam::Reader::from_path(&input)
+    }
+    .map_err(|x| format!("Error: {x}"))?;
+
+    let _ = reader.set_reference(reference);
+    Ok(reader)
+}
+
 /// Count records in a bam file.
 ///
 /// Consumes the reader stream.
@@ -283,12 +320,24 @@ pub fn sample_names(view: &bam::Header) -> BTreeMap<String, Vec<String>> {
 }
 
 #[must_use]
-/// Load sample names from a BAM path by reading its header.
+/// Load sample names from a BAM or CRAM path by reading its header.
 ///
-/// Returns `None` when the BAM cannot be opened.
+/// Returns `None` when the input cannot be opened.
 pub fn sample_names_from_input(x: &PathBuf) -> Option<BTreeMap<String, Vec<String>>> {
     use bam::Read;
     let reader = read_bam(x).ok()?;
+    Some(sample_names(&bam::Header::from_template(reader.header())))
+}
+
+/// Load sample names from a BAM or CRAM path by reading its header and attaching a reference for CRAM.
+///
+/// Returns `None` when the input cannot be opened.
+pub fn sample_names_from_input_with_reference(
+    x: &PathBuf,
+    reference: impl AsRef<Path>,
+) -> Option<BTreeMap<String, Vec<String>>> {
+    use bam::Read;
+    let reader = read_bam_with_reference(x, reference).ok()?;
     Some(sample_names(&bam::Header::from_template(reader.header())))
 }
 

@@ -217,6 +217,33 @@ impl Calculator {
         Self::try_from_bed_slice(bam, &GENOME_BACKGROUND_BYTES_13, settings)
     }
 
+    /// Generate coverage calculator with bundled hg38 background regions using a CRAM-aware reader.
+    pub fn from_hg38_with_reference(
+        bam: impl AsRef<Path>,
+        reference: impl AsRef<Path>,
+        settings: Option<Settings>,
+    ) -> std::result::Result<Self, DError> {
+        Self::try_from_bed_slice_with_reference(bam, reference, &GENOME_BACKGROUND_BYTES_38, settings)
+    }
+
+    /// Generate coverage calculator with bundled hg19 background regions using a CRAM-aware reader.
+    pub fn from_hg19_with_reference(
+        bam: impl AsRef<Path>,
+        reference: impl AsRef<Path>,
+        settings: Option<Settings>,
+    ) -> std::result::Result<Self, DError> {
+        Self::try_from_bed_slice_with_reference(bam, reference, &GENOME_BACKGROUND_BYTES_19, settings)
+    }
+
+    /// Generate coverage calculator with bundled CHM13 background regions using a CRAM-aware reader.
+    pub fn from_chm13_with_reference(
+        bam: impl AsRef<Path>,
+        reference: impl AsRef<Path>,
+        settings: Option<Settings>,
+    ) -> std::result::Result<Self, DError> {
+        Self::try_from_bed_slice_with_reference(bam, reference, &GENOME_BACKGROUND_BYTES_13, settings)
+    }
+
     /// Generate coverage calculation from a text slice.
     /// # Panics
     /// 1. If bam cannot be opened.
@@ -227,6 +254,36 @@ impl Calculator {
         settings: Option<Settings>,
     ) -> std::result::Result<Self, DError> {
         let bam = util::read_indexed_bam(bam.as_ref().to_string_lossy().into_owned())?;
+        let settings = settings.unwrap_or_default();
+        let bed = std::str::from_utf8(bed)?;
+        let bed = if !settings.strip_chr {
+            bed.split_terminator('\n')
+                .map(std::borrow::ToOwned::to_owned)
+                .collect::<Vec<_>>()
+        } else {
+            bed.split_terminator('\n')
+                .map(std::borrow::ToOwned::to_owned)
+                .map(|x| x.strip_prefix("chr").unwrap_or(&x).to_string())
+                .collect::<Vec<_>>()
+        };
+        Ok(Self { bam, bed, settings })
+    }
+
+    /// Generate coverage calculation from a text slice using a CRAM-aware reader.
+    ///
+    /// # Panics
+    /// 1. If bam cannot be opened.
+    /// 2. If bed file is not valid utf-8.
+    pub fn try_from_bed_slice_with_reference(
+        bam: impl AsRef<Path>,
+        reference: impl AsRef<Path>,
+        bed: &[u8],
+        settings: Option<Settings>,
+    ) -> std::result::Result<Self, DError> {
+        let bam = util::read_indexed_bam_with_reference(
+            bam.as_ref().to_string_lossy().into_owned(),
+            reference,
+        )?;
         let settings = settings.unwrap_or_default();
         let bed = std::str::from_utf8(bed)?;
         let bed = if !settings.strip_chr {

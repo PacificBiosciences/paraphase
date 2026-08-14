@@ -23,7 +23,7 @@ pub struct Settings {
     #[clap(required = true)]
     #[clap(short = 'b')]
     #[clap(long = "bam")]
-    #[clap(help = "BAM file with aligned HiFi reads")]
+    #[clap(help = "BAM or CRAM file with aligned HiFi reads")]
     #[clap(value_name = "BAM")]
     #[arg(value_parser = check_file_exists)]
     pub bam: PathBuf,
@@ -45,7 +45,7 @@ pub struct Settings {
 
     #[clap(short, long)]
     #[clap(help = "Prefix of output files for a single sample.\n\
-If not provided, prefix is extracted from the header of the input BAM.")]
+If not provided, prefix is extracted from the header of the input BAM/CRAM.")]
     pub prefix: Option<String>,
 
     #[clap(long, short, default_value = "")]
@@ -66,7 +66,7 @@ By default paraphase uses the config file in data/38/config.yaml."
 
     #[clap(long = "genome")]
     #[clap(
-        help = "Optionally specify which genome reference build the input BAM files are aligned against.\n\
+        help = "Optionally specify which genome reference build the input BAM/CRAM files are aligned against.\n\
 Accepted values are 19, 37, chm13, and 38."
     )]
     #[clap(default_value = "38")]

@@ -50,6 +50,7 @@ impl Phaser {
         align_mm2_intrinsic(
             &self.genome_bam_path(),
             &local_bam,
+            &self.settings.genome_reference,
             &local_ref,
             &regions_to_extract_view,
             opts,
@@ -76,6 +77,7 @@ impl Phaser {
             align_mm2_intrinsic(
                 &self.genome_bam_path(),
                 &secondary_bam,
+                &self.settings.genome_reference,
                 &secondary_ref,
                 &regions_to_extract_view,
                 opts,
