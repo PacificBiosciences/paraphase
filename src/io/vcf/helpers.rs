@@ -25,22 +25,22 @@ type SampleFormatFields = (
 
 /// Header lines defining the INFO and FORMAT fields for the VCF file.
 pub(crate) const VCF_LINES: [&str; 6] = [
-    r#"##FILTER=<ID=PASS,Description=\"All filters passed\">"#,
-    r#"##FILTER=<ID=LowQual,Description=\"Nonpassing variant\">"#,
-    r#"##INFO=<ID=HPBOUND,Number=.,Type=String,Description=\"Boundary coordinates of the phased haplotype\">"#,
-    r#"##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype per haplotype\">"#,
-    r#"##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Depth per haplotype\">"#,
-    r#"##FORMAT=<ID=AD,Number=R,Type=Integer,Description=\"Read depth for REF and ALT per haplotype\">"#,
+    r#"##FILTER=<ID=PASS,Description="All filters passed">"#,
+    r#"##FILTER=<ID=LowQual,Description="Nonpassing variant">"#,
+    r#"##INFO=<ID=HPBOUND,Number=.,Type=String,Description="Boundary coordinates of the phased haplotype">"#,
+    r#"##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype per haplotype">"#,
+    r#"##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Depth per haplotype">"#,
+    r#"##FORMAT=<ID=AD,Number=R,Type=Integer,Description="Read depth for REF and ALT per haplotype">"#,
 ];
 pub(crate) const VCF_LINE_ALLELE: [&str; 1] =
-    [r#"##INFO=<ID=ALLELE,Number=.,Type=String,Description=\"Haplotypes phased into alleles\">"#];
+    [r#"##INFO=<ID=ALLELE,Number=.,Type=String,Description="Haplotypes phased into alleles">"#];
 pub(crate) const VCF_LINES_SV: [&str; 6] = [
-    r#"##INFO=<ID=SVTYPE,Number=1,Type=String,Description=\"Type of the SV\">"#,
-    r#"##INFO=<ID=END,Number=1,Type=Integer,Description=\"End position of the structural variant\">"#,
-    r#"##INFO=<ID=SVLEN,Number=1,Type=Integer,Description=\"Length of the SV\">"#,
-    r#"##ALT=<ID=DEL,Description=\"Deletion\">"#,
-    r#"##ALT=<ID=DUP,Description=\"Duplication\">"#,
-    r#"##ALT=<ID=INV,Description=\"Inversion\">"#,
+    r#"##INFO=<ID=SVTYPE,Number=1,Type=String,Description="Type of the SV">"#,
+    r#"##INFO=<ID=END,Number=1,Type=Integer,Description="End position of the structural variant">"#,
+    r#"##INFO=<ID=SVLEN,Number=1,Type=Integer,Description="Length of the SV">"#,
+    r#"##ALT=<ID=DEL,Description="Deletion">"#,
+    r#"##ALT=<ID=DUP,Description="Duplication">"#,
+    r#"##ALT=<ID=INV,Description="Inversion">"#,
 ];
 /// minimum depth for variant calling
 pub(crate) const MIN_DEPTH: usize = 4;
