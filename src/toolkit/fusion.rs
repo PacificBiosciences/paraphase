@@ -93,27 +93,11 @@ impl phaser::Phaser {
                 }
             }
         }
-        // case when there is a duplication, and one gene only has one haplotype (should be two copies)
-        if num_duplication == 1 && assembled_haps_renamed.len() == 4 {
-            let gene1_haps = assembled_haps_renamed
-                .iter()
-                .filter(|(_hap, hap_name)| hap_name.contains("gene1"))
-                .map(|(_hap, hap_name)| hap_name.to_string())
-                .collect::<Vec<_>>();
-            let gene2_haps = assembled_haps_renamed
-                .iter()
-                .filter(|(_hap, hap_name)| hap_name.contains("gene2"))
-                .map(|(_hap, hap_name)| hap_name.to_string())
-                .collect::<Vec<_>>();
-            let num_gene1 = gene1_haps.len();
-            let num_gene2 = gene2_haps.len();
-            if num_gene1 == 1 && num_gene2 == 2 {
-                two_cp_haps.push(gene1_haps[0].clone());
-            }
-            if num_gene1 == 2 && num_gene2 == 1 {
-                two_cp_haps.push(gene2_haps[0].clone());
-            }
-        }
+        add_two_copy_haplotype_for_duplication(
+            &assembled_haps_renamed,
+            num_duplication,
+            &mut two_cp_haps,
+        );
         Ok((assembled_haps_renamed, two_cp_haps, fusions_called))
     }
 
@@ -298,6 +282,34 @@ impl phaser::Phaser {
             }
         }
         Ok((assembled_haps_renamed, two_cp_haps))
+    }
+}
+
+// case when there is a duplication, and one gene only has one haplotype (should be two copies)
+fn add_two_copy_haplotype_for_duplication(
+    assembled_haps: &BTreeMap<VStr<'_>, String>,
+    num_duplication: usize,
+    two_cp_haps: &mut Vec<String>,
+) {
+    if num_duplication != 1 || assembled_haps.len() != 4 {
+        return;
+    }
+
+    let gene1_haps = assembled_haps
+        .values()
+        .filter(|hap_name| hap_name.contains("gene1"))
+        .cloned()
+        .collect::<Vec<_>>();
+    let gene2_haps = assembled_haps
+        .values()
+        .filter(|hap_name| hap_name.contains("gene2"))
+        .cloned()
+        .collect::<Vec<_>>();
+    if gene1_haps.len() == 1 && gene2_haps.len() == 2 {
+        two_cp_haps.push(gene1_haps[0].clone());
+    }
+    if gene1_haps.len() == 2 && gene2_haps.len() == 1 {
+        two_cp_haps.push(gene2_haps[0].clone());
     }
 }
 
@@ -491,6 +503,27 @@ mod tests {
             ])
         );
 
+        // fusion haplotype
+        let haplotypes = BTreeMap::from([
+            (VStr::from("12121211"), String::from("hap1")),
+            (VStr::from("01212120"), String::from("hap2")),
+            (VStr::from("21212120"), String::from("hap3")),
+        ]);
+        let (renamed_haps, _two_cp_haps) = phaser
+            .update_twp_cp_in_fusion_cases(&haplotypes)
+            .expect("fusion rename should succeed");
+        assert_eq!(
+            renamed_haps
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.clone()))
+                .collect::<BTreeMap<_, _>>(),
+            BTreeMap::from([
+                (String::from("12121211"), String::from("smn1_gene1hap1")),
+                (String::from("01212120"), String::from("smn1_gene2hap1")),
+                (String::from("21212120"), String::from("smn1_fusionhap1")),
+            ])
+        );
+
         let haplotypes = BTreeMap::from([
             (VStr::from("12121212"), String::from("hap1")),
             (VStr::from("01212120"), String::from("hap2")),
@@ -519,6 +552,47 @@ mod tests {
         let (_renamed_haps, two_cp_haps) = phaser
             .update_twp_cp_in_fusion_cases(&haplotypes)
             .expect("fusion rename should succeed");
+        assert!(two_cp_haps.is_empty());
+    }
+
+    #[test]
+    fn duplication_marks_the_singleton_gene_haplotype_as_two_copy() {
+        let gene1_singleton = BTreeMap::from([
+            (VStr::from("12121211"), String::from("smn1_gene1hap1")),
+            (VStr::from("01212120"), String::from("smn1_gene2hap1")),
+            (VStr::from("01211120"), String::from("smn1_gene2hap2")),
+            (VStr::from("21212120"), String::from("smn1_fusionhap1")),
+        ]);
+        let mut two_cp_haps = Vec::new();
+        add_two_copy_haplotype_for_duplication(&gene1_singleton, 1, &mut two_cp_haps);
+        assert_eq!(two_cp_haps, vec![String::from("smn1_gene1hap1")]);
+
+        let gene2_singleton = BTreeMap::from([
+            (VStr::from("12121211"), String::from("smn1_gene1hap1")),
+            (VStr::from("12221211"), String::from("smn1_gene1hap2")),
+            (VStr::from("01211120"), String::from("smn1_gene2hap1")),
+            (VStr::from("21212120"), String::from("smn1_fusionhap1")),
+        ]);
+        let mut two_cp_haps = Vec::new();
+        add_two_copy_haplotype_for_duplication(&gene2_singleton, 1, &mut two_cp_haps);
+        assert_eq!(two_cp_haps, vec![String::from("smn1_gene2hap1")]);
+    }
+
+    #[test]
+    fn duplication_copy_adjustment_requires_one_duplication_and_four_haplotypes() {
+        let haps = BTreeMap::from([
+            (VStr::from("12121211"), String::from("smn1_gene1hap1")),
+            (VStr::from("01212120"), String::from("smn1_gene2hap1")),
+            (VStr::from("01211120"), String::from("smn1_gene2hap2")),
+            (VStr::from("21212120"), String::from("smn1_fusionhap1")),
+        ]);
+
+        let mut two_cp_haps = Vec::new();
+        add_two_copy_haplotype_for_duplication(&haps, 0, &mut two_cp_haps);
+        assert!(two_cp_haps.is_empty());
+
+        let three_haps = haps.into_iter().take(3).collect::<BTreeMap<_, _>>();
+        add_two_copy_haplotype_for_duplication(&three_haps, 1, &mut two_cp_haps);
         assert!(two_cp_haps.is_empty());
     }
 
