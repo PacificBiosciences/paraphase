@@ -28,9 +28,10 @@ impl phaser::Phaser {
         let fusion_gene_def_variants = self.parse_psv()?;
         let psv_variants = fusion_gene_def_variants.get(self.gene_name());
         // update two-copy haplotypes
-        let (assembled_haps_renamed, two_cp_haps) =
+        let (assembled_haps_renamed, mut two_cp_haps) =
             self.update_twp_cp_in_fusion_cases(assembled_haps)?;
         let mut fusions_called: BTreeMap<String, BTreeMap<String, Value>> = BTreeMap::new();
+        let mut num_duplication = 0;
         for (hap, hap_name) in &assembled_haps_renamed {
             let first_base = hap.first().ok_or_else(|| {
                 phaser::Exception::new(format!(
@@ -63,6 +64,9 @@ impl phaser::Phaser {
                         let bp4 = self.get_range_in_other_gene(bp3, Some(1000));
                         if let (Some(bp2), Some(bp4)) = (bp2, bp4) {
                             let fusion_type = get_fusion_type(&fusion_direction, hap.into())?;
+                            if fusion_type == Some(String::from("duplication")) {
+                                num_duplication += 1;
+                            }
                             fusions_called.entry(hap_name.clone()).or_default().insert(
                                 String::from("type"),
                                 fusion_type.map_or(Value::Null, Value::String),
@@ -87,6 +91,27 @@ impl phaser::Phaser {
                         }
                     }
                 }
+            }
+        }
+        // case when there is a duplication, and one gene only has one haplotype (should be two copies)
+        if num_duplication == 1 && assembled_haps_renamed.len() == 4 {
+            let gene1_haps = assembled_haps_renamed
+                .iter()
+                .filter(|(_hap, hap_name)| hap_name.contains("gene1"))
+                .map(|(_hap, hap_name)| hap_name.to_string())
+                .collect::<Vec<_>>();
+            let gene2_haps = assembled_haps_renamed
+                .iter()
+                .filter(|(_hap, hap_name)| hap_name.contains("gene2"))
+                .map(|(_hap, hap_name)| hap_name.to_string())
+                .collect::<Vec<_>>();
+            let num_gene1 = gene1_haps.len();
+            let num_gene2 = gene2_haps.len();
+            if num_gene1 == 1 && num_gene2 == 2 {
+                two_cp_haps.push(gene1_haps[0].clone());
+            }
+            if num_gene1 == 2 && num_gene2 == 1 {
+                two_cp_haps.push(gene2_haps[0].clone());
             }
         }
         Ok((assembled_haps_renamed, two_cp_haps, fusions_called))
@@ -230,8 +255,7 @@ impl phaser::Phaser {
                 counter_unknown += 1;
                 assembled_haps_renamed
                     .insert(*hap, format!("{gene_name}_unknownhap{}", counter_unknown));
-            }
-            if !first_base0 && !last_base0 {
+            } else if !first_base0 && !last_base0 {
                 gene1s.push(*hap);
                 counter_gene1 += 1;
                 assembled_haps_renamed
@@ -443,6 +467,29 @@ mod tests {
             ])
         );
         assert!(two_cp_haps.is_empty());
+
+        // unknown haplotype
+        let haplotypes = BTreeMap::from([
+            (VStr::from("1212121x"), String::from("hap1")),
+            (VStr::from("01212120"), String::from("hap2")),
+            (VStr::from("21212121"), String::from("hap3")),
+            (VStr::from("02121210"), String::from("hap4")),
+        ]);
+        let (renamed_haps, _two_cp_haps) = phaser
+            .update_twp_cp_in_fusion_cases(&haplotypes)
+            .expect("fusion rename should succeed");
+        assert_eq!(
+            renamed_haps
+                .iter()
+                .map(|(k, v)| (k.to_string(), v.clone()))
+                .collect::<BTreeMap<_, _>>(),
+            BTreeMap::from([
+                (String::from("1212121x"), String::from("smn1_unknownhap1")),
+                (String::from("01212120"), String::from("smn1_gene2hap1")),
+                (String::from("21212121"), String::from("smn1_gene1hap1")),
+                (String::from("02121210"), String::from("smn1_gene2hap2")),
+            ])
+        );
 
         let haplotypes = BTreeMap::from([
             (VStr::from("12121212"), String::from("hap1")),
