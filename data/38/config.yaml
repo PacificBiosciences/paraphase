@@ -1309,6 +1309,10 @@ CATSPER2:
   genes: CATSPER2
   check_nm: 0.1
   use_r2k: True
-  realign_region: chr15:43628003-43649344
+  realign_region: chr15:43627000-43651000
   extract_regions: chr15:43628003-43649344 chr15:43724356-43746769
-  noisy_region: [[43630367, 43630567], [43636385, 43636785], [43638425, 43638825]]
+  gene2_region: chr15:43724356-43746769
+  noisy_region: [[43630367, 43630567], [43636385, 43636785], [43638425, 43638825], [43642185, 43642250], [43643582, 43643584]]
+  clip_5p_positions: [43628038]
+  clip_3p_positions: [43649971]
+  call_fusion: 5p
