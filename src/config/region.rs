@@ -379,6 +379,12 @@ impl Locus {
         self.get("call_fusion").and_then(|x| x.as_str())
     }
 
+    /// Whether to call gene2
+    #[must_use]
+    pub fn call_gene2(&self) -> Option<&str> {
+        self.get("call_gene2").and_then(|x| x.as_str())
+    }
+
     /// Access `gene2_region` field from input yaml.
     #[must_use]
     pub fn gene2_region(&self, strip_chr: bool) -> Option<&str> {

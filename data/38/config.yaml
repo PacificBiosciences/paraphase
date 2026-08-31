@@ -176,6 +176,7 @@ TNXB:
   extract_regions: chr6:32008265-32013273 chr6:32041000-32109500
   clip_3p_positions: [32046127]
   noisy_region: [[32067074, 32067190]]
+  call_gene2: 3p
 SSX2: 
   genes: SSX2,SSX2B
   is_tandem: True
@@ -361,6 +362,7 @@ CHRNA7:
   pivot_site: 32170860
   clip_5p_positions: [32153206]
   noisy_region: [[32114013, 32114163]]
+  call_gene2: 5p
 CNTNAP3:
   genes: CNTNAP3,CNTNAP3C
   realign_region: chr9:39162500-39288814
@@ -743,6 +745,7 @@ OTOA:
   clip_5p_positions: [21729043]
   noisy_region: [[21714191, 21714531]]
   pivot_site: 21753214
+  call_gene2: 5p
 PABPC1L2A:
   genes: PABPC1L2A,PABPC1L2B
   realign_region: chrX:73068394-73088394
