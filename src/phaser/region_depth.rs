@@ -135,6 +135,16 @@ impl Phaser {
         log::debug!(
             "Coverage stats after depth sampling: median={median}, percentile_{PERCENTILE}={percentile}; thresholds: median>8 OR percentile>=50"
         );
-        (median > 8. || percentile >= 50.) || self.settings.allow_low_coverage
+        let region_on_sex_chromosome = if let Some(chr) = self.chr() {
+            chr.contains("X") || chr.contains("Y")
+        } else {
+            false
+        };
+        let male_sex_chromosome_coverage_pass = region_on_sex_chromosome
+            && self.settings.sample_sex == crate::depth::Sex::Male
+            && median > 4.0;
+        (median > 8. || percentile >= 50.)
+            || male_sex_chromosome_coverage_pass
+            || self.settings.allow_low_coverage
     }
 }
