@@ -5,8 +5,46 @@ use crate::phaser::{HapInfo, HapInfoForJson};
 use crate::toolkit::site_selection::CandidateSite;
 use crate::toolkit::util::DError;
 use itertools::intersperse;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use vstr::VStr;
+
+/// Build an RCCX haplotype rename map from the finalized allele order.
+///
+/// Renumbering only applies when successful phasing produced exactly two alleles
+/// whose unique haplotypes fully cover the assembled haplotypes.
+fn rccx_haplotype_rename_map(
+    successful_phasing: bool,
+    updated_alleles: &[Vec<String>],
+    assembled_haps: &BTreeMap<VStr<'_>, String>,
+    gene_name: &str,
+) -> Option<BTreeMap<String, String>> {
+    if !successful_phasing || updated_alleles.len() != 2 {
+        return None;
+    }
+
+    let ordered_haps = updated_alleles
+        .iter()
+        .flatten()
+        .cloned()
+        .collect::<Vec<_>>();
+    if ordered_haps.len() != assembled_haps.len() {
+        return None;
+    }
+
+    let assembled_names = assembled_haps.values().collect::<BTreeSet<_>>();
+    let ordered_names = ordered_haps.iter().collect::<BTreeSet<_>>();
+    if ordered_names.len() != assembled_haps.len() || ordered_names != assembled_names {
+        return None;
+    }
+
+    Some(
+        ordered_haps
+            .into_iter()
+            .enumerate()
+            .map(|(index, hap)| (hap, format!("{gene_name}_hap{}", index + 1)))
+            .collect(),
+    )
+}
 
 impl Phaser {
     /// update alleles based on all info available
@@ -525,10 +563,7 @@ impl Phaser {
             .collect::<BTreeMap<_, _>>();
         // Phase alleles
         let allele_result = self.phase_alleles(&mut phase_results, &assembled_haps, None);
-        call.region_specific_info.insert(
-            String::from("haplotype_links"),
-            serde_json::to_value(&allele_result.haplotype_links)?,
-        );
+        let mut haplotype_links = allele_result.haplotype_links;
         let alleles = allele_result.raw_alleles;
 
         // Output variants
@@ -541,15 +576,16 @@ impl Phaser {
 
         // update alleles
         let hcn = phase_results.assemblies.highest_cn;
-        let (successful_phasing, updated_alleles, two_cp_haplotypes) = self.update_alleles(
-            &alleles,
-            &haps,
-            &assembled_haps,
-            &single_copies,
-            &starting_copies,
-            &ending_copies,
-            hcn,
-        )?;
+        let (successful_phasing, mut updated_alleles, mut two_cp_haplotypes) = self
+            .update_alleles(
+                &alleles,
+                &haps,
+                &assembled_haps,
+                &single_copies,
+                &starting_copies,
+                &ending_copies,
+                hcn,
+            )?;
 
         // annotate haplotypes by checking the diff sites
         // output variants carried by each haplotype
@@ -582,6 +618,62 @@ impl Phaser {
             &two_cp_haplotypes,
         )?;
 
+        if let Some(renamed_haps) = rccx_haplotype_rename_map(
+            successful_phasing,
+            &updated_alleles,
+            &assembled_haps,
+            &mod_gene_name,
+        ) {
+            let rename = |name: &str| {
+                renamed_haps
+                    .get(name)
+                    .cloned()
+                    .expect("RCCX haplotype rename map should cover all assembled haplotypes")
+            };
+            for hap_name in assembled_haps.values_mut() {
+                *hap_name = rename(hap_name);
+            }
+            for allele in &mut updated_alleles {
+                for hap_name in allele {
+                    *hap_name = rename(hap_name);
+                }
+            }
+            for hap_name in &mut two_cp_haplotypes {
+                *hap_name = rename(hap_name);
+            }
+            for hap_name in &mut starting_copies {
+                *hap_name = rename(hap_name);
+            }
+            for hap_name in &mut ending_copies {
+                *hap_name = rename(hap_name);
+            }
+            for hap_name in &mut single_copies {
+                *hap_name = rename(hap_name);
+            }
+
+            hap_variants = hap_variants
+                .into_iter()
+                .map(|(hap_name, variants)| (rename(&hap_name), variants))
+                .collect();
+            haplotype_links = haplotype_links
+                .into_iter()
+                .map(|(hap_name, links)| {
+                    (
+                        rename(&hap_name),
+                        links.into_iter().map(|link| rename(&link)).collect(),
+                    )
+                })
+                .collect();
+            call.final_haplotypes = std::mem::take(&mut call.final_haplotypes)
+                .into_iter()
+                .map(|(hap_sequence, hap_name)| (hap_sequence, rename(&hap_name)))
+                .collect();
+            call.haplotype_details = std::mem::take(&mut call.haplotype_details)
+                .into_iter()
+                .map(|(hap_name, hap_info)| (rename(&hap_name), hap_info))
+                .collect();
+        }
+
         call.two_copy_haplotypes = two_cp_haplotypes;
         call.region_specific_info.insert(
             String::from("alleles_final"),
@@ -589,6 +681,10 @@ impl Phaser {
         );
         call.region_specific_info
             .insert(String::from("raw_alleles"), updated_alleles.clone().into());
+        call.region_specific_info.insert(
+            String::from("haplotype_links"),
+            serde_json::to_value(&haplotype_links)?,
+        );
         self.fill_in_call(phase_results, &mut call);
         call.region_specific_info
             .insert(String::from("phasing_success"), successful_phasing.into());
@@ -616,6 +712,64 @@ mod tests {
     use crate::config;
     use crate::phaser;
     use crate::toolkit::util;
+
+    fn assembled_haps_for_renaming() -> BTreeMap<VStr<'static>, String> {
+        BTreeMap::from([
+            (VStr::from("1111"), String::from("rccx_hap1")),
+            (VStr::from("1112"), String::from("rccx_hap2")),
+            (VStr::from("1121"), String::from("rccx_hap3")),
+            (VStr::from("1122"), String::from("rccx_hap4")),
+        ])
+    }
+
+    #[test]
+    fn rccx_haplotype_rename_map_follows_updated_allele_order() {
+        let updated_alleles = vec![
+            vec![String::from("rccx_hap2"), String::from("rccx_hap3")],
+            vec![String::from("rccx_hap1"), String::from("rccx_hap4")],
+        ];
+
+        assert_eq!(
+            rccx_haplotype_rename_map(
+                true,
+                &updated_alleles,
+                &assembled_haps_for_renaming(),
+                "rccx",
+            ),
+            Some(BTreeMap::from([
+                (String::from("rccx_hap1"), String::from("rccx_hap3")),
+                (String::from("rccx_hap2"), String::from("rccx_hap1")),
+                (String::from("rccx_hap3"), String::from("rccx_hap2")),
+                (String::from("rccx_hap4"), String::from("rccx_hap4")),
+            ]))
+        );
+    }
+
+    #[test]
+    fn rccx_haplotype_rename_map_requires_complete_successful_diploid_phasing() {
+        let assembled_haps = assembled_haps_for_renaming();
+        let complete_alleles = vec![
+            vec![String::from("rccx_hap1"), String::from("rccx_hap2")],
+            vec![String::from("rccx_hap3"), String::from("rccx_hap4")],
+        ];
+        assert!(
+            rccx_haplotype_rename_map(false, &complete_alleles, &assembled_haps, "rccx").is_none()
+        );
+        assert!(
+            rccx_haplotype_rename_map(true, &complete_alleles[..1], &assembled_haps, "rccx",)
+                .is_none()
+        );
+        assert!(rccx_haplotype_rename_map(
+            true,
+            &vec![
+                vec![String::from("rccx_hap1")],
+                vec![String::from("rccx_hap2")],
+            ],
+            &assembled_haps,
+            "rccx",
+        )
+        .is_none());
+    }
 
     fn build_test_phaser(outdir: &std::path::Path) -> Phaser {
         let settings = phaser::Settings::new(
