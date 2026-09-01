@@ -46,6 +46,32 @@ fn rccx_haplotype_rename_map(
     )
 }
 
+/// Reorder an RCCX allele by its configured start and end copy assignments.
+///
+/// Haplotype order is preserved within each group. A haplotype present in both
+/// boundary lists is treated as a starting copy to avoid emitting it twice.
+fn reorder_rccx_allele(
+    allele: &[String],
+    starting_copies: &[String],
+    ending_copies: &[String],
+) -> Vec<String> {
+    allele
+        .iter()
+        .filter(|hap| starting_copies.contains(*hap))
+        .chain(
+            allele
+                .iter()
+                .filter(|hap| !starting_copies.contains(*hap) && !ending_copies.contains(*hap)),
+        )
+        .chain(
+            allele
+                .iter()
+                .filter(|hap| !starting_copies.contains(*hap) && ending_copies.contains(*hap)),
+        )
+        .cloned()
+        .collect()
+}
+
 impl Phaser {
     /// update alleles based on all info available
     #[allow(clippy::type_complexity)]
@@ -78,8 +104,10 @@ impl Phaser {
             let mut ok_to_phase = false;
             if new_alleles.len() == 1 && !new_alleles.contains(single_copies) {
                 if let Some(first_allele) = new_alleles.first() {
+                    let first_allele =
+                        reorder_rccx_allele(first_allele, starting_copies, ending_copies);
                     if first_allele.len() == nhap - 1 {
-                        updated_alleles = vec![first_allele.to_vec(), single_copies.to_vec()];
+                        updated_alleles = vec![first_allele, single_copies.clone()];
                     } else if first_allele.len() < nhap - 1
                         && starting_copies.len() == 1
                         && ending_copies.len() == 1
@@ -94,6 +122,8 @@ impl Phaser {
                     .filter(|x| !single_copies.contains(*x))
                     .map(|x| x.to_string())
                     .collect::<Vec<_>>();
+                let remaining_hap =
+                    reorder_rccx_allele(&remaining_hap, starting_copies, ending_copies);
                 if remaining_hap.len() == nhap - 1 {
                     updated_alleles = vec![single_copies.clone(), remaining_hap];
                 }
@@ -125,7 +155,9 @@ impl Phaser {
                 successful_phasing = true;
                 if let Some(first_allele) = new_alleles.first() {
                     let first_allele = first_allele.to_vec();
-                    updated_alleles = vec![first_allele.clone(), first_allele.clone()];
+                    let first_allele =
+                        reorder_rccx_allele(&first_allele, starting_copies, ending_copies);
+                    updated_alleles = vec![first_allele.clone(), first_allele];
                 }
             }
             // depth-based adjustment when found 3 haplotypes or <2 ending haplotypes
@@ -175,13 +207,17 @@ impl Phaser {
                 if (nhap == 3 || nhap == 4) && new_alleles.len() == 1 && hcn == nhap {
                     if let Some(first_allele) = new_alleles.first() {
                         if first_allele.len() == 2 {
+                            let first_allele =
+                                reorder_rccx_allele(first_allele, starting_copies, ending_copies);
                             let remaining_hap = final_haps
                                 .iter()
                                 .filter(|x| !first_allele.contains(*x))
                                 .map(|x| x.to_string())
                                 .collect::<Vec<_>>();
+                            let remaining_hap =
+                                reorder_rccx_allele(&remaining_hap, starting_copies, ending_copies);
                             if remaining_hap.len() == nhap - 2 {
-                                updated_alleles = vec![first_allele.to_vec(), remaining_hap];
+                                updated_alleles = vec![first_allele, remaining_hap];
                             }
                         }
                     }
@@ -201,14 +237,23 @@ impl Phaser {
                                         || (starting_copies.contains(first_allele_second_hap)
                                             && ending_copies.contains(first_allele_first_hap))
                                     {
+                                        let first_allele = reorder_rccx_allele(
+                                            first_allele,
+                                            starting_copies,
+                                            ending_copies,
+                                        );
                                         let remaining_hap = final_haps
                                             .iter()
                                             .filter(|x| !first_allele.contains(*x))
                                             .map(|x| x.to_string())
                                             .collect::<Vec<_>>();
+                                        let remaining_hap = reorder_rccx_allele(
+                                            &remaining_hap,
+                                            starting_copies,
+                                            ending_copies,
+                                        );
                                         if remaining_hap.len() == 3 {
-                                            updated_alleles =
-                                                vec![first_allele.to_vec(), remaining_hap];
+                                            updated_alleles = vec![first_allele, remaining_hap];
                                         }
                                     }
                                 }
@@ -238,24 +283,42 @@ impl Phaser {
                                     || starting_copies.contains(second_allele_second_hap)
                                         && ending_copies.contains(second_allele_first_hap);
                                 if allele1 && !allele2 {
+                                    let first_allele = reorder_rccx_allele(
+                                        first_allele,
+                                        starting_copies,
+                                        ending_copies,
+                                    );
                                     let remaining_hap = final_haps
                                         .iter()
                                         .filter(|x| !first_allele.contains(*x))
                                         .map(|x| x.to_string())
                                         .collect::<Vec<_>>();
+                                    let remaining_hap = reorder_rccx_allele(
+                                        &remaining_hap,
+                                        starting_copies,
+                                        ending_copies,
+                                    );
                                     if remaining_hap.len() == 3 {
-                                        updated_alleles =
-                                            vec![first_allele.to_vec(), remaining_hap];
+                                        updated_alleles = vec![first_allele, remaining_hap];
                                     }
                                 } else if allele2 && !allele1 {
+                                    let second_allele = reorder_rccx_allele(
+                                        second_allele,
+                                        starting_copies,
+                                        ending_copies,
+                                    );
                                     let remaining_hap = final_haps
                                         .iter()
                                         .filter(|x| !second_allele.contains(*x))
                                         .map(|x| x.to_string())
                                         .collect::<Vec<_>>();
+                                    let remaining_hap = reorder_rccx_allele(
+                                        &remaining_hap,
+                                        starting_copies,
+                                        ending_copies,
+                                    );
                                     if remaining_hap.len() == 3 {
-                                        updated_alleles =
-                                            vec![second_allele.to_vec(), remaining_hap];
+                                        updated_alleles = vec![second_allele, remaining_hap];
                                     }
                                 }
                             }
@@ -769,6 +832,28 @@ mod tests {
             "rccx",
         )
         .is_none());
+    }
+
+    #[test]
+    fn reorder_rccx_allele_places_boundary_copies_at_their_respective_ends() {
+        let allele = vec![
+            String::from("rccx_hap3"),
+            String::from("rccx_hap1"),
+            String::from("rccx_hap4"),
+            String::from("rccx_hap2"),
+        ];
+        let starting_copies = vec![String::from("rccx_hap2")];
+        let ending_copies = vec![String::from("rccx_hap3"), String::from("rccx_hap4")];
+
+        assert_eq!(
+            reorder_rccx_allele(&allele, &starting_copies, &ending_copies),
+            vec![
+                String::from("rccx_hap2"),
+                String::from("rccx_hap1"),
+                String::from("rccx_hap3"),
+                String::from("rccx_hap4"),
+            ]
+        );
     }
 
     fn build_test_phaser(outdir: &std::path::Path) -> Phaser {
