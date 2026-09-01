@@ -1319,3 +1319,12 @@ CATSPER2:
   clip_5p_positions: [43628038]
   clip_3p_positions: [43649971]
   call_fusion: 5p
+CLCNKB:
+  genes: CLCNKB
+  realign_region: chr1:16053000-16061500
+  extract_regions: chr1:16031458-16037853 chr1:16053387-16061110
+  gene2_region: chr1:16031458-16037853
+  check_nm: 0.1
+  clip_5p_positions: [16055386]
+  clip_3p_positions: [16061110]
+  call_fusion: 3p
