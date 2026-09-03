@@ -1,4 +1,4 @@
-use crate::toolkit::util::FULL_VERSION;
+use crate::{depth::Sex, toolkit::util::FULL_VERSION};
 use chrono::Datelike;
 use clap::Parser;
 use std::path::{Path, PathBuf};
@@ -128,6 +128,9 @@ paralog/pseudogene, and variants are called against gene or paralog/pseudogene, 
     )]
     pub gene1only: bool,
 
+    #[clap(long, value_enum, hide = true)]
+    pub sex: Option<Sex>,
+
     #[cfg(feature = "pprof")]
     #[clap(help_heading("Advanced"))]
     #[clap(long)]
@@ -201,5 +204,29 @@ fn threads_in_range(s: &str) -> Result<usize> {
         Ok(thread)
     } else {
         Err("Number of threads must be at least 1".into())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_hidden_sex_override() {
+        let manifest = concat!(env!("CARGO_MANIFEST_DIR"), "/Cargo.toml");
+        let settings = Settings::try_parse_from([
+            "paraphase",
+            "--bam",
+            manifest,
+            "--reference",
+            manifest,
+            "--out",
+            "out",
+            "--sex",
+            "female",
+        ])
+        .unwrap();
+
+        assert_eq!(settings.sex, Some(Sex::Female));
     }
 }

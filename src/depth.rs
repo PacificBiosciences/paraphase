@@ -14,7 +14,7 @@ use std::sync::Arc;
 /// `Sex` is an enum of `Male/Female/Other`, important for X-linked traits.
 
 /// Enum representing the patient sex.
-#[derive(Copy, Debug, Clone, Deserialize, Serialize, PartialEq, Default)]
+#[derive(clap::ValueEnum, Copy, Debug, Clone, Deserialize, Serialize, PartialEq, Default)]
 pub enum Sex {
     Male,
     Female,
