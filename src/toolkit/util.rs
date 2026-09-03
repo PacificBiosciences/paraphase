@@ -581,7 +581,7 @@ mod tests {
         assert!(conf.genes_to_call.is_empty());
         assert_eq!(
             conf.no_vcf_genes,
-            ["CFH", "CFHR3"]
+            ["CFH", "CFHR3", "CLCNKB"]
                 .into_iter()
                 .map(String::from)
                 .collect::<BTreeSet<_>>()
