@@ -139,6 +139,12 @@ impl RealignSettings {
         {
             self.max_mismatch_fraction = max_mismatch_fraction;
         }
+        if let Some(min_aln) = locus_config
+            .get("min_aln")
+            .and_then(serde_yaml::Value::as_f64)
+        {
+            self.min_aln = min_aln as usize;
+        }
         self
     }
 }
