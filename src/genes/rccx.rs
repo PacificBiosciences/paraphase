@@ -978,6 +978,7 @@ mod tests {
                 true,
                 &updated_alleles,
                 &assembled_haps_for_renaming(),
+                &[],
                 "rccx",
             ),
             Some(BTreeMap::from([
@@ -997,12 +998,17 @@ mod tests {
             vec![String::from("rccx_hap3"), String::from("rccx_hap4")],
         ];
         assert!(
-            rccx_haplotype_rename_map(false, &complete_alleles, &assembled_haps, "rccx").is_none()
-        );
-        assert!(
-            rccx_haplotype_rename_map(true, &complete_alleles[..1], &assembled_haps, "rccx",)
+            rccx_haplotype_rename_map(false, &complete_alleles, &assembled_haps, &[], "rccx")
                 .is_none()
         );
+        assert!(rccx_haplotype_rename_map(
+            true,
+            &complete_alleles[..1],
+            &assembled_haps,
+            &[],
+            "rccx",
+        )
+        .is_none());
         assert!(rccx_haplotype_rename_map(
             true,
             &vec![
@@ -1010,9 +1016,44 @@ mod tests {
                 vec![String::from("rccx_hap2")],
             ],
             &assembled_haps,
+            &[],
             "rccx",
         )
         .is_none());
+    }
+
+    #[test]
+    fn rccx_haplotype_rename_map_numbers_shared_haplotypes_only_once() {
+        let assembled_haps = assembled_haps_for_renaming();
+        let updated_alleles = vec![
+            vec![String::from("rccx_hap3"), String::from("rccx_hap2")],
+            vec![
+                String::from("rccx_hap1"),
+                String::from("rccx_hap4"),
+                String::from("rccx_hap2"),
+            ],
+        ];
+        let two_cp_haplotypes = vec![String::from("rccx_hap2")];
+
+        assert_eq!(
+            rccx_haplotype_rename_map(
+                true,
+                &updated_alleles,
+                &assembled_haps,
+                &two_cp_haplotypes,
+                "rccx",
+            ),
+            Some(BTreeMap::from([
+                (String::from("rccx_hap1"), String::from("rccx_hap3")),
+                (String::from("rccx_hap2"), String::from("rccx_hap2")),
+                (String::from("rccx_hap3"), String::from("rccx_hap1")),
+                (String::from("rccx_hap4"), String::from("rccx_hap4")),
+            ]))
+        );
+        assert!(
+            rccx_haplotype_rename_map(true, &updated_alleles, &assembled_haps, &[], "rccx",)
+                .is_none()
+        );
     }
 
     #[test]
@@ -1024,16 +1065,61 @@ mod tests {
             String::from("rccx_hap2"),
         ];
         let starting_copies = vec![String::from("rccx_hap2")];
-        let ending_copies = vec![String::from("rccx_hap3"), String::from("rccx_hap4")];
+        let ending_copies = vec![String::from("rccx_hap4")];
 
         assert_eq!(
-            reorder_rccx_allele(&allele, &starting_copies, &ending_copies),
-            vec![
+            reorder_rccx_allele(&allele, &starting_copies, &ending_copies, &[]),
+            Some(vec![
                 String::from("rccx_hap2"),
-                String::from("rccx_hap1"),
                 String::from("rccx_hap3"),
+                String::from("rccx_hap1"),
                 String::from("rccx_hap4"),
-            ]
+            ])
+        );
+    }
+
+    #[test]
+    fn reorder_rccx_allele_requires_one_starting_and_one_ending_copy() {
+        let allele = vec![
+            String::from("hap1"),
+            String::from("hap2"),
+            String::from("hap3"),
+        ];
+        for (starting_copies, ending_copies) in [
+            (vec![], vec![String::from("hap3")]),
+            (vec![String::from("hap1")], vec![]),
+            (
+                vec![String::from("hap1"), String::from("hap2")],
+                vec![String::from("hap3")],
+            ),
+            (
+                vec![String::from("hap1")],
+                vec![String::from("hap2"), String::from("hap3")],
+            ),
+        ] {
+            assert_eq!(
+                reorder_rccx_allele(&allele, &starting_copies, &ending_copies, &[]),
+                None
+            );
+        }
+    }
+
+    #[test]
+    fn reorder_rccx_allele_accepts_a_single_deletion_copy() {
+        let single_copies = vec![String::from("hap1")];
+        assert_eq!(
+            reorder_rccx_allele(&single_copies, &[], &[], &single_copies),
+            Some(single_copies.clone())
+        );
+        assert_eq!(reorder_rccx_allele(&single_copies, &[], &[], &[]), None);
+        assert_eq!(
+            reorder_rccx_allele(
+                &[String::from("hap1"), String::from("hap2")],
+                &[],
+                &[],
+                &single_copies,
+            ),
+            None
         );
     }
 
