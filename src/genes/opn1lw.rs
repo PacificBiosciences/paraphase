@@ -9,14 +9,20 @@ use itertools::{intersperse, Itertools};
 use std::collections::BTreeMap;
 use std::str::FromStr;
 
+fn opn1_gene_from_pivots(hap: &[u8], pivot_indices: &[Option<usize>]) -> &'static str {
+    match pivot_indices {
+        [Some(first), Some(second)] => match (hap.get(*first), hap.get(*second)) {
+            (Some(b'1'), Some(b'1')) => "opn1lw",
+            (Some(b'2'), Some(b'2')) => "opn1mw",
+            _ => "opnunknown",
+        },
+        _ => "opnunknown",
+    }
+}
+
 impl Phaser {
-    /// Call known variants in Exon 3
-    fn call_exon3(
-        &mut self,
-        hap_vars: &Vec<CandidateSite>,
-        //exon3_vars: BTreeMap<(String, String), Vec<CandidateSite>>,
-    ) -> Result<String, DError> {
-        // let mut exon3_vars = BTreeMap::new();
+    /// Call exon 3 amino acids from phased bases, using X for unresolved groups.
+    fn call_exon3(&self, hap: &[u8]) -> Result<String, DError> {
         let mut annotated_vars = Vec::new();
         let exon3_variants = self
             .locus_config()
@@ -51,18 +57,22 @@ impl Phaser {
                 "Evaluating exon3 group alt_aa={alt_aa}, ref_aa={ref_aa}, variant_count={}",
                 variants.len()
             );
-            //exon3_vars.insert((alt_aa, ref_aa), variants);
-            //}
-            //for ((alt_aa, ref_aa), variants) in exon3_vars.iter() {
-            let num_var_overlap = variants
+            let bases = variants
                 .iter()
-                .filter(|x| hap_vars.contains(*x))
-                .collect::<Vec<_>>()
-                .len();
-            if num_var_overlap == variants.len() {
-                annotated_vars.push(alt_aa.to_string());
+                .map(|var| {
+                    self.het_sites
+                        .iter()
+                        .position(|site| site == var)
+                        .and_then(|index| hap.get(index))
+                        .copied()
+                })
+                .collect::<Vec<_>>();
+            if !bases.is_empty() && bases.iter().all(|base| *base == Some(b'2')) {
+                annotated_vars.push(alt_aa);
+            } else if !bases.is_empty() && bases.iter().all(|base| *base == Some(b'1')) {
+                annotated_vars.push(ref_aa);
             } else {
-                annotated_vars.push(ref_aa.to_string());
+                annotated_vars.push(String::from("X"));
             }
         }
         Ok(annotated_vars.iter().join(""))
@@ -303,36 +313,26 @@ impl Phaser {
         let mut middle_copies = Vec::new();
         let mut annotated_haps = BTreeMap::new();
         let mut renamed_haps = BTreeMap::new();
+        let pivot_indices = pivot_vars
+            .iter()
+            .map(|var| self.het_sites.iter().position(|site| site == var))
+            .collect::<Vec<_>>();
+        let last_copy_indices = last_copy_vars
+            .iter()
+            .filter_map(|var| self.het_sites.iter().position(|site| site == var))
+            .collect::<Vec<_>>();
         for (hap_seq, hap_name) in &assembled_haps {
-            let hap_vars = &haps
-                .get(hap_name)
-                .ok_or_else(|| {
-                    crate::phaser::Exception::new(format!(
-                        "Haplotype '{}' missing from output_variants_in_haps map",
-                        hap_name
-                    ))
-                })?
-                .variants;
-            let mut num_var_overlap = 0;
             let renamed_hap: String;
-            let mut gene_annotated: String;
-            for var in &pivot_vars {
-                if hap_vars.contains(var) {
-                    num_var_overlap += 1;
-                }
-            }
-            if num_var_overlap == 0 {
+            let mut gene_annotated = opn1_gene_from_pivots(hap_seq, &pivot_indices).to_string();
+            if gene_annotated == "opn1lw" {
                 counter_lw += 1;
                 renamed_hap = format!("{mod_gene_name}_opn1lwhap{}", counter_lw);
-                gene_annotated = String::from("opn1lw");
-            } else if num_var_overlap == 2 {
+            } else if gene_annotated == "opn1mw" {
                 counter_mw += 1;
                 renamed_hap = format!("{mod_gene_name}_opn1mwhap{}", counter_mw);
-                gene_annotated = String::from("opn1mw");
             } else {
                 counter_unknown += 1;
                 renamed_hap = format!("{mod_gene_name}_opnunknownhap{}", counter_unknown);
-                gene_annotated = String::from("opnunknown");
             }
             renamed_haps.insert(hap_name, renamed_hap.clone());
             let hap_seq_first_base = hap_seq.first().ok_or_else(|| {
@@ -344,18 +344,16 @@ impl Phaser {
             if *hap_seq_first_base != b'x' && *hap_seq_first_base != b'0' {
                 first_copies.push(renamed_hap.clone());
             }
-            let num_var_last_copy = hap_vars
+            let has_last_copy_variant = last_copy_indices
                 .iter()
-                .filter(|x| last_copy_vars.contains(*x))
-                .collect::<Vec<_>>()
-                .len();
-            if num_var_last_copy > 0 {
+                .any(|&index| hap_seq.get(index) == Some(&b'2'));
+            if has_last_copy_variant {
                 last_copies.push(renamed_hap.clone());
             } else if !first_copies.contains(&renamed_hap) && !hap_seq.contains(&b'x') {
                 middle_copies.push(renamed_hap.clone());
             }
             gene_annotated += "_";
-            gene_annotated += self.call_exon3(hap_vars)?.as_str(); //exon3_vars.clone()
+            gene_annotated += self.call_exon3(hap_seq)?.as_str();
             annotated_haps.insert(renamed_hap, gene_annotated);
         }
         let mut assembled_haps_renamed = BTreeMap::new();
@@ -653,6 +651,39 @@ mod tests {
     use crate::phaser;
     use crate::toolkit::util;
 
+    #[test]
+    fn gene_assignment_uses_both_pivot_bases() {
+        let pivot_indices = [Some(1), Some(3)];
+        for (hap, expected) in [
+            ("2121", "opn1lw"),
+            ("1212", "opn1mw"),
+            ("1112", "opnunknown"),
+            ("1211", "opnunknown"),
+            ("1x11", "opnunknown"),
+            ("111x", "opnunknown"),
+            ("1011", "opnunknown"),
+            ("1110", "opnunknown"),
+            ("111", "opnunknown"),
+        ] {
+            assert_eq!(
+                opn1_gene_from_pivots(hap.as_bytes(), &pivot_indices),
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn gene_assignment_requires_both_pivot_sites() {
+        for pivot_indices in [
+            vec![],
+            vec![Some(0)],
+            vec![None, Some(1)],
+            vec![Some(0), None],
+        ] {
+            assert_eq!(opn1_gene_from_pivots(b"11", &pivot_indices), "opnunknown");
+        }
+    }
+
     fn build_test_phaser(outdir: &std::path::Path) -> Phaser {
         let settings = phaser::Settings::new(
             "TEST",
@@ -672,6 +703,64 @@ mod tests {
         );
         let gene_config = config::Gene::try_load(None).expect("gene config should load");
         Phaser::new(settings, Some(gene_config), None, None).expect("phaser should build")
+    }
+
+    #[test]
+    fn exon3_assignment_uses_exact_variant_indices_and_resolves_missing_bases() {
+        let outdir = tempfile::TempDir::new().expect("tempdir should build");
+        let mut phaser = build_test_phaser(outdir.path());
+        phaser.config.locus.insert(
+            "exon3_variants".into(),
+            serde_yaml::from_str(
+                r#"[
+                    [["154152987_A_C"], "L", "M"],
+                    [["154153041_G_A", "154153043_G_T"], "I", "V"],
+                    [["154153051_C_T"], "V", "A"],
+                    [["154153062_A_G"], "V", "I"],
+                    [["154153068_G_T"], "S", "A"]
+                ]"#,
+            )
+            .unwrap(),
+        );
+        // Include an unrelated site so variant positions differ from group order.
+        phaser.het_sites = [
+            "154152980_A_G",
+            "154152987_A_C",
+            "154153041_G_A",
+            "154153043_G_T",
+            "154153051_C_T",
+            "154153062_A_G",
+            "154153068_G_T",
+        ]
+        .iter()
+        .map(|site| CandidateSite::from_str(site).unwrap())
+        .collect();
+
+        for (hap, expected) in [
+            ("1222222", "LIVVS"),
+            ("2111111", "MVAIA"),
+            ("1222121", "LIAVA"),
+            ("1212111", "LXAIA"),
+            ("1221111", "LXAIA"),
+            ("12x2111", "LXAIA"),
+            ("122x111", "LXAIA"),
+            ("1220111", "LXAIA"),
+            ("1x11111", "XVAIA"),
+            ("111111", "MVAIX"),
+            ("", "XXXXX"),
+        ] {
+            assert_eq!(
+                phaser.call_exon3(hap.as_bytes()).unwrap(),
+                expected,
+                "{hap}"
+            );
+        }
+
+        // A different alternate allele at an exon 3 variant's position is not a match.
+        phaser.het_sites[1] = CandidateSite::from_str("154152987_A_T").unwrap();
+        assert_eq!(phaser.call_exon3(b"1222222").unwrap(), "XIVVS");
+        phaser.het_sites.remove(3);
+        assert_eq!(phaser.call_exon3(b"122222").unwrap(), "XXVVS");
     }
 
     #[test]
