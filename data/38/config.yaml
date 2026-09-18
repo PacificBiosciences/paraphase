@@ -1328,3 +1328,12 @@ CLCNKB:
   clip_5p_positions: [16055386]
   clip_3p_positions: [16061110]
   call_fusion: 3p
+TPSAB1:
+  genes: TPSAB1,TPSB2
+  realign_region: chr16:1238815-1246500
+  extract_regions: chr16:1225000-1258000
+  check_nm: 0.1
+  is_tandem: True
+  clip_5p_positions: [1239042]
+  clip_3p_positions: [1241731, 1245200]
+  noisy_region: [[1239820, 1239930]]
