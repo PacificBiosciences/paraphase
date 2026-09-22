@@ -57,7 +57,7 @@ MEDICAL_REGIONS = [
 ]
 
 # Regions that don't need VCF files
-REGIONS_NO_VCF = ["f8", "CFHclust"]
+REGIONS_NO_VCF = ["f8", "CFHclust", "CLCNKB"]
 
 # Genes that always need to be reported
 ALWAYS_REPORT_GENES = ["SMN1", "SMN2", "PMS2", "STRC", "IKBKG", "NCF1"]
@@ -592,7 +592,7 @@ def get_json_info(json_file: str, region_name: str) -> Optional[RegionInfo]:
                 "deletion_haplotypes"
             ]
             report_info = f"deletion_haplotypes: {gene_call["region_specific_info"]['deletion_haplotypes']}"
-        elif region_name in ["GBA", "CFHclust"]:
+        elif region_name in ["GBA", "CFHclust", "CLCNKB", "CYP2D6", "CYP11B1"]:
             fusion = gene_call["region_specific_info"]["fusions_called"]
             if fusion == {}:
                 report_info = f"fusions_called: {fusion}"

@@ -293,6 +293,7 @@ impl Phaser {
                     if prob_value[0] > 0.95 && counter_gene > 1 && !two_cp_haps.is_empty() {
                         gene_cn = None;
                         call.total_cn = None;
+                        two_cp_haps = vec![];
                         total_cn_is_no_call = true;
                     }
                 }

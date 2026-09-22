@@ -1320,13 +1320,15 @@ CATSPER2:
   clip_3p_positions: [43649971]
   call_fusion: 5p
 CLCNKB:
-  genes: CLCNKB
+  genes: CLCNKB,CLCNKA
   realign_region: chr1:16053000-16061500
   extract_regions: chr1:16031458-16037853 chr1:16053387-16061110
   gene2_region: chr1:16031458-16037853
   check_nm: 0.1
   clip_5p_positions: [16055386]
   clip_3p_positions: [16061110]
+  noisy_region: [[16055400, 16056000], [16060800, 16061020]]
+  is_tandem: True
   call_fusion: 3p
 TPSAB1:
   genes: TPSAB1,TPSB2

@@ -42,7 +42,7 @@ As described in the [vcf file](vcf.md) documentation, Paraphase can assign and l
 ## Region specific information
 
 - `gene_cn`: total copy number for the gene (not including pseudogenes). Present only when Paraphase performs paralog differentiation and assigns haplotypes to genes or pseudogenes.
-- `fusions_called`: deletions or duplications from unequal crossing over between paralogs, called by checking the flanking sequences of phased haplotypes. Currently supported for: CYP2D6, GBA, CYP11B1, and the CFH gene cluster.
+- `fusions_called`: deletions or duplications from unequal crossing over between paralogs, called by checking the flanking sequences of phased haplotypes. Currently supported for: CYP2D6, GBA, CYP11B1, CLCNKB and the CFH gene cluster.
 - Phasing haplotypes into alleles: this information is available when the segmental duplication is in tandem.
   - `alleles_final`: haplotypes phased into alleles.
   - `raw_alleles`: initial (pre-filtering) alleles phased among haplotypes.

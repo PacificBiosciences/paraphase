@@ -91,10 +91,12 @@ impl Phaser {
         let mut counter_gene = 0;
         let mut counter_pseudo = 0;
         let mut counter_unknown = 0;
-        let deletion_index = self
-            .het_sites
-            .iter()
-            .position(|site| site.to_string() == "43602630_del_314");
+        let deletion_index = self.del_data.first().and_then(|deletion| {
+            let deletion_name = deletion.name();
+            self.het_sites
+                .iter()
+                .position(|site| site.to_string() == deletion_name)
+        });
         if let Some(deletion_index) = deletion_index {
             for hap in main_haps_clone.iter() {
                 let hap_deletion_site = &hap[deletion_index];
