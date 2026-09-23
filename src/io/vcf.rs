@@ -274,8 +274,10 @@ mod tests {
         };
         let writer = VcfWriter::new(&phaser, &call, false, false);
 
+        let mut hap_names = call.final_haplotypes.values().cloned().collect::<Vec<_>>();
+        hap_names.sort();
         let hap_variant_info = writer
-            .get_variants_for_vcf(&call.final_haplotypes, false, false)
+            .get_variants_for_vcf(&hap_names, false, false)
             .expect("homozygous no-realign VCF path should succeed");
 
         assert_eq!(hap_variant_info.hap_info.len(), 2);
@@ -303,9 +305,9 @@ mod tests {
 
         let call = GeneCall {
             final_haplotypes: BTreeMap::from([
-                (String::from("111"), String::from("smn1_hap1")),
-                (String::from("222"), String::from("smn1_hap2")),
-                (String::from("333"), String::from("smn1_hap3")),
+                (String::from("111"), String::from("smn1_hap3")),
+                (String::from("222"), String::from("smn1_hap1")),
+                (String::from("333"), String::from("smn1_hap2")),
             ]),
             two_copy_haplotypes: vec![String::from("smn1_hap1")],
             haplotype_details: BTreeMap::from([
@@ -341,8 +343,10 @@ mod tests {
         };
         let writer = VcfWriter::new(&phaser, &call, false, false);
 
+        let mut hap_names = call.final_haplotypes.values().cloned().collect::<Vec<_>>();
+        hap_names.sort();
         let hap_variant_info = writer
-            .get_variants_for_vcf(&call.final_haplotypes, false, false)
+            .get_variants_for_vcf(&hap_names, false, false)
             .expect("two-copy/truncated no-realign VCF path should succeed");
 
         assert_eq!(hap_variant_info.hap_info.len(), 4);
@@ -420,8 +424,10 @@ mod tests {
         };
         let writer = VcfWriter::new(&phaser, &call, false, false);
 
+        let mut hap_names = call.final_haplotypes.values().cloned().collect::<Vec<_>>();
+        hap_names.sort();
         let hap_variant_info = writer
-            .get_variants_for_vcf(&call.final_haplotypes, false, false)
+            .get_variants_for_vcf(&hap_names, false, false)
             .expect("ikbkg no-realign VCF path should succeed");
 
         let deletion_name = phaser
@@ -438,8 +444,23 @@ mod tests {
             .get(&start_0based)
             .expect("symbolic deletion should be present at the deletion anchor");
         assert_eq!(pos_calls.len(), hap_variant_info.hap_info.len());
-        assert_eq!(pos_calls[0], Some(deletion_name));
+        assert_eq!(pos_calls[0], Some(deletion_name.clone()));
         assert_eq!(pos_calls[1], None);
+
+        hap_names.reverse();
+        let reversed = writer
+            .get_variants_for_vcf(&hap_names, false, false)
+            .expect("reordered haplotypes should keep deletion columns aligned");
+        assert_eq!(
+            reversed
+                .hap_info
+                .iter()
+                .map(|hap| &hap.hap_name)
+                .collect::<Vec<_>>(),
+            hap_names.iter().collect::<Vec<_>>()
+        );
+        let reversed_calls = reversed.sv_variants.get(&start_0based).unwrap();
+        assert_eq!(reversed_calls, &vec![None, Some(deletion_name)]);
     }
 
     #[test]
