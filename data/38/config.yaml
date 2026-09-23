@@ -147,10 +147,9 @@ opn1lw:
   genes: OPN1LW,OPN1MW,OPN1MW2,OPN1MW3,TEX28
   is_tandem: True
   use_r2k: True
-  realign_region: chrX:154140047-154182441
-  extract_regions: chrX:154144047-154294510
+  realign_region: chrX:154135000-154182441
+  extract_regions: chrX:154135000-154294510
   noisy_region: [[154165300, 154165800]]
-  left_boundary: 154144050
   right_boundary: 154182200
   pivot_site: 154156379
   clip_5p_positions: [154144048]

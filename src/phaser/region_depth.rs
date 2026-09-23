@@ -135,16 +135,13 @@ impl Phaser {
         log::debug!(
             "Coverage stats after depth sampling: median={median}, percentile_{PERCENTILE}={percentile}; thresholds: median>8 OR percentile>=50"
         );
-        let region_on_sex_chromosome = if let Some(chr) = self.chr() {
-            chr.contains("X") || chr.contains("Y")
-        } else {
-            false
-        };
-        let male_sex_chromosome_coverage_pass = region_on_sex_chromosome
+        // most seg dups on chrX/Y are in reverse orientation
+        // opn is an exception - it can be only one copy in a male and we don't want to miss that
+        let male_opn1lw_coverage_pass = self.gene_name().eq_ignore_ascii_case("opn1lw")
             && self.settings.sample_sex == crate::depth::Sex::Male
             && median > 4.0;
         (median > 8. || percentile >= 50.)
-            || male_sex_chromosome_coverage_pass
+            || male_opn1lw_coverage_pass
             || self.settings.allow_low_coverage
     }
 }
