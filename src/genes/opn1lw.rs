@@ -230,6 +230,200 @@ impl Phaser {
         Ok(None)
     }
 
+    /// Phase the first two copies on each allele and report whether phasing succeeded.
+    fn phase_first_two_copies(
+        &mut self,
+        assembled_haps_renamed: &BTreeMap<vstr::VStr<'_>, String>,
+        first_copies: &Vec<String>,
+        last_copies: &Vec<String>,
+        middle_copies: &Vec<String>,
+        hap_links: &BTreeMap<String, Vec<String>>,
+        alleles: &Vec<Vec<String>>,
+        dir_links: &BTreeMap<(String, String), usize>,
+        dir_links_loose: &BTreeMap<String, BTreeMap<String, i32>>,
+    ) -> Result<(Vec<Vec<String>>, bool), DError> {
+        let sample_sex = self.settings.sample_sex;
+        // focus on first and second copies
+        let mut alleles_1st_2nd = Vec::new();
+        let mut phasing_success = false;
+        if (sample_sex == Sex::Male && first_copies.len() == 1)
+            || (sample_sex == Sex::Female && first_copies.len() == 2)
+        {
+            for hap in first_copies {
+                let hap_next = hap_links.get(hap);
+                if hap_next.is_none() {
+                    if last_copies.contains(hap) {
+                        alleles_1st_2nd.push(vec![hap.to_string()]);
+                    } else {
+                        let hap_next_loose = dir_links_loose.get(hap);
+                        if let Some(hap_next_loose_value) = hap_next_loose {
+                            if hap_next_loose_value.len() == 1 {
+                                if let Some((next_hap_name, read_count)) =
+                                    hap_next_loose_value.iter().next()
+                                {
+                                    if *read_count >= 3 {
+                                        alleles_1st_2nd
+                                            .push(vec![hap.to_string(), next_hap_name.to_string()]);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } else {
+                    let Some(hap_next_value) = hap_next else {
+                        continue;
+                    };
+                    if hap_next_value.len() == 1 {
+                        if let Some(hap_next_hap) = hap_next_value.first() {
+                            alleles_1st_2nd.push(vec![hap.to_string(), hap_next_hap.to_string()]);
+                        }
+                    }
+                }
+            }
+            // easier phasing for males as there is one allele
+            if sample_sex == Sex::Male && alleles_1st_2nd.is_empty() {
+                // The male branch requires exactly one first copy.
+                let first_copy = first_copies[0].clone();
+                let all_haps_on_this_allele = assembled_haps_renamed
+                    .values()
+                    .cloned()
+                    .collect::<Vec<String>>();
+                let allele_found = self.phase_single_allele(
+                    first_copy,
+                    all_haps_on_this_allele,
+                    last_copies,
+                    middle_copies,
+                    hap_links,
+                    alleles,
+                    dir_links,
+                    dir_links_loose,
+                )?;
+                if let Some(allele_found) = allele_found {
+                    alleles_1st_2nd.push(allele_found);
+                }
+            }
+            // for females, if one allele is completely phased and the other is not phased yet
+            if sample_sex == Sex::Female && alleles_1st_2nd.len() == 1 {
+                let mut complete_alleles = Vec::new();
+                let mut incomplete_alleles = Vec::new();
+                for each_allele in alleles {
+                    let this_allele_first_copy = each_allele
+                        .iter()
+                        .filter(|x| first_copies.contains(*x))
+                        .collect::<Vec<_>>();
+                    let this_allele_last_copy = each_allele
+                        .iter()
+                        .filter(|x| last_copies.contains(*x))
+                        .collect::<Vec<_>>();
+                    if !this_allele_first_copy.is_empty() && !this_allele_last_copy.is_empty() {
+                        complete_alleles.push(each_allele.clone());
+                    } else {
+                        incomplete_alleles.push(each_allele.clone());
+                    }
+                }
+                if complete_alleles.len() == 1 {
+                    let complete_allele = &complete_alleles[0];
+                    let other_allele_copies = assembled_haps_renamed
+                        .clone()
+                        .values()
+                        .filter(|x| !complete_allele.contains(*x))
+                        .map(|x| x.to_string())
+                        .collect::<Vec<_>>();
+                    let other_first_copy = first_copies
+                        .iter()
+                        .filter(|x| !complete_allele.contains(*x))
+                        .map(|x| x.to_string())
+                        .collect::<Vec<_>>();
+                    let other_last_copy = last_copies
+                        .iter()
+                        .filter(|x| !complete_allele.contains(*x))
+                        .map(|x| x.to_string())
+                        .collect::<Vec<_>>();
+                    log::debug!(
+                        "OPN1LW other-allele copy candidates: first={other_first_copy:?}, last={other_last_copy:?}, all={other_allele_copies:?}"
+                    );
+                    if other_first_copy.len() == 1 && other_last_copy.len() == 1 {
+                        let allele_found = self.phase_single_allele(
+                            other_first_copy
+                                .first()
+                                .map(ToString::to_string)
+                                .unwrap_or_default(),
+                            other_allele_copies,
+                            &other_last_copy,
+                            middle_copies,
+                            hap_links,
+                            &incomplete_alleles,
+                            dir_links,
+                            dir_links_loose,
+                        )?;
+                        if let Some(allele_found) = allele_found {
+                            alleles_1st_2nd.push(allele_found);
+                        }
+                    }
+                }
+            }
+
+            // qc alleles_1st_2nd
+            if sample_sex == Sex::Male {
+                if alleles_1st_2nd.len() == 1 {
+                    let allele = &alleles_1st_2nd[0];
+                    if Self::check_allele(allele) {
+                        phasing_success = true;
+                    }
+                } else if alleles_1st_2nd.is_empty() {
+                    let first_copy = first_copies[0].clone();
+                    alleles_1st_2nd.push(vec![first_copy.clone(), String::from("Unknown")]);
+                }
+            } else if sample_sex == Sex::Female {
+                if alleles_1st_2nd.len() == 2 {
+                    let first_allele = &alleles_1st_2nd[0];
+                    let second_allele = &alleles_1st_2nd[1];
+                    let shared_haplotype =
+                        first_allele.iter().any(|hap| second_allele.contains(hap));
+                    if Self::check_allele(first_allele)
+                        && Self::check_allele(second_allele)
+                        && !shared_haplotype
+                    {
+                        phasing_success = true;
+                    }
+                    if shared_haplotype {
+                        alleles_1st_2nd.clear();
+                    }
+                } else if alleles_1st_2nd.len() == 1 {
+                    let first_hap_not_in_allele = first_copies
+                        .iter()
+                        .filter(|hap| !alleles_1st_2nd[0].contains(hap))
+                        .collect::<Vec<_>>();
+                    if first_hap_not_in_allele.len() == 1 {
+                        alleles_1st_2nd.push(vec![
+                            first_hap_not_in_allele[0].clone(),
+                            String::from("Unknown"),
+                        ]);
+                    }
+                } else if alleles_1st_2nd.is_empty() {
+                    for hap in first_copies {
+                        alleles_1st_2nd.push(vec![hap.clone(), String::from("Unknown")]);
+                    }
+                }
+            }
+        }
+        Ok((alleles_1st_2nd, phasing_success))
+    }
+
+    fn check_allele(allele: &[String]) -> bool {
+        let allele_contains_unknown = allele
+            .iter()
+            .any(|hap| hap.to_ascii_lowercase().contains("unknown"));
+        if !allele_contains_unknown && allele.len() == 2 {
+            let first_in_allele = allele.first().unwrap();
+            let second_in_allele = allele.last().unwrap();
+            if first_in_allele != second_in_allele {
+                return true;
+            }
+        }
+        false
+    }
+
     pub fn run_opn1lw(&mut self) -> Result<GeneCall, DError> {
         // Initial setup:
         // S1: Get local region.
@@ -335,13 +529,9 @@ impl Phaser {
                 renamed_hap = format!("{mod_gene_name}_opnunknownhap{}", counter_unknown);
             }
             renamed_haps.insert(hap_name, renamed_hap.clone());
-            let hap_seq_first_base = hap_seq.first().ok_or_else(|| {
-                crate::phaser::Exception::new(format!(
-                    "Haplotype sequence for '{}' is unexpectedly empty",
-                    hap_name
-                ))
-            })?;
-            if *hap_seq_first_base != b'x' && *hap_seq_first_base != b'0' {
+
+            let clip_5p = self.get_5pclip_from_hap(hap_seq)?;
+            if clip_5p == Some(0) {
                 first_copies.push(renamed_hap.clone());
             }
             let has_last_copy_variant = last_copy_indices
@@ -405,151 +595,21 @@ impl Phaser {
         let mut alleles = allele_result.raw_alleles;
         // do not look for two-copy haplotypes for now
         call.total_cn = Some(assembled_haps_renamed.len() as i32);
-        let sample_sex = self.settings.sample_sex;
         // incorrect phasing suggests haplotypes with cn > 1
         if self.all_haps_phased_onto_one_allele(&alleles, &assembled_haps_renamed)? {
             alleles = vec![];
             call.total_cn = None;
         }
-        // focus on first and second copies
-        let mut alleles_1st_2nd = Vec::new();
-        let mut phasing_success = false;
-        if (sample_sex == Sex::Male && first_copies.len() == 1)
-            || (sample_sex == Sex::Female && first_copies.len() == 2)
-        {
-            for hap in &first_copies {
-                let hap_next = hap_links.get(hap);
-                if hap_next.is_none() {
-                    if last_copies.contains(hap) {
-                        alleles_1st_2nd.push(vec![hap.to_string()]);
-                    } else {
-                        let hap_next_loose = dir_links_loose.get(hap);
-                        if let Some(hap_next_loose_value) = hap_next_loose {
-                            if hap_next_loose_value.len() == 1 {
-                                if let Some((next_hap_name, read_count)) =
-                                    hap_next_loose_value.iter().next()
-                                {
-                                    if *read_count >= 3 {
-                                        alleles_1st_2nd
-                                            .push(vec![hap.to_string(), next_hap_name.to_string()]);
-                                    }
-                                }
-                            }
-                        }
-                    }
-                } else {
-                    let Some(hap_next_value) = hap_next else {
-                        continue;
-                    };
-                    if hap_next_value.len() == 1 {
-                        if let Some(hap_next_hap) = hap_next_value.first() {
-                            alleles_1st_2nd.push(vec![hap.to_string(), hap_next_hap.to_string()]);
-                        }
-                    }
-                }
-            }
-            // easier phasing for males as there is one allele
-            if sample_sex == Sex::Male && alleles_1st_2nd.is_empty() {
-                let Some(first_copy) = first_copies.first().map(ToString::to_string) else {
-                    return Ok(call);
-                };
-                let all_haps_on_this_allele = assembled_haps_renamed
-                    .values()
-                    .cloned()
-                    .collect::<Vec<String>>();
-                let allele_found = self.phase_single_allele(
-                    first_copy,
-                    all_haps_on_this_allele,
-                    &last_copies,
-                    &middle_copies,
-                    &hap_links,
-                    &alleles,
-                    &dir_links,
-                    &dir_links_loose,
-                )?;
-                if let Some(allele_found) = allele_found {
-                    alleles_1st_2nd.push(allele_found);
-                }
-            }
-            // for females, if one allele is completely phased and the other is not phased yet
-            if sample_sex == Sex::Female && alleles_1st_2nd.len() == 1 {
-                let mut complete_alleles = Vec::new();
-                let mut incomplete_alleles = Vec::new();
-                for each_allele in &alleles {
-                    let this_allele_first_copy = each_allele
-                        .iter()
-                        .filter(|x| first_copies.contains(*x))
-                        .collect::<Vec<_>>();
-                    let this_allele_last_copy = each_allele
-                        .iter()
-                        .filter(|x| last_copies.contains(*x))
-                        .collect::<Vec<_>>();
-                    if !this_allele_first_copy.is_empty() && !this_allele_last_copy.is_empty() {
-                        complete_alleles.push(each_allele.clone());
-                    } else {
-                        incomplete_alleles.push(each_allele.clone());
-                    }
-                }
-                if complete_alleles.len() == 1 {
-                    let Some(complete_allele) = complete_alleles.first() else {
-                        return Ok(call);
-                    };
-                    let other_allele_copies = assembled_haps_renamed
-                        .clone()
-                        .values()
-                        .filter(|x| !complete_allele.contains(*x))
-                        .map(|x| x.to_string())
-                        .collect::<Vec<_>>();
-                    let other_first_copy = first_copies
-                        .iter()
-                        .filter(|x| !complete_allele.contains(*x))
-                        .map(|x| x.to_string())
-                        .collect::<Vec<_>>();
-                    let other_last_copy = last_copies
-                        .iter()
-                        .filter(|x| !complete_allele.contains(*x))
-                        .map(|x| x.to_string())
-                        .collect::<Vec<_>>();
-                    log::debug!(
-                        "OPN1LW other-allele copy candidates: first={other_first_copy:?}, last={other_last_copy:?}, all={other_allele_copies:?}"
-                    );
-                    if other_first_copy.len() == 1 && other_last_copy.len() == 1 {
-                        let allele_found = self.phase_single_allele(
-                            other_first_copy
-                                .first()
-                                .map(ToString::to_string)
-                                .unwrap_or_default(),
-                            other_allele_copies,
-                            &other_last_copy,
-                            &middle_copies,
-                            &hap_links,
-                            &incomplete_alleles,
-                            &dir_links,
-                            &dir_links_loose,
-                        )?;
-                        if let Some(allele_found) = allele_found {
-                            alleles_1st_2nd.push(allele_found);
-                        }
-                    }
-                }
-            }
-            if (sample_sex == Sex::Male && alleles_1st_2nd.len() == 1)
-                || (sample_sex == Sex::Female && alleles_1st_2nd.len() == 2)
-            {
-                // phasing success is defined as the first two copies being phased on each allele
-                phasing_success = true;
-            } else {
-                for hap in &first_copies {
-                    let hap_in_allele = alleles_1st_2nd
-                        .iter()
-                        .map(|x| x.contains(hap))
-                        .collect::<Vec<_>>();
-                    if !hap_in_allele.contains(&true) {
-                        alleles_1st_2nd.push(vec![hap.clone(), String::from("Unknown")]);
-                    }
-                }
-            }
-        }
+        let (alleles_1st_2nd, phasing_success) = self.phase_first_two_copies(
+            &assembled_haps_renamed,
+            &first_copies,
+            &last_copies,
+            &middle_copies,
+            &hap_links,
+            &alleles,
+            &dir_links,
+            &dir_links_loose,
+        )?;
 
         let mut annotated_alleles = Vec::new();
         for each_allele in &alleles_1st_2nd {
@@ -761,6 +821,55 @@ mod tests {
         assert_eq!(phaser.call_exon3(b"1222222").unwrap(), "XIVVS");
         phaser.het_sites.remove(3);
         assert_eq!(phaser.call_exon3(b"122222").unwrap(), "XXVVS");
+    }
+
+    #[test]
+    fn first_two_copies_reject_unknown_names_and_shared_haplotypes() {
+        let outdir = tempfile::TempDir::new().expect("tempdir should build");
+        let mut phaser = build_test_phaser(outdir.path());
+        for (sex, next_copies, expected_success, expected_empty) in [
+            (Sex::Male, vec!["h2"], true, false),
+            (Sex::Male, vec!["opn1lw_opnunknownhap1"], false, false),
+            (Sex::Male, vec!["Unknown"], false, false),
+            (Sex::Female, vec!["h2", "h4"], true, false),
+            (Sex::Female, vec!["h2", "opnunknownhap1"], false, false),
+            (Sex::Female, vec!["h2", "h2"], false, true),
+            (Sex::Female, vec!["h3", "h4"], false, true),
+        ] {
+            phaser.settings.sample_sex = sex;
+            let first_copies: Vec<String> = if sex == Sex::Male {
+                vec!["h1".into()]
+            } else {
+                vec!["h1".into(), "h3".into()]
+            };
+            let expected_alleles: Vec<Vec<String>> = first_copies
+                .iter()
+                .zip(&next_copies)
+                .map(|(first, next)| vec![first.clone(), (*next).into()])
+                .collect();
+            let hap_links = expected_alleles
+                .iter()
+                .map(|allele| (allele[0].clone(), vec![allele[1].clone()]))
+                .collect();
+            let (alleles, success) = phaser
+                .phase_first_two_copies(
+                    &BTreeMap::new(),
+                    &first_copies,
+                    &vec![],
+                    &vec![],
+                    &hap_links,
+                    &vec![],
+                    &BTreeMap::new(),
+                    &BTreeMap::new(),
+                )
+                .expect("phasing should succeed");
+            assert_eq!(success, expected_success, "{sex:?}: {next_copies:?}");
+            if expected_empty {
+                assert!(alleles.is_empty(), "{sex:?}: {next_copies:?}");
+            } else {
+                assert_eq!(alleles, expected_alleles, "{sex:?}: {next_copies:?}");
+            }
+        }
     }
 
     #[test]
