@@ -6,7 +6,7 @@ use crate::phaser::Phaser;
 use crate::toolkit::site_selection::CandidateSite;
 use crate::toolkit::util::DError;
 use itertools::{intersperse, Itertools};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::str::FromStr;
 
 fn opn1_gene_from_pivots(hap: &[u8], pivot_indices: &[Option<usize>]) -> &'static str {
@@ -414,12 +414,9 @@ impl Phaser {
         let allele_contains_unknown = allele
             .iter()
             .any(|hap| hap.to_ascii_lowercase().contains("unknown"));
-        if !allele_contains_unknown && allele.len() == 2 {
-            let first_in_allele = allele.first().unwrap();
-            let second_in_allele = allele.last().unwrap();
-            if first_in_allele != second_in_allele {
-                return true;
-            }
+        let allele_set = allele.iter().collect::<HashSet<_>>();
+        if !allele_contains_unknown && allele_set.len() == allele.len() {
+            return true;
         }
         false
     }

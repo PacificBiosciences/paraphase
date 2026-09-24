@@ -902,17 +902,17 @@ impl Phaser {
                     )
                 })
                 .collect();
-            call.final_haplotypes = assembled_haps
-                .clone()
-                .into_iter()
-                .map(|(k, v)| (k.to_string(), v))
-                .collect::<BTreeMap<_, _>>();
             call.haplotype_details = std::mem::take(&mut call.haplotype_details)
                 .into_iter()
                 .map(|(hap_name, hap_info)| (rename(&hap_name), hap_info))
                 .collect();
         }
 
+        // Report assembled haplotypes even when allele phasing could not rename them.
+        call.final_haplotypes = assembled_haps
+            .into_iter()
+            .map(|(hap_sequence, hap_name)| (hap_sequence.to_string(), hap_name))
+            .collect();
         call.two_copy_haplotypes = two_cp_haplotypes;
         call.region_specific_info.insert(
             String::from("alleles_final"),
