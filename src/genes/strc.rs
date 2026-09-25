@@ -90,14 +90,39 @@ impl Phaser {
             intersperse(self.gene_name().split_terminator('-'), ",").collect::<String>();
         let mut counter_gene = 0;
         let mut counter_pseudo = 0;
-        for hap in main_haps_clone.iter() {
-            if hap.contains(&b'3') {
-                counter_pseudo += 1;
-                assembled_haps.insert(
-                    hap.vstr(),
-                    format!("{mod_gene_name}_strcp1hap{}", counter_pseudo),
-                );
-            } else {
+        let mut counter_unknown = 0;
+        let deletion_index = self.del_data.first().and_then(|deletion| {
+            let deletion_name = deletion.name();
+            self.het_sites
+                .iter()
+                .position(|site| site.to_string() == deletion_name)
+        });
+        if let Some(deletion_index) = deletion_index {
+            for hap in main_haps_clone.iter() {
+                let hap_deletion_site = &hap[deletion_index];
+                if hap_deletion_site == &b'x' {
+                    counter_unknown += 1;
+                    assembled_haps.insert(
+                        hap.vstr(),
+                        format!("{mod_gene_name}_unknownhap{}", counter_unknown),
+                    );
+                } else if hap_deletion_site == &b'3' {
+                    counter_pseudo += 1;
+                    assembled_haps.insert(
+                        hap.vstr(),
+                        format!("{mod_gene_name}_strcp1hap{}", counter_pseudo),
+                    );
+                } else {
+                    counter_gene += 1;
+                    assembled_haps.insert(
+                        hap.vstr(),
+                        format!("{mod_gene_name}_strchap{}", counter_gene),
+                    );
+                }
+            }
+        } else {
+            // did not find the deletion, then all copies are strc
+            for hap in main_haps_clone.iter() {
                 counter_gene += 1;
                 assembled_haps.insert(
                     hap.vstr(),
@@ -130,6 +155,7 @@ impl Phaser {
             && counter_gene == 1
             && counter_pseudo == 1
             && two_cp_haps.is_empty()
+            && counter_unknown == 0
         {
             two_cp_haps = assembled_haps.values().cloned().collect::<Vec<_>>();
         } else if two_cp_haps.is_empty() && counter_gene == 1 && counter_pseudo > 1 {
@@ -137,14 +163,14 @@ impl Phaser {
                 self.compare_depth_by_read_count(&assembled_haps, &phase_results, 0.15, &[]);
             two_cp_haps = two_cp_haps
                 .iter()
-                .filter(|x| !x.contains("strcp1"))
+                .filter(|x| x.contains("_strchap"))
                 .cloned()
                 .collect::<Vec<_>>();
         }
         for hap in &two_cp_haps {
-            if hap.contains("strcp1") {
+            if hap.contains("_strcp1hap") {
                 counter_pseudo += 1;
-            } else {
+            } else if hap.contains("_strchap") {
                 counter_gene += 1;
             }
         }
@@ -152,6 +178,9 @@ impl Phaser {
         let total_cn = assembled_haps.len() + two_cp_haps.len();
         call.total_cn = Some(total_cn as i32);
         let mut gene_cn = Some(counter_gene);
+        if counter_unknown > 0 {
+            gene_cn = None;
+        }
         call.two_copy_haplotypes = two_cp_haps;
         // check depth between STRC and pseudogene
         if let Some(depth) = self.settings.depth.as_ref() {

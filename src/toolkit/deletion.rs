@@ -19,7 +19,7 @@ impl std::default::Default for BigDeletionSettings {
             min_size: 5000,
             min_count: 3,
             padding: 50,
-            min_extend: 1000,
+            min_extend: 500,
             min_clip_len: 300,
             padding_negative_reads: 300,
         }

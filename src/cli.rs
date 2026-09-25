@@ -1,4 +1,4 @@
-use crate::toolkit::util::FULL_VERSION;
+use crate::{depth::Sex, toolkit::util::FULL_VERSION};
 use chrono::Datelike;
 use clap::Parser;
 use std::path::{Path, PathBuf};
@@ -23,7 +23,7 @@ pub struct Settings {
     #[clap(required = true)]
     #[clap(short = 'b')]
     #[clap(long = "bam")]
-    #[clap(help = "BAM file with aligned HiFi reads")]
+    #[clap(help = "BAM or CRAM file with aligned HiFi reads")]
     #[clap(value_name = "BAM")]
     #[arg(value_parser = check_file_exists)]
     pub bam: PathBuf,
@@ -45,8 +45,17 @@ pub struct Settings {
 
     #[clap(short, long)]
     #[clap(help = "Prefix of output files for a single sample.\n\
-If not provided, prefix is extracted from the header of the input BAM.")]
+If not provided, prefix is extracted from the header of the input BAM/CRAM.")]
     pub prefix: Option<String>,
+
+    #[clap(long = "file-prefix")]
+    #[clap(default_value = "paraphase")]
+    #[clap(
+        help = "Customize the fixed output label used in generated file and directory names.\n\
+This replaces the default `paraphase` portion in outputs such as `.paraphase.bam`,\n\
+`.paraphase.json`, and `_paraphase_vcfs`."
+    )]
+    pub file_prefix: String,
 
     #[clap(long, short, default_value = "")]
     #[clap(
@@ -66,7 +75,7 @@ By default paraphase uses the config file in data/38/config.yaml."
 
     #[clap(long = "genome")]
     #[clap(
-        help = "Optionally specify which genome reference build the input BAM files are aligned against.\n\
+        help = "Optionally specify which genome reference build the input BAM/CRAM files are aligned against.\n\
 Accepted values are 19, 37, chm13, and 38."
     )]
     #[clap(default_value = "38")]
@@ -118,6 +127,9 @@ By default, for SMN1, PMS2, STRC, NCF1, and IKBKG, haplotypes are assigned to ge
 paralog/pseudogene, and variants are called against gene or paralog/pseudogene, respectively."
     )]
     pub gene1only: bool,
+
+    #[clap(long, value_enum, hide = true)]
+    pub sex: Option<Sex>,
 
     #[cfg(feature = "pprof")]
     #[clap(help_heading("Advanced"))]
@@ -192,5 +204,29 @@ fn threads_in_range(s: &str) -> Result<usize> {
         Ok(thread)
     } else {
         Err("Number of threads must be at least 1".into())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn parses_hidden_sex_override() {
+        let manifest = concat!(env!("CARGO_MANIFEST_DIR"), "/Cargo.toml");
+        let settings = Settings::try_parse_from([
+            "paraphase",
+            "--bam",
+            manifest,
+            "--reference",
+            manifest,
+            "--out",
+            "out",
+            "--sex",
+            "female",
+        ])
+        .unwrap();
+
+        assert_eq!(settings.sex, Some(Sex::Female));
     }
 }

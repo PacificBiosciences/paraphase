@@ -40,7 +40,10 @@ pub fn run(args: Settings) -> DResult {
     let depth = compute_depth_result(&args)?;
 
     log::debug!("Genome depth: {depth:?}");
-    let sample_sex = depth.sex;
+    let sample_sex = args.sex.unwrap_or(depth.sex);
+    if let Some(sex) = args.sex {
+        log::info!("Using user-specified sample sex: {sex}");
+    }
     let genome_depth = depth_for_correction(depth, args.targeted);
 
     let sample = resolve_sample_name(&args);

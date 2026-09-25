@@ -651,6 +651,13 @@ impl<'a> VcfWriter<'a> {
         let gene1_output_bam = self.phaser.realigned_tagged_bam_path();
         let bam_reader = bam::IndexedReader::from_path(gene1_output_bam)?;
 
+        let mut final_haplotypes = self
+            .call
+            .final_haplotypes
+            .values()
+            .cloned()
+            .collect::<Vec<String>>();
+        final_haplotypes.sort();
         let hap_variant_info: Vec<HapVariantInfo> = if !self
             .phaser
             .gene_config()
@@ -658,9 +665,11 @@ impl<'a> VcfWriter<'a> {
             .contains(self.phaser.gene_name())
             || self.gene1only
         {
-            vec![self.get_variants_for_vcf(&self.call.final_haplotypes, false, false)?]
+            vec![self.get_variants_for_vcf(&final_haplotypes, false, false)?]
         } else {
-            let (gene1_haps, gene2_haps) = self.separate_two_genes();
+            let (mut gene1_haps, mut gene2_haps) = self.separate_two_genes();
+            gene1_haps.sort();
+            gene2_haps.sort();
             let hap_variant_info_gene1 = self.get_variants_for_vcf(&gene1_haps, true, false)?;
             let hap_variant_info_gene2 = self.get_variants_for_vcf(&gene2_haps, true, true)?;
             let hap_variant_info_gene1_pos = hap_variant_info_gene1
@@ -705,13 +714,13 @@ impl<'a> VcfWriter<'a> {
     /// two-copy expansion and the homozygous fallback shape.
     fn build_hap_info(
         &self,
-        final_haplotypes: &BTreeMap<String, String>,
+        final_haplotypes: &Vec<String>,
         two_cp_haplotypes: &[String],
         is_gene2: bool,
         match_range: bool,
     ) -> Result<Vec<HapBoundForVcf>, DError> {
         let mut hap_info = Vec::new();
-        for hap_name in final_haplotypes.values() {
+        for hap_name in final_haplotypes {
             let hap_boundaries = self.get_hap_bound(hap_name, match_range)?;
             hap_info.push(hap_boundaries.clone());
             if two_cp_haplotypes.contains(hap_name) {
@@ -752,7 +761,7 @@ impl<'a> VcfWriter<'a> {
     /// Prepare variants for each haplotype. Consider gene1/gene2 scenarios.
     pub(super) fn get_variants_for_vcf(
         &self,
-        final_haplotypes: &BTreeMap<String, String>,
+        final_haplotypes: &Vec<String>,
         is_gene2: bool,
         match_range: bool,
     ) -> Result<HapVariantInfo, DError> {
@@ -828,7 +837,7 @@ impl<'a> VcfWriter<'a> {
 
         // boundary information for each haplotype
         let two_cp_haplotypes = final_haplotypes
-            .values()
+            .iter()
             .filter(|x| self.call.two_copy_haplotypes.contains(*x))
             .map(|x| x.to_string())
             .collect::<Vec<_>>();
@@ -895,7 +904,7 @@ impl<'a> VcfWriter<'a> {
             variants_info.entry(pos).or_insert(empty_vec.clone());
         }
         let mut hap_index = 0;
-        for hap_name in final_haplotypes.values() {
+        for hap_name in final_haplotypes {
             hap_index += 1;
             let hap_bound = hap_info.get(hap_index - 1).ok_or_else(|| {
                 Exception::new(format!(
@@ -1097,41 +1106,41 @@ impl<'a> VcfWriter<'a> {
 
     /// Get haplotypes for gene1 and gene2
     /// Split final haplotypes into gene1/gene2 groups for two-region genes.
-    fn separate_two_genes(&self) -> (BTreeMap<String, String>, BTreeMap<String, String>) {
+    fn separate_two_genes(&self) -> (Vec<String>, Vec<String>) {
         let all_haplotypes = &self.call.final_haplotypes.clone();
-        let mut gene1_haps = BTreeMap::new();
-        let mut gene2_haps = BTreeMap::new();
+        let mut gene1_haps = Vec::new();
+        let mut gene2_haps = Vec::new();
         let gene_name = self.phaser.gene_name();
         if gene_name == "smn1" {
-            for (hap, hap_name) in all_haplotypes {
+            for hap_name in all_haplotypes.values() {
                 if hap_name.contains("smn1hap") {
-                    gene1_haps.insert(hap.to_string(), hap_name.to_string());
+                    gene1_haps.push(hap_name.to_string());
                 } else {
-                    gene2_haps.insert(hap.to_string(), hap_name.to_string());
+                    gene2_haps.push(hap_name.to_string());
                 }
             }
         } else if gene_name == "pms2" {
-            for (hap, hap_name) in all_haplotypes {
+            for hap_name in all_haplotypes.values() {
                 if hap_name.contains("cl") {
-                    gene2_haps.insert(hap.to_string(), hap_name.to_string());
+                    gene2_haps.push(hap_name.to_string());
                 } else {
-                    gene1_haps.insert(hap.to_string(), hap_name.to_string());
+                    gene1_haps.push(hap_name.to_string());
                 }
             }
         } else if gene_name == "ncf1" || gene_name == "ikbkg" {
-            for (hap, hap_name) in all_haplotypes {
+            for hap_name in all_haplotypes.values() {
                 if hap_name.contains("pseudo") {
-                    gene2_haps.insert(hap.to_string(), hap_name.to_string());
+                    gene2_haps.push(hap_name.to_string());
                 } else {
-                    gene1_haps.insert(hap.to_string(), hap_name.to_string());
+                    gene1_haps.push(hap_name.to_string());
                 }
             }
         } else if gene_name == "strc" {
-            for (hap, hap_name) in all_haplotypes {
+            for hap_name in all_haplotypes.values() {
                 if hap_name.contains("strcp1") {
-                    gene2_haps.insert(hap.to_string(), hap_name.to_string());
+                    gene2_haps.push(hap_name.to_string());
                 } else {
-                    gene1_haps.insert(hap.to_string(), hap_name.to_string());
+                    gene1_haps.push(hap_name.to_string());
                 }
             }
         }

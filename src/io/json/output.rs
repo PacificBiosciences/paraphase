@@ -21,6 +21,7 @@ pub struct GeneCall {
     pub failed_for_coverage: bool,
 
     pub total_cn: Option<i32>,
+    #[serde(serialize_with = "serialize_haplotypes_by_name")]
     pub final_haplotypes: BTreeMap<String, String>,
     pub two_copy_haplotypes: Vec<String>,
     pub region_specific_info: BTreeMap<String, serde_json::Value>, // additional key-value metadata
@@ -38,6 +39,27 @@ pub struct GeneCall {
     pub read_details: BTreeMap<String, String>,
 }
 
+/// Emit sequence-to-name entries ordered by haplotype name, then sequence for ties.
+fn serialize_haplotypes_by_name<S>(
+    haplotypes: &BTreeMap<String, String>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: serde::Serializer,
+{
+    use serde::ser::SerializeMap;
+
+    let mut entries = haplotypes.iter().collect::<Vec<_>>();
+    entries.sort_by(|(seq_a, name_a), (seq_b, name_b)| {
+        name_a.cmp(name_b).then_with(|| seq_a.cmp(seq_b))
+    });
+    let mut map = serializer.serialize_map(Some(entries.len()))?;
+    for (sequence, name) in entries {
+        map.serialize_entry(sequence, name)?;
+    }
+    map.end()
+}
+
 /// Serialize per-gene calls as pretty JSON and append a trailing newline.
 ///
 /// This is the canonical JSON output writer used by the pipeline entrypoint.
@@ -52,6 +74,35 @@ pub fn write_outputs(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn write_outputs_orders_final_haplotypes_by_name() -> Result<(), DError> {
+        let haplotypes = BTreeMap::from([
+            (String::from("1111"), String::from("rccx_hap3")),
+            (String::from("1112"), String::from("rccx_hap2")),
+            (String::from("1121"), String::from("rccx_hap1")),
+            (String::from("1122"), String::from("rccx_hap2")),
+        ]);
+        let calls = BTreeMap::from([(
+            String::from("rccx"),
+            GeneCall {
+                final_haplotypes: haplotypes.clone(),
+                ..GeneCall::default()
+            },
+        )]);
+        let mut buf = Vec::new();
+        write_outputs(&calls, &mut buf)?;
+        let rendered = String::from_utf8(buf).unwrap();
+        let positions = ["1121", "1112", "1122", "1111"]
+            .map(|sequence| rendered.find(&format!("\"{sequence}\":")).unwrap());
+        assert!(positions.windows(2).all(|pair| pair[0] < pair[1]));
+        let parsed: serde_json::Value = serde_json::from_str(&rendered)?;
+        assert_eq!(
+            parsed["rccx"]["final_haplotypes"],
+            serde_json::to_value(haplotypes)?
+        );
+        Ok(())
+    }
 
     #[test]
     fn write_outputs_emits_json() -> Result<(), DError> {

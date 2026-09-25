@@ -247,9 +247,10 @@ impl Phaser {
         if total_cn == 3 {
             if let Some(depth) = self.settings.depth.as_ref() {
                 let region_median_depth = self.region_avg_depth[0].0.ceil() as i32;
-                let prob = depth_prob(region_median_depth, depth.median);
+                let genome_depth = depth.median;
+                let prob = depth_prob(region_median_depth, genome_depth / 2.0_f64);
                 if let Some(prob_value) = prob {
-                    if prob_value[2] + prob_value[3] > 0.95 {
+                    if prob_value[3] > 0.9 {
                         two_cp_haps = assembled_haps_renamed.values().cloned().collect::<Vec<_>>();
                         for hap in &two_cp_haps {
                             total_cn += 1;
@@ -292,6 +293,7 @@ impl Phaser {
                     if prob_value[0] > 0.95 && counter_gene > 1 && !two_cp_haps.is_empty() {
                         gene_cn = None;
                         call.total_cn = None;
+                        two_cp_haps = vec![];
                         total_cn_is_no_call = true;
                     }
                 }

@@ -135,6 +135,13 @@ impl Phaser {
         log::debug!(
             "Coverage stats after depth sampling: median={median}, percentile_{PERCENTILE}={percentile}; thresholds: median>8 OR percentile>=50"
         );
-        (median > 8. || percentile >= 50.) || self.settings.allow_low_coverage
+        // most seg dups on chrX/Y are in reverse orientation
+        // opn is an exception - it can be only one copy in a male and we don't want to miss that
+        let male_opn1lw_coverage_pass = self.gene_name().eq_ignore_ascii_case("opn1lw")
+            && self.settings.sample_sex == crate::depth::Sex::Male
+            && median > 4.0;
+        (median > 8. || percentile >= 50.)
+            || male_opn1lw_coverage_pass
+            || self.settings.allow_low_coverage
     }
 }

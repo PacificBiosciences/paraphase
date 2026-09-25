@@ -139,6 +139,12 @@ impl RealignSettings {
         {
             self.max_mismatch_fraction = max_mismatch_fraction;
         }
+        if let Some(min_aln) = locus_config
+            .get("min_aln")
+            .and_then(serde_yaml::Value::as_f64)
+        {
+            self.min_aln = min_aln as usize;
+        }
         self
     }
 }
@@ -404,18 +410,20 @@ pub fn seq2seq(
 pub fn align_mm2_intrinsic(
     input: &Path,
     local_realigned: &Path,
+    input_reference_path: &Path,
     reference_path: &Path,
     region_str: &[impl std::convert::AsRef<std::ffi::OsStr> + std::fmt::Debug],
     opts: (usize, Option<i32>, RealignSettings, i64),
 ) -> Result<PathBuf, DError> {
     let (_threads, chain_bandwidth, settings, ref_offset) = opts;
     log::debug!(
-        "Running intrinsic realignment: input={input:?}, output={local_realigned:?}, reference={reference_path:?}, regions={region_str:?}, options={opts:?}"
+        "Running intrinsic realignment: input={input:?}, output={local_realigned:?}, input_reference={input_reference_path:?}, reference={reference_path:?}, regions={region_str:?}, options={opts:?}"
     );
-    for (file, name) in [input, reference_path]
-        .iter()
-        .zip(["input", "reference_path"])
-    {
+    for (file, name) in [input, input_reference_path, reference_path].iter().zip([
+        "input",
+        "input_reference_path",
+        "reference_path",
+    ]) {
         if !file.exists() {
             return Err(Exception::new(format!("File {file:?} ({name}) does not exist")).into());
         }
@@ -464,7 +472,8 @@ pub fn align_mm2_intrinsic(
         "Using reference contig {seq_name} with length {} bases",
         seq.len()
     );
-    let mut reader = util::read_indexed_bam(input.display().to_string())?;
+    let mut reader =
+        util::read_indexed_bam_with_reference(input.display().to_string(), input_reference_path)?;
     let header = bam::Header::from_template(reader.header());
     let mut record = bam::Record::new();
     let mut ret = std::collections::BTreeMap::<u64, Vec<bam::Record>>::new();
@@ -842,7 +851,15 @@ mod tests {
         let regions = &["chr10:47501355-47524138", "chr10:48009452-48032211"];
         // Realign region: chr10:47501354-47524138. Subtract 1 for 0-based.
         let opts = (1, None, RealignSettings::default(), 47_501_354 - 1);
-        align_mm2_intrinsic(&external_path, &internal_path, &refseq, &regions[..], opts).unwrap();
+        align_mm2_intrinsic(
+            &external_path,
+            &internal_path,
+            &refseq,
+            &refseq,
+            &regions[..],
+            opts,
+        )
+        .unwrap();
         let external = load_all(&external_path);
         let internal = load_all(&internal_path);
         let both = [external.clone(), internal.clone()];

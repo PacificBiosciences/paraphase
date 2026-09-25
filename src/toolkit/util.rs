@@ -9,7 +9,7 @@ use itertools::Itertools;
 use petgraph::{stable_graph::NodeIndex, Direction::Outgoing};
 use rust_htslib::{bam, htslib};
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     error,
     fs::File,
     io::{BufRead, BufReader},
@@ -169,6 +169,21 @@ pub fn read_indexed_bam(
     }
 }
 
+/// Read an indexed BAM or CRAM file, attaching the reference when needed for CRAM decoding.
+///
+/// This can take a URL or a local path.
+///
+/// # Errors
+/// 1. `rust_htslib::errors::Error` if file not found, corrupted, or CRAM reference setup fails.
+pub fn read_indexed_bam_with_reference(
+    input: impl Into<String>,
+    reference: impl AsRef<Path>,
+) -> Result<bam::IndexedReader, rust_htslib::errors::Error> {
+    let mut reader = read_indexed_bam(input)?;
+    let _ = reader.set_reference(reference);
+    Ok(reader)
+}
+
 ///
 /// This comes from pysam's base-quality filtering in the pileups, which uses the next base position after a deletion.
 /// in `rust-htslib`, it returns `Option<usize>` and `None` if `is_del`.
@@ -220,13 +235,44 @@ lazy_static::lazy_static! {
 /// Build a BAM header with `@PG` metadata for this paraphase invocation.
 pub fn output_bam_header(template: &bam::HeaderView) -> bam::Header {
     let mut header = bam::Header::from_template(template);
+    let existing_pg_records = header.to_hashmap().remove("PG").unwrap_or_default();
+    let existing_pg_ids = existing_pg_records
+        .iter()
+        .filter_map(|record| record.get("ID").cloned())
+        .collect::<BTreeSet<_>>();
+    let pg_id = unique_program_id(&existing_pg_ids, env!("CARGO_PKG_NAME"));
+    let parent_pg_id = existing_pg_records
+        .iter()
+        .rev()
+        .filter(|record| {
+            record
+                .get("PN")
+                .is_some_and(|program_name| program_name == env!("CARGO_PKG_NAME"))
+        })
+        .find_map(|record| record.get("ID").cloned());
     let mut pg = bam::header::HeaderRecord::new(b"PG");
-    pg.push_tag(b"ID", env!("CARGO_PKG_NAME"));
+    pg.push_tag(b"ID", &pg_id);
     pg.push_tag(b"PN", env!("CARGO_PKG_NAME"));
     pg.push_tag(b"VN", &FULL_VERSION[..]);
     pg.push_tag(b"CL", &CLI_COMMAND[..]);
+    if let Some(parent_pg_id) = parent_pg_id {
+        pg.push_tag(b"PP", &parent_pg_id);
+    }
     header.push_record(&pg);
     header
+}
+
+fn unique_program_id(existing_ids: &BTreeSet<String>, base_id: &str) -> String {
+    if !existing_ids.contains(base_id) {
+        return base_id.to_string();
+    }
+    for suffix in 1.. {
+        let candidate = format!("{base_id}.{suffix}");
+        if !existing_ids.contains(&candidate) {
+            return candidate;
+        }
+    }
+    unreachable!("infinite suffix search unexpectedly exhausted")
 }
 
 /// Read a bam file. This can take a url or a local path.
@@ -242,6 +288,28 @@ pub fn read_bam(input: impl AsRef<Path>) -> Result<bam::Reader, String> {
         bam::Reader::from_path(&input)
     }
     .map_err(|x| format!("Error: {x}"))
+}
+
+/// Read a BAM or CRAM file, attaching the reference when needed for CRAM decoding.
+///
+/// # Errors
+/// 1. `rust_htslib::errors::Error` if file not found, corrupted, or CRAM reference setup fails.
+pub fn read_bam_with_reference(
+    input: impl AsRef<Path>,
+    reference: impl AsRef<Path>,
+) -> Result<bam::Reader, String> {
+    let input = input.as_ref().to_string_lossy().into_owned();
+    let mut reader = if let Ok(url) = url::Url::parse(&input) {
+        bam::Reader::from_url(&url)
+    } else if input == "-" || input == "/dev/stdin" {
+        bam::Reader::from_stdin()
+    } else {
+        bam::Reader::from_path(&input)
+    }
+    .map_err(|x| format!("Error: {x}"))?;
+
+    let _ = reader.set_reference(reference);
+    Ok(reader)
 }
 
 /// Count records in a bam file.
@@ -283,12 +351,24 @@ pub fn sample_names(view: &bam::Header) -> BTreeMap<String, Vec<String>> {
 }
 
 #[must_use]
-/// Load sample names from a BAM path by reading its header.
+/// Load sample names from a BAM or CRAM path by reading its header.
 ///
-/// Returns `None` when the BAM cannot be opened.
+/// Returns `None` when the input cannot be opened.
 pub fn sample_names_from_input(x: &PathBuf) -> Option<BTreeMap<String, Vec<String>>> {
     use bam::Read;
     let reader = read_bam(x).ok()?;
+    Some(sample_names(&bam::Header::from_template(reader.header())))
+}
+
+/// Load sample names from a BAM or CRAM path by reading its header and attaching a reference for CRAM.
+///
+/// Returns `None` when the input cannot be opened.
+pub fn sample_names_from_input_with_reference(
+    x: &PathBuf,
+    reference: impl AsRef<Path>,
+) -> Option<BTreeMap<String, Vec<String>>> {
+    use bam::Read;
+    let reader = read_bam_with_reference(x, reference).ok()?;
     Some(sample_names(&bam::Header::from_template(reader.header())))
 }
 
@@ -515,7 +595,8 @@ impl DeletionInsensitiveCompare for vstr::VString {
 
 #[cfg(test)]
 mod tests {
-    use crate::toolkit::util::{DResult, DeletionInsensitiveCompare};
+    use crate::toolkit::util::{output_bam_header, DResult, DeletionInsensitiveCompare};
+    use rust_htslib::bam;
 
     #[test]
     fn test_config_ok() {
@@ -532,7 +613,7 @@ mod tests {
         assert!(conf.genes_to_call.is_empty());
         assert_eq!(
             conf.no_vcf_genes,
-            ["CFH", "CFHR3"]
+            ["CFH", "CFHR3", "CLCNKB"]
                 .into_iter()
                 .map(String::from)
                 .collect::<BTreeSet<_>>()
@@ -589,5 +670,29 @@ mod tests {
         let lhs = vstr::VString::from("121x1x11");
         let rhs = vstr::VString::from("12x21000");
         assert!(lhs.same_without_dels(&rhs));
+    }
+
+    #[test]
+    fn output_bam_header_deduplicates_paraphase_pg_ids() {
+        let mut header = bam::Header::new();
+        let mut sq = bam::header::HeaderRecord::new(b"SQ");
+        sq.push_tag(b"SN", "chr1");
+        sq.push_tag(b"LN", 1000);
+        header.push_record(&sq);
+
+        let mut pg = bam::header::HeaderRecord::new(b"PG");
+        pg.push_tag(b"ID", "paraphase");
+        pg.push_tag(b"PN", "paraphase");
+        pg.push_tag(b"VN", "4.0.0");
+        header.push_record(&pg);
+
+        let updated = output_bam_header(&bam::HeaderView::from_header(&header));
+        let pg_records = updated.to_hashmap().remove("PG").unwrap_or_default();
+        let new_pg = pg_records.last().expect("missing new PG record");
+
+        assert_eq!(pg_records.len(), 2);
+        assert_eq!(new_pg.get("ID").map(String::as_str), Some("paraphase.1"));
+        assert_eq!(new_pg.get("PP").map(String::as_str), Some("paraphase"));
+        assert_eq!(new_pg.get("PN").map(String::as_str), Some("paraphase"));
     }
 }

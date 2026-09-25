@@ -147,14 +147,13 @@ opn1lw:
   genes: OPN1LW,OPN1MW,OPN1MW2,OPN1MW3,TEX28
   is_tandem: True
   use_r2k: True
-  realign_region: chrX:154140047-154182441
-  extract_regions: chrX:154144047-154294510
+  realign_region: chrX:154135000-154182441
+  extract_regions: chrX:154135000-154294510
   noisy_region: [[154165300, 154165800]]
-  left_boundary: 154144050
   right_boundary: 154182200
-  pivot_site: 154143410
+  pivot_site: 154156379
   clip_5p_positions: [154144048]
-  add_sites: ["154143410_G_A"]
+  add_sites: ["154156379_A_T", "154156402_A_G", "154182157_T_G", "154182166_A_C", "154182167_G_A", "154152987_A_C", "154153041_G_A", "154153043_G_T", "154153051_C_T", "154153062_A_G", "154153068_G_T"]
   pivot_vars: ["154156379_A_T", "154156402_A_G"]
   last_copy_vars: ["154182157_T_G", "154182166_A_C", "154182167_G_A"]
   exon3_variants: [[["154152987_A_C"], "L", "M"], [["154153041_G_A", "154153043_G_T"], "I", "V"], [["154153051_C_T"], "V", "A"], [["154153062_A_G"], "V", "I"], [["154153068_G_T"], "S", "A"]]
@@ -176,6 +175,7 @@ TNXB:
   extract_regions: chr6:32008265-32013273 chr6:32041000-32109500
   clip_3p_positions: [32046127]
   noisy_region: [[32067074, 32067190]]
+  call_gene2: 3p
 SSX2: 
   genes: SSX2,SSX2B
   is_tandem: True
@@ -361,6 +361,7 @@ CHRNA7:
   pivot_site: 32170860
   clip_5p_positions: [32153206]
   noisy_region: [[32114013, 32114163]]
+  call_gene2: 5p
 CNTNAP3:
   genes: CNTNAP3,CNTNAP3C
   realign_region: chr9:39162500-39288814
@@ -743,6 +744,7 @@ OTOA:
   clip_5p_positions: [21729043]
   noisy_region: [[21714191, 21714531]]
   pivot_site: 21753214
+  call_gene2: 5p
 PABPC1L2A:
   genes: PABPC1L2A,PABPC1L2B
   realign_region: chrX:73068394-73088394
@@ -1309,6 +1311,30 @@ CATSPER2:
   genes: CATSPER2
   check_nm: 0.1
   use_r2k: True
-  realign_region: chr15:43628003-43649344
+  realign_region: chr15:43627000-43651000
   extract_regions: chr15:43628003-43649344 chr15:43724356-43746769
-  noisy_region: [[43630367, 43630567], [43636385, 43636785], [43638425, 43638825]]
+  gene2_region: chr15:43724356-43746769
+  noisy_region: [[43630367, 43630567], [43636385, 43636785], [43638425, 43638825], [43642185, 43642250], [43643582, 43643584]]
+  clip_5p_positions: [43628038]
+  clip_3p_positions: [43649971]
+  call_fusion: 5p
+CLCNKB:
+  genes: CLCNKB,CLCNKA
+  realign_region: chr1:16053000-16061500
+  extract_regions: chr1:16031458-16037853 chr1:16053387-16061110
+  gene2_region: chr1:16031458-16037853
+  check_nm: 0.1
+  clip_5p_positions: [16055386]
+  clip_3p_positions: [16061110]
+  noisy_region: [[16055400, 16056000], [16060800, 16061020]]
+  is_tandem: True
+  call_fusion: 3p
+TPSAB1:
+  genes: TPSAB1,TPSB2
+  realign_region: chr16:1238815-1246500
+  extract_regions: chr16:1225000-1258000
+  check_nm: 0.1
+  is_tandem: True
+  clip_5p_positions: [1239042]
+  clip_3p_positions: [1241731, 1245200]
+  noisy_region: [[1239820, 1239930]]

@@ -50,6 +50,7 @@ impl Phaser {
         align_mm2_intrinsic(
             &self.genome_bam_path(),
             &local_bam,
+            &self.settings.genome_reference,
             &local_ref,
             &regions_to_extract_view,
             opts,
@@ -76,6 +77,7 @@ impl Phaser {
             align_mm2_intrinsic(
                 &self.genome_bam_path(),
                 &secondary_bam,
+                &self.settings.genome_reference,
                 &secondary_ref,
                 &regions_to_extract_view,
                 opts,
@@ -387,6 +389,74 @@ impl Phaser {
         }
     }
 
+    fn apply_gene2_step_if_enabled<'a>(
+        &mut self,
+        assembled_haps: BTreeMap<VStr<'a>, String>,
+    ) -> Result<(BTreeMap<VStr<'a>, String>, bool), DError> {
+        if let Some(gene2_clip_side) = self.config.locus.call_gene2() {
+            let assembled_haps_renamed =
+                self.call_gene2(&assembled_haps, gene2_clip_side.to_string())?;
+            Ok((assembled_haps_renamed, true))
+        } else {
+            Ok((assembled_haps, false))
+        }
+    }
+
+    /// Identify and rename haplotypes belonging to the configured secondary gene based on clips
+    fn call_gene2<'a>(
+        &mut self,
+        assembled_haps: &BTreeMap<VStr<'a>, String>,
+        gene2_clip_side: String,
+    ) -> Result<BTreeMap<VStr<'a>, String>, DError> {
+        let mut assembled_haps_renamed = BTreeMap::new();
+        let mut gene1_count = 0;
+        let mut gene2_count = 0;
+        let mut unknown_count = 0;
+        let gene_name = self.gene_name();
+        for (hap, _hap_name) in assembled_haps.iter() {
+            if gene2_clip_side == "3p" {
+                let clip_3p = self.get_3pclip_from_hap(hap)?;
+                if let Some(clip_3p_value) = clip_3p {
+                    if self.clip_3p_positions.contains(&clip_3p_value) {
+                        gene2_count += 1;
+                        assembled_haps_renamed
+                            .insert(*hap, format!("{gene_name}_gene2hap{gene2_count}"));
+                    } else {
+                        gene1_count += 1;
+                        assembled_haps_renamed
+                            .insert(*hap, format!("{gene_name}_gene1hap{gene1_count}"));
+                    }
+                } else {
+                    unknown_count += 1;
+                    assembled_haps_renamed
+                        .insert(*hap, format!("{gene_name}_unknownhap{unknown_count}"));
+                }
+            } else if gene2_clip_side == "5p" {
+                let clip_5p = self.get_5pclip_from_hap(hap)?;
+                if let Some(clip_5p_value) = clip_5p {
+                    if self.clip_5p_positions.contains(&clip_5p_value) {
+                        gene2_count += 1;
+                        assembled_haps_renamed
+                            .insert(*hap, format!("{gene_name}_gene2hap{gene2_count}"));
+                    } else {
+                        gene1_count += 1;
+                        assembled_haps_renamed
+                            .insert(*hap, format!("{gene_name}_gene1hap{gene1_count}"));
+                    }
+                } else {
+                    unknown_count += 1;
+                    assembled_haps_renamed
+                        .insert(*hap, format!("{gene_name}_unknownhap{unknown_count}"));
+                }
+            } else {
+                unknown_count += 1;
+                assembled_haps_renamed
+                    .insert(*hap, format!("{gene_name}_unknownhap{unknown_count}"));
+            }
+        }
+        Ok(assembled_haps_renamed)
+    }
+
     fn assign_final_haplotypes_from_assembled<'a>(
         &self,
         assembled_haps: &BTreeMap<VStr<'a>, String>,
@@ -511,6 +581,8 @@ impl Phaser {
         let assembled_haps = self.build_assembled_haplotypes(main_haps_clone.iter());
         let (assembled_haps, fusion_call_step) =
             self.apply_fusion_step_if_enabled(assembled_haps, &mut call)?;
+        let (assembled_haps, _gene2_call_step) =
+            self.apply_gene2_step_if_enabled(assembled_haps)?;
         self.assign_final_haplotypes_from_assembled(&assembled_haps, &mut call);
         let haps = self.assign_haplotype_details_from_phase(
             &phase_results,
@@ -529,5 +601,113 @@ impl Phaser {
 
         self.fill_in_call(phase_results, &mut call);
         Ok(call)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::config;
+    use crate::phaser;
+    use crate::toolkit::util;
+
+    fn build_test_phaser() -> Option<Phaser> {
+        let outdir = tempfile::TempDir::new().expect("tempdir should build");
+        let Some(genome_path) = std::env::var("HG38")
+            .ok()
+            .map(|path| path.trim_end_matches(".mmi").to_string())
+        else {
+            log::warn!(
+                "Skipping call_gene2 test because the HG38 environment variable is not configured."
+            );
+            return None;
+        };
+        let settings = phaser::Settings::new(
+            "HG00733",
+            (genome_path, util::test_file("bams/HG00733.smn1.bam")),
+            outdir.path(),
+            "smn1",
+            &config::Region::try_load(None).expect("region config should load"),
+            None,
+            None,
+            String::from("38"),
+            None,
+            0.03,
+            false,
+        );
+        let gene_config = config::Gene::try_load(None).expect("gene config should load");
+        Some(Phaser::new(settings, Some(gene_config), None, None).expect("phaser should build"))
+    }
+
+    fn configure_clip_sites(phaser: &mut Phaser, clip_side: &str) {
+        phaser.het_sites = vec![
+            CandidateSite::new(100, String::from("A"), String::from("C")),
+            CandidateSite::new(200, String::from("G"), String::from("T")),
+            CandidateSite::new(300, String::from("A"), String::from("C")),
+        ];
+        if clip_side == "3p" {
+            phaser.clip_3p_positions = vec![250];
+        } else {
+            phaser.clip_5p_positions = vec![150];
+        }
+    }
+
+    fn clip_test_haplotypes() -> BTreeMap<VStr<'static>, String> {
+        BTreeMap::from([
+            (VStr::from("120"), String::from("hap1")),
+            (VStr::from("212"), String::from("hap2")),
+            (VStr::from("100"), String::from("hap3")),
+        ])
+    }
+
+    #[test]
+    fn call_gene2_labels_haplotypes_from_3p_clips() {
+        let Some(mut phaser) = build_test_phaser() else {
+            return;
+        };
+        configure_clip_sites(&mut phaser, "3p");
+
+        let called_haps = phaser
+            .call_gene2(&clip_test_haplotypes(), String::from("3p"))
+            .expect("3p gene2 calling should succeed");
+        assert_eq!(
+            called_haps
+                .into_iter()
+                .map(|(hap, name)| (hap.to_string(), name))
+                .collect::<BTreeMap<_, _>>(),
+            BTreeMap::from([
+                (String::from("100"), String::from("smn1_unknownhap1")),
+                (String::from("120"), String::from("smn1_gene2hap1")),
+                (String::from("212"), String::from("smn1_gene1hap1")),
+            ])
+        );
+    }
+
+    #[test]
+    fn call_gene2_labels_haplotypes_from_5p_clips() {
+        let Some(mut phaser) = build_test_phaser() else {
+            return;
+        };
+        configure_clip_sites(&mut phaser, "5p");
+        let haplotypes = BTreeMap::from([
+            (VStr::from("011"), String::from("hap1")),
+            (VStr::from("121"), String::from("hap2")),
+            (VStr::from("001"), String::from("hap3")),
+        ]);
+
+        let called_haps = phaser
+            .call_gene2(&haplotypes, String::from("5p"))
+            .expect("5p gene2 calling should succeed");
+        assert_eq!(
+            called_haps
+                .into_iter()
+                .map(|(hap, name)| (hap.to_string(), name))
+                .collect::<BTreeMap<_, _>>(),
+            BTreeMap::from([
+                (String::from("001"), String::from("smn1_unknownhap1")),
+                (String::from("011"), String::from("smn1_gene2hap1")),
+                (String::from("121"), String::from("smn1_gene1hap1")),
+            ])
+        );
     }
 }

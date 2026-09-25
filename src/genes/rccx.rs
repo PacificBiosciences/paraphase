@@ -5,8 +5,116 @@ use crate::phaser::{HapInfo, HapInfoForJson};
 use crate::toolkit::site_selection::CandidateSite;
 use crate::toolkit::util::DError;
 use itertools::intersperse;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use vstr::VStr;
+
+/// Build an RCCX haplotype rename map from the finalized allele order.
+///
+/// Renumbering only applies when successful phasing produced exactly two alleles
+/// whose unique haplotypes fully cover the assembled haplotypes.
+fn rccx_haplotype_rename_map(
+    successful_phasing: bool,
+    updated_alleles: &[Vec<String>],
+    assembled_haps: &BTreeMap<VStr<'_>, String>,
+    two_cp_haplotypes: &[String],
+    gene_name: &str,
+) -> Option<BTreeMap<String, String>> {
+    if !successful_phasing || updated_alleles.len() != 2 {
+        return None;
+    }
+
+    let ordered_haps = updated_alleles
+        .iter()
+        .flatten()
+        .cloned()
+        .collect::<Vec<_>>();
+    if ordered_haps.len() != assembled_haps.len() + two_cp_haplotypes.len() {
+        return None;
+    }
+
+    let assembled_names = assembled_haps.values().collect::<BTreeSet<_>>();
+    let ordered_names = ordered_haps.iter().collect::<BTreeSet<_>>();
+    if ordered_names != assembled_names {
+        return None;
+    }
+
+    let mut rename_map = BTreeMap::new();
+    let mut index = 0;
+    for hap in &ordered_haps {
+        if !rename_map.contains_key(hap) {
+            index += 1;
+            rename_map.insert(hap.to_string(), format!("{gene_name}_hap{}", index));
+        }
+    }
+    Some(rename_map)
+}
+
+/// Reorder an RCCX allele by its configured start and end copy assignments.
+///
+/// Haplotype order is preserved within each group. A haplotype present in both
+/// boundary lists is treated as a starting copy to avoid emitting it twice.
+fn reorder_rccx_allele(
+    allele: &[String],
+    starting_copies: &[String],
+    ending_copies: &[String],
+) -> Vec<String> {
+    let reordered_allele = allele
+        .iter()
+        .filter(|hap| starting_copies.contains(*hap))
+        .chain(
+            allele
+                .iter()
+                .filter(|hap| !starting_copies.contains(*hap) && !ending_copies.contains(*hap)),
+        )
+        .chain(
+            allele
+                .iter()
+                .filter(|hap| !starting_copies.contains(*hap) && ending_copies.contains(*hap)),
+        )
+        .cloned()
+        .collect::<Vec<_>>();
+    reordered_allele
+}
+
+/// Clear RCCX allele calls when boundary copies indicate ambiguous phasing.
+fn check_wrong_allele(
+    updated_alleles: &mut Vec<Vec<String>>,
+    starting_copies: &[String],
+    ending_copies: &[String],
+    single_copies: &[String],
+) {
+    let mut wrong_allele = false;
+    if updated_alleles.len() != 2 {
+        wrong_allele = true;
+    }
+    for allele in updated_alleles.iter() {
+        let starting_hap_count = allele
+            .iter()
+            .filter(|hap| starting_copies.contains(*hap))
+            .count();
+        let ending_hap_count = allele
+            .iter()
+            .filter(|hap| ending_copies.contains(*hap))
+            .count();
+        let single_copy_count = allele
+            .iter()
+            .filter(|hap| single_copies.contains(*hap))
+            .count();
+        if starting_hap_count > 1 || ending_hap_count > 1 {
+            wrong_allele = true;
+        }
+        if single_copy_count > 0 && allele.len() > 1 {
+            wrong_allele = true;
+        }
+        if allele.is_empty() {
+            wrong_allele = true;
+        }
+    }
+    if wrong_allele {
+        log::debug!("RCCX allele phasing is ambiguous; clearing allele calls");
+        updated_alleles.clear();
+    }
+}
 
 impl Phaser {
     /// update alleles based on all info available
@@ -19,6 +127,7 @@ impl Phaser {
         single_copies: &Vec<String>,
         starting_copies: &Vec<String>,
         ending_copies: &Vec<String>,
+        haplotype_links: &BTreeMap<String, Vec<String>>,
         hcn: usize,
     ) -> Result<(bool, Vec<Vec<String>>, Vec<String>), DError> {
         let final_haps = &assembled_haps.values().cloned().collect::<Vec<String>>();
@@ -30,7 +139,6 @@ impl Phaser {
         // update the case with homozygous deletion
         if nhap == 1 && nsingle == 1 {
             two_cp_haplotypes = final_haps.clone();
-            successful_phasing = true;
             if let Some(hap) = single_copies.first() {
                 let hap = hap.to_string();
                 updated_alleles = vec![vec![hap.clone()], vec![hap.clone()]];
@@ -41,7 +149,7 @@ impl Phaser {
             if new_alleles.len() == 1 && !new_alleles.contains(single_copies) {
                 if let Some(first_allele) = new_alleles.first() {
                     if first_allele.len() == nhap - 1 {
-                        updated_alleles = vec![first_allele.to_vec(), single_copies.to_vec()];
+                        updated_alleles = vec![first_allele.clone(), single_copies.clone()];
                     } else if first_allele.len() < nhap - 1
                         && starting_copies.len() == 1
                         && ending_copies.len() == 1
@@ -74,7 +182,6 @@ impl Phaser {
                     vec![first_single.to_string()],
                     vec![second_single.to_string()],
                 ];
-                successful_phasing = true;
             }
         } else if single_copies.is_empty() {
             // homozygous, each haplotype has cn 2
@@ -84,9 +191,7 @@ impl Phaser {
                 && new_alleles.len() == 1
             {
                 two_cp_haplotypes = final_haps.clone();
-                successful_phasing = true;
                 if let Some(first_allele) = new_alleles.first() {
-                    let first_allele = first_allele.to_vec();
                     updated_alleles = vec![first_allele.clone(), first_allele.clone()];
                 }
             }
@@ -106,7 +211,95 @@ impl Phaser {
                                     vec![first_starting.to_string(), ending_copy.to_string()],
                                     vec![second_starting.to_string(), ending_copy.to_string()],
                                 ];
-                                successful_phasing = true;
+                            }
+                        } else if nhap == 4 {
+                            let middle_copies = final_haps
+                                .iter()
+                                .filter(|x| {
+                                    !ending_copies.contains(x) && !starting_copies.contains(x)
+                                })
+                                .collect::<Vec<_>>();
+                            if middle_copies.len() == 1 {
+                                let middle_copy = middle_copies.first().unwrap().to_string();
+                                if let Some(links) = haplotype_links.get(&middle_copy) {
+                                    let middle_copy_linked_starting_copies = links
+                                        .iter()
+                                        .filter(|x| starting_copies.contains(x))
+                                        .collect::<Vec<_>>();
+                                    if middle_copy_linked_starting_copies.len() == 1 {
+                                        let middle_copy_linked_starting_copy =
+                                            middle_copy_linked_starting_copies
+                                                .first()
+                                                .unwrap()
+                                                .to_string();
+                                        let other_starting_copy = starting_copies
+                                            .iter()
+                                            .filter(|x| {
+                                                !middle_copy_linked_starting_copies.contains(x)
+                                            })
+                                            .next()
+                                            .unwrap()
+                                            .to_string();
+                                        updated_alleles = vec![
+                                            vec![
+                                                middle_copy_linked_starting_copy,
+                                                middle_copy,
+                                                ending_copy.to_string(),
+                                            ],
+                                            vec![other_starting_copy, ending_copy.to_string()],
+                                        ];
+                                    }
+                                }
+                            }
+                        } else if nhap == 5 {
+                            let middle_copies = final_haps
+                                .iter()
+                                .filter(|x| {
+                                    !ending_copies.contains(x) && !starting_copies.contains(x)
+                                })
+                                .collect::<Vec<_>>();
+                            if middle_copies.len() == 2 {
+                                let first_middle_copy = middle_copies.first().unwrap().to_string();
+                                let second_middle_copy = middle_copies.last().unwrap().to_string();
+                                if let (Some(links1), Some(links2)) = (
+                                    haplotype_links.get(&first_middle_copy),
+                                    haplotype_links.get(&second_middle_copy),
+                                ) {
+                                    let first_middle_copy_linked_starting_copies = links1
+                                        .iter()
+                                        .filter(|x| starting_copies.contains(x))
+                                        .collect::<Vec<_>>();
+                                    let second_middle_copy_linked_starting_copies = links2
+                                        .iter()
+                                        .filter(|x| starting_copies.contains(x))
+                                        .collect::<Vec<_>>();
+                                    if first_middle_copy_linked_starting_copies.len() == 1
+                                        && second_middle_copy_linked_starting_copies.len() == 1
+                                    {
+                                        let first_middle_copy_linked_starting_copy =
+                                            first_middle_copy_linked_starting_copies
+                                                .first()
+                                                .unwrap()
+                                                .to_string();
+                                        let second_middle_copy_linked_starting_copy =
+                                            second_middle_copy_linked_starting_copies
+                                                .first()
+                                                .unwrap()
+                                                .to_string();
+                                        updated_alleles = vec![
+                                            vec![
+                                                first_middle_copy_linked_starting_copy,
+                                                first_middle_copy,
+                                                ending_copy.to_string(),
+                                            ],
+                                            vec![
+                                                second_middle_copy_linked_starting_copy,
+                                                second_middle_copy,
+                                                ending_copy.to_string(),
+                                            ],
+                                        ];
+                                    }
+                                }
                             }
                         }
                     }
@@ -125,7 +318,95 @@ impl Phaser {
                                     vec![starting_copy.to_string(), first_ending.to_string()],
                                     vec![starting_copy.to_string(), second_ending.to_string()],
                                 ];
-                                successful_phasing = true;
+                            }
+                        } else if nhap == 4 {
+                            let middle_copies = final_haps
+                                .iter()
+                                .filter(|x| {
+                                    !ending_copies.contains(x) && !starting_copies.contains(x)
+                                })
+                                .collect::<Vec<_>>();
+                            if middle_copies.len() == 1 {
+                                let middle_copy = middle_copies.first().unwrap().to_string();
+                                if let Some(links) = haplotype_links.get(&middle_copy) {
+                                    let middle_copy_linked_ending_copies = links
+                                        .iter()
+                                        .filter(|x| ending_copies.contains(x))
+                                        .collect::<Vec<_>>();
+                                    if middle_copy_linked_ending_copies.len() == 1 {
+                                        let middle_copy_linked_ending_copy =
+                                            middle_copy_linked_ending_copies
+                                                .first()
+                                                .unwrap()
+                                                .to_string();
+                                        let other_ending_copy = ending_copies
+                                            .iter()
+                                            .filter(|x| {
+                                                !middle_copy_linked_ending_copies.contains(x)
+                                            })
+                                            .next()
+                                            .unwrap()
+                                            .to_string();
+                                        updated_alleles = vec![
+                                            vec![
+                                                starting_copy.to_string(),
+                                                middle_copy,
+                                                middle_copy_linked_ending_copy,
+                                            ],
+                                            vec![starting_copy.to_string(), other_ending_copy],
+                                        ];
+                                    }
+                                }
+                            }
+                        } else if nhap == 5 {
+                            let middle_copies = final_haps
+                                .iter()
+                                .filter(|x| {
+                                    !ending_copies.contains(x) && !starting_copies.contains(x)
+                                })
+                                .collect::<Vec<_>>();
+                            if middle_copies.len() == 2 {
+                                let first_middle_copy = middle_copies.first().unwrap().to_string();
+                                let second_middle_copy = middle_copies.last().unwrap().to_string();
+                                if let (Some(links1), Some(links2)) = (
+                                    haplotype_links.get(&first_middle_copy),
+                                    haplotype_links.get(&second_middle_copy),
+                                ) {
+                                    let first_middle_copy_linked_ending_copies = links1
+                                        .iter()
+                                        .filter(|x| ending_copies.contains(x))
+                                        .collect::<Vec<_>>();
+                                    let second_middle_copy_linked_ending_copies = links2
+                                        .iter()
+                                        .filter(|x| ending_copies.contains(x))
+                                        .collect::<Vec<_>>();
+                                    if first_middle_copy_linked_ending_copies.len() == 1
+                                        && second_middle_copy_linked_ending_copies.len() == 1
+                                    {
+                                        let first_middle_copy_linked_ending_copy =
+                                            first_middle_copy_linked_ending_copies
+                                                .first()
+                                                .unwrap()
+                                                .to_string();
+                                        let second_middle_copy_linked_ending_copy =
+                                            second_middle_copy_linked_ending_copies
+                                                .first()
+                                                .unwrap()
+                                                .to_string();
+                                        updated_alleles = vec![
+                                            vec![
+                                                starting_copy.to_string(),
+                                                first_middle_copy,
+                                                first_middle_copy_linked_ending_copy.to_string(),
+                                            ],
+                                            vec![
+                                                starting_copy.to_string(),
+                                                second_middle_copy,
+                                                second_middle_copy_linked_ending_copy.to_string(),
+                                            ],
+                                        ];
+                                    }
+                                }
                             }
                         }
                     }
@@ -143,7 +424,7 @@ impl Phaser {
                                 .map(|x| x.to_string())
                                 .collect::<Vec<_>>();
                             if remaining_hap.len() == nhap - 2 {
-                                updated_alleles = vec![first_allele.to_vec(), remaining_hap];
+                                updated_alleles = vec![first_allele.clone(), remaining_hap];
                             }
                         }
                     }
@@ -170,7 +451,7 @@ impl Phaser {
                                             .collect::<Vec<_>>();
                                         if remaining_hap.len() == 3 {
                                             updated_alleles =
-                                                vec![first_allele.to_vec(), remaining_hap];
+                                                vec![first_allele.clone(), remaining_hap];
                                         }
                                     }
                                 }
@@ -206,8 +487,7 @@ impl Phaser {
                                         .map(|x| x.to_string())
                                         .collect::<Vec<_>>();
                                     if remaining_hap.len() == 3 {
-                                        updated_alleles =
-                                            vec![first_allele.to_vec(), remaining_hap];
+                                        updated_alleles = vec![first_allele.clone(), remaining_hap];
                                     }
                                 } else if allele2 && !allele1 {
                                     let remaining_hap = final_haps
@@ -217,7 +497,7 @@ impl Phaser {
                                         .collect::<Vec<_>>();
                                     if remaining_hap.len() == 3 {
                                         updated_alleles =
-                                            vec![second_allele.to_vec(), remaining_hap];
+                                            vec![second_allele.clone(), remaining_hap];
                                     }
                                 }
                             }
@@ -235,30 +515,12 @@ impl Phaser {
             updated_alleles
         );
         // check wrong phasing
-        let mut wrong_allele = false;
-        for allele in &updated_alleles {
-            // if both copies are starting or ending
-            if allele.len() == 2 {
-                if let (Some(first_hap), Some(second_hap)) = (allele.first(), allele.last()) {
-                    if (starting_copies.contains(first_hap) && starting_copies.contains(second_hap))
-                        || (ending_copies.contains(first_hap) && ending_copies.contains(second_hap))
-                    {
-                        wrong_allele = true;
-                    }
-                }
-            }
-            for hap in final_haps {
-                if ending_copies.contains(hap) && !two_cp_haplotypes.contains(hap) {
-                    if allele.iter().filter(|x| *x == hap).count() > 1 {
-                        wrong_allele = true;
-                    }
-                }
-            }
-        }
-        if wrong_allele {
-            log::debug!("RCCX allele phasing is ambiguous; clearing allele calls");
-            updated_alleles = vec![];
-        }
+        check_wrong_allele(
+            &mut updated_alleles,
+            starting_copies,
+            ending_copies,
+            single_copies,
+        );
 
         if updated_alleles.len() == 2 {
             if let (Some(first_allele), Some(second_allele)) =
@@ -272,10 +534,21 @@ impl Phaser {
                     .iter()
                     .filter(|x| second_allele.contains(*x))
                     .count();
-                if a + b == nhap {
+                if a + b == nhap + two_cp_haplotypes.len() {
+                    let reordered_first_allele =
+                        reorder_rccx_allele(first_allele, starting_copies, ending_copies);
+                    log::debug!("reordered_first_allele={:?}", reordered_first_allele);
+                    let reordered_second_allele =
+                        reorder_rccx_allele(second_allele, starting_copies, ending_copies);
+                    log::debug!("reordered_second_allele={:?}", reordered_second_allele);
+                    updated_alleles = vec![reordered_first_allele, reordered_second_allele];
                     successful_phasing = true;
                 }
             }
+        }
+        // if phasing is not successful, clear the alleles
+        if !successful_phasing {
+            updated_alleles = vec![];
         }
         Ok((successful_phasing, updated_alleles, two_cp_haplotypes))
     }
@@ -286,6 +559,7 @@ impl Phaser {
         new_alleles: &Vec<Vec<String>>,
         hap_variants: &BTreeMap<String, Vec<String>>,
         ending_copies: &Vec<String>,
+        single_copies: &Vec<String>,
         nhap: usize,
         two_cp_haplotypes: &Vec<String>,
     ) -> Result<Vec<Option<String>>, DError> {
@@ -308,7 +582,11 @@ impl Phaser {
                 let annotated_allele = self.annotate_var(&allele2_var)?;
                 annotated_alleles.push(annotated_allele);
             }
-        } else if ending_copies.len() == 2 && nhap == 4 && two_cp_haplotypes.is_empty() {
+        } else if ending_copies.len() == 2
+            && nhap == 4
+            && two_cp_haplotypes.is_empty()
+            && single_copies.is_empty()
+        {
             for hap in ending_copies {
                 let Some(allele_var) = hap_variants.get(hap) else {
                     continue;
@@ -518,17 +796,9 @@ impl Phaser {
                 }
             }
         }
-        call.final_haplotypes = assembled_haps
-            .clone()
-            .into_iter()
-            .map(|(k, v)| (k.to_string(), v))
-            .collect::<BTreeMap<_, _>>();
         // Phase alleles
         let allele_result = self.phase_alleles(&mut phase_results, &assembled_haps, None);
-        call.region_specific_info.insert(
-            String::from("haplotype_links"),
-            serde_json::to_value(&allele_result.haplotype_links)?,
-        );
+        let mut haplotype_links = allele_result.haplotype_links;
         let alleles = allele_result.raw_alleles;
 
         // Output variants
@@ -541,15 +811,17 @@ impl Phaser {
 
         // update alleles
         let hcn = phase_results.assemblies.highest_cn;
-        let (successful_phasing, updated_alleles, two_cp_haplotypes) = self.update_alleles(
-            &alleles,
-            &haps,
-            &assembled_haps,
-            &single_copies,
-            &starting_copies,
-            &ending_copies,
-            hcn,
-        )?;
+        let (successful_phasing, mut updated_alleles, mut two_cp_haplotypes) = self
+            .update_alleles(
+                &alleles,
+                &haps,
+                &assembled_haps,
+                &single_copies,
+                &starting_copies,
+                &ending_copies,
+                &haplotype_links,
+                hcn,
+            )?;
 
         // annotate haplotypes by checking the diff sites
         // output variants carried by each haplotype
@@ -578,10 +850,69 @@ impl Phaser {
             &updated_alleles,
             &hap_variants,
             &ending_copies,
+            &single_copies,
             assembled_haps.len(),
             &two_cp_haplotypes,
         )?;
 
+        if let Some(renamed_haps) = rccx_haplotype_rename_map(
+            successful_phasing,
+            &updated_alleles,
+            &assembled_haps,
+            &two_cp_haplotypes,
+            &mod_gene_name,
+        ) {
+            let rename = |name: &str| {
+                renamed_haps
+                    .get(name)
+                    .cloned()
+                    .expect("RCCX haplotype rename map should cover all assembled haplotypes")
+            };
+            for hap_name in assembled_haps.values_mut() {
+                *hap_name = rename(hap_name);
+            }
+            for allele in &mut updated_alleles {
+                for hap_name in allele {
+                    *hap_name = rename(hap_name);
+                }
+            }
+            for hap_name in &mut two_cp_haplotypes {
+                *hap_name = rename(hap_name);
+            }
+            for hap_name in &mut starting_copies {
+                *hap_name = rename(hap_name);
+            }
+            for hap_name in &mut ending_copies {
+                *hap_name = rename(hap_name);
+            }
+            for hap_name in &mut single_copies {
+                *hap_name = rename(hap_name);
+            }
+
+            hap_variants = hap_variants
+                .into_iter()
+                .map(|(hap_name, variants)| (rename(&hap_name), variants))
+                .collect();
+            haplotype_links = haplotype_links
+                .into_iter()
+                .map(|(hap_name, links)| {
+                    (
+                        rename(&hap_name),
+                        links.into_iter().map(|link| rename(&link)).collect(),
+                    )
+                })
+                .collect();
+            call.haplotype_details = std::mem::take(&mut call.haplotype_details)
+                .into_iter()
+                .map(|(hap_name, hap_info)| (rename(&hap_name), hap_info))
+                .collect();
+        }
+
+        // Report assembled haplotypes even when allele phasing could not rename them.
+        call.final_haplotypes = assembled_haps
+            .into_iter()
+            .map(|(hap_sequence, hap_name)| (hap_sequence.to_string(), hap_name))
+            .collect();
         call.two_copy_haplotypes = two_cp_haplotypes;
         call.region_specific_info.insert(
             String::from("alleles_final"),
@@ -589,6 +920,10 @@ impl Phaser {
         );
         call.region_specific_info
             .insert(String::from("raw_alleles"), updated_alleles.clone().into());
+        call.region_specific_info.insert(
+            String::from("haplotype_links"),
+            serde_json::to_value(&haplotype_links)?,
+        );
         self.fill_in_call(phase_results, &mut call);
         call.region_specific_info
             .insert(String::from("phasing_success"), successful_phasing.into());
@@ -616,6 +951,287 @@ mod tests {
     use crate::config;
     use crate::phaser;
     use crate::toolkit::util;
+
+    #[test]
+    fn check_wrong_allele_clears_all_calls_for_multiple_boundary_copies() {
+        let starting_copies = vec![String::from("start1"), String::from("start2")];
+        let ending_copies = vec![String::from("end1"), String::from("end2")];
+        for invalid_allele in [
+            vec!["start1", "start2"],
+            vec!["end1", "end2"],
+            vec!["start1", "middle", "start2", "end1"],
+            vec!["start1", "end1", "middle", "end2"],
+            vec!["start1", "start1", "end1"],
+            vec!["start1", "end1", "end1"],
+        ] {
+            let mut alleles = vec![
+                vec![String::from("start1"), String::from("end1")],
+                invalid_allele.iter().map(|hap| hap.to_string()).collect(),
+            ];
+            check_wrong_allele(&mut alleles, &starting_copies, &ending_copies, &[]);
+            assert!(alleles.is_empty(), "invalid allele: {invalid_allele:?}");
+        }
+    }
+
+    #[test]
+    fn check_wrong_allele_rejects_single_copy_deletions_mixed_with_other_haplotypes() {
+        let single_copies = vec![String::from("deletion1"), String::from("deletion2")];
+        for invalid_allele in [
+            vec!["deletion1", "middle"],
+            vec!["start", "deletion1", "end"],
+            vec!["deletion1", "deletion2"],
+            vec!["deletion1", "deletion1"],
+        ] {
+            let mut alleles = vec![
+                invalid_allele.iter().map(|hap| hap.to_string()).collect(),
+                vec![String::from("deletion2")],
+            ];
+            check_wrong_allele(
+                &mut alleles,
+                &[String::from("start")],
+                &[String::from("end")],
+                &single_copies,
+            );
+            assert!(alleles.is_empty(), "invalid allele: {invalid_allele:?}");
+        }
+    }
+
+    #[test]
+    fn check_wrong_allele_preserves_two_valid_nonempty_alleles() {
+        let starting_copies = vec![String::from("start")];
+        let ending_copies = vec![String::from("end")];
+        let single_copies = vec![String::from("deletion")];
+        for input in [
+            vec![vec!["start", "middle", "end"], vec!["deletion"]],
+            vec![vec!["start", "end"], vec!["start", "end"]],
+            vec![vec!["deletion"], vec!["deletion"]],
+            vec![vec!["middle", "middle"], vec!["deletion"]],
+            vec![vec!["start", "middle"], vec!["middle", "end"]],
+            vec![vec!["middle"], vec!["middle"]],
+        ] {
+            let expected = input
+                .iter()
+                .map(|allele| allele.iter().map(|hap| hap.to_string()).collect::<Vec<_>>())
+                .collect::<Vec<_>>();
+            let mut alleles = expected.clone();
+            check_wrong_allele(
+                &mut alleles,
+                &starting_copies,
+                &ending_copies,
+                &single_copies,
+            );
+            assert_eq!(alleles, expected);
+        }
+    }
+
+    #[test]
+    fn check_wrong_allele_requires_exactly_two_alleles() {
+        for allele_count in [0, 1, 3, 4] {
+            let mut alleles = vec![vec![String::from("deletion")]; allele_count];
+            check_wrong_allele(&mut alleles, &[], &[], &[String::from("deletion")]);
+            assert!(alleles.is_empty(), "allele count: {allele_count}");
+        }
+    }
+
+    #[test]
+    fn check_wrong_allele_clears_calls_when_either_allele_is_empty() {
+        for mut alleles in [
+            vec![vec![], vec![String::from("deletion")]],
+            vec![vec![String::from("deletion")], vec![]],
+            vec![vec![], vec![]],
+        ] {
+            check_wrong_allele(&mut alleles, &[], &[], &[String::from("deletion")]);
+            assert!(alleles.is_empty());
+        }
+    }
+
+    fn assembled_haps_for_renaming() -> BTreeMap<VStr<'static>, String> {
+        BTreeMap::from([
+            (VStr::from("1111"), String::from("rccx_hap1")),
+            (VStr::from("1112"), String::from("rccx_hap2")),
+            (VStr::from("1121"), String::from("rccx_hap3")),
+            (VStr::from("1122"), String::from("rccx_hap4")),
+        ])
+    }
+
+    #[test]
+    fn rccx_haplotype_rename_map_follows_updated_allele_order() {
+        let updated_alleles = vec![
+            vec![String::from("rccx_hap2"), String::from("rccx_hap3")],
+            vec![String::from("rccx_hap1"), String::from("rccx_hap4")],
+        ];
+
+        assert_eq!(
+            rccx_haplotype_rename_map(
+                true,
+                &updated_alleles,
+                &assembled_haps_for_renaming(),
+                &[],
+                "rccx",
+            ),
+            Some(BTreeMap::from([
+                (String::from("rccx_hap1"), String::from("rccx_hap3")),
+                (String::from("rccx_hap2"), String::from("rccx_hap1")),
+                (String::from("rccx_hap3"), String::from("rccx_hap2")),
+                (String::from("rccx_hap4"), String::from("rccx_hap4")),
+            ]))
+        );
+    }
+
+    #[test]
+    fn rccx_haplotype_rename_map_requires_complete_successful_diploid_phasing() {
+        let assembled_haps = assembled_haps_for_renaming();
+        let complete_alleles = vec![
+            vec![String::from("rccx_hap1"), String::from("rccx_hap2")],
+            vec![String::from("rccx_hap3"), String::from("rccx_hap4")],
+        ];
+        assert!(
+            rccx_haplotype_rename_map(false, &complete_alleles, &assembled_haps, &[], "rccx")
+                .is_none()
+        );
+        assert!(rccx_haplotype_rename_map(
+            true,
+            &complete_alleles[..1],
+            &assembled_haps,
+            &[],
+            "rccx",
+        )
+        .is_none());
+        assert!(rccx_haplotype_rename_map(
+            true,
+            &vec![
+                vec![String::from("rccx_hap1")],
+                vec![String::from("rccx_hap2")],
+            ],
+            &assembled_haps,
+            &[],
+            "rccx",
+        )
+        .is_none());
+    }
+
+    #[test]
+    fn rccx_haplotype_rename_map_numbers_shared_haplotypes_only_once() {
+        let assembled_haps = assembled_haps_for_renaming();
+        let updated_alleles = vec![
+            vec![String::from("rccx_hap3"), String::from("rccx_hap2")],
+            vec![
+                String::from("rccx_hap1"),
+                String::from("rccx_hap4"),
+                String::from("rccx_hap2"),
+            ],
+        ];
+        let two_cp_haplotypes = vec![String::from("rccx_hap2")];
+
+        assert_eq!(
+            rccx_haplotype_rename_map(
+                true,
+                &updated_alleles,
+                &assembled_haps,
+                &two_cp_haplotypes,
+                "rccx",
+            ),
+            Some(BTreeMap::from([
+                (String::from("rccx_hap1"), String::from("rccx_hap3")),
+                (String::from("rccx_hap2"), String::from("rccx_hap2")),
+                (String::from("rccx_hap3"), String::from("rccx_hap1")),
+                (String::from("rccx_hap4"), String::from("rccx_hap4")),
+            ]))
+        );
+        assert!(
+            rccx_haplotype_rename_map(true, &updated_alleles, &assembled_haps, &[], "rccx",)
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn reorder_rccx_allele_places_boundary_copies_at_their_respective_ends() {
+        let allele = vec![
+            String::from("rccx_hap3"),
+            String::from("rccx_hap1"),
+            String::from("rccx_hap4"),
+            String::from("rccx_hap2"),
+        ];
+        let starting_copies = vec![String::from("rccx_hap2")];
+        let ending_copies = vec![String::from("rccx_hap4")];
+
+        assert_eq!(
+            reorder_rccx_allele(&allele, &starting_copies, &ending_copies),
+            vec![
+                String::from("rccx_hap2"),
+                String::from("rccx_hap3"),
+                String::from("rccx_hap1"),
+                String::from("rccx_hap4"),
+            ]
+        );
+    }
+
+    #[test]
+    fn reorder_rccx_allele_allows_missing_or_multiple_boundary_copies() {
+        let allele = vec![
+            String::from("hap3"),
+            String::from("hap1"),
+            String::from("hap2"),
+        ];
+        for (starting_copies, ending_copies, expected) in [
+            (vec![], vec![], vec!["hap3", "hap1", "hap2"]),
+            (
+                vec![],
+                vec![String::from("hap3")],
+                vec!["hap1", "hap2", "hap3"],
+            ),
+            (
+                vec![String::from("hap1")],
+                vec![],
+                vec!["hap1", "hap3", "hap2"],
+            ),
+            (
+                vec![String::from("hap2"), String::from("hap1")],
+                vec![String::from("hap3")],
+                vec!["hap1", "hap2", "hap3"],
+            ),
+            (
+                vec![String::from("hap1")],
+                vec![String::from("hap2"), String::from("hap3")],
+                vec!["hap1", "hap3", "hap2"],
+            ),
+        ] {
+            assert_eq!(
+                reorder_rccx_allele(&allele, &starting_copies, &ending_copies),
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn reorder_rccx_allele_preserves_alleles_without_boundary_copies() {
+        let allele = vec![String::from("hap1")];
+        assert_eq!(reorder_rccx_allele(&allele, &[], &[]), allele);
+        assert_eq!(
+            reorder_rccx_allele(&[String::from("hap1"), String::from("hap2")], &[], &[],),
+            vec![String::from("hap1"), String::from("hap2")]
+        );
+    }
+
+    #[test]
+    fn reorder_rccx_allele_emits_overlapping_boundary_copies_only_once() {
+        let allele = vec![
+            String::from("hap1"),
+            String::from("hap2"),
+            String::from("hap3"),
+        ];
+        let starting_copies = vec![String::from("hap2")];
+        let ending_copies = vec![String::from("hap2"), String::from("hap1")];
+        assert_eq!(
+            reorder_rccx_allele(&allele, &starting_copies, &ending_copies),
+            vec![
+                String::from("hap2"),
+                String::from("hap3"),
+                String::from("hap1")
+            ]
+        );
+        assert!(reorder_rccx_allele(&[], &starting_copies, &ending_copies).is_empty());
+    }
 
     fn build_test_phaser(outdir: &std::path::Path) -> Phaser {
         let settings = phaser::Settings::new(
@@ -808,14 +1424,14 @@ mod tests {
 
         assert_eq!(
             phaser
-                .annotate_alleles(true, &alleles, &hap_variants, &empty, 4, &vec![])
+                .annotate_alleles(true, &alleles, &hap_variants, &empty, &empty, 4, &vec![])
                 .unwrap(),
             vec![Some(String::from("WT")), Some(String::from("WT"))]
         );
 
         assert_eq!(
             phaser
-                .annotate_alleles(false, &alleles, &hap_variants, &empty, 4, &vec![])
+                .annotate_alleles(false, &alleles, &hap_variants, &empty, &empty, 4, &vec![])
                 .unwrap(),
             Vec::<Option<String>>::new()
         );
@@ -823,7 +1439,7 @@ mod tests {
         let ending = vec![String::from("hap1"), String::from("hap2")];
         assert_eq!(
             phaser
-                .annotate_alleles(false, &alleles, &hap_variants, &ending, 4, &vec![])
+                .annotate_alleles(false, &alleles, &hap_variants, &ending, &empty, 4, &vec![])
                 .unwrap(),
             vec![Some(String::from("WT")), Some(String::from("WT"))]
         );
@@ -836,9 +1452,75 @@ mod tests {
         ]);
         assert_eq!(
             phaser
-                .annotate_alleles(false, &alleles, &hap_variants, &ending, 4, &vec![])
+                .annotate_alleles(false, &alleles, &hap_variants, &ending, &empty, 4, &vec![])
                 .unwrap(),
             vec![Some(String::from("var1")), Some(String::from("WT"))]
+        );
+    }
+
+    #[test]
+    fn annotate_alleles_requires_successful_phasing_when_single_copies_are_present() {
+        let outdir = tempfile::TempDir::new().expect("tempdir should build");
+        let mut phaser = build_test_phaser(outdir.path());
+        let alleles = vec![
+            vec![String::from("deletion")],
+            vec![
+                String::from("start"),
+                String::from("middle"),
+                String::from("end"),
+            ],
+        ];
+        let hap_variants = BTreeMap::from([
+            (String::from("deletion"), vec![String::from("var1")]),
+            (String::from("start"), vec![]),
+            (String::from("middle"), vec![]),
+            (String::from("end"), vec![]),
+        ]);
+        // Satisfy every other fallback condition to isolate the single-copy guard.
+        let ending_copies = vec![String::from("middle"), String::from("end")];
+        let single_copies = vec![String::from("deletion")];
+        assert_eq!(
+            phaser
+                .annotate_alleles(
+                    false,
+                    &vec![],
+                    &hap_variants,
+                    &ending_copies,
+                    &vec![],
+                    4,
+                    &vec![]
+                )
+                .unwrap(),
+            vec![Some(String::from("WT")), Some(String::from("WT"))]
+        );
+        assert!(phaser
+            .annotate_alleles(
+                false,
+                &vec![],
+                &hap_variants,
+                &ending_copies,
+                &single_copies,
+                4,
+                &vec![]
+            )
+            .unwrap()
+            .is_empty());
+        assert_eq!(
+            phaser
+                .annotate_alleles(
+                    true,
+                    &alleles,
+                    &hap_variants,
+                    &ending_copies,
+                    &single_copies,
+                    4,
+                    &vec![]
+                )
+                .unwrap(),
+            vec![
+                Some(String::from("deletion_var1")),
+                Some(String::from("gene_duplication")),
+            ]
         );
     }
 }

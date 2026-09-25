@@ -17,7 +17,8 @@ Fields shared across all genes are defined in the general [json file](json.md). 
 - `starting_hap`: Indicates the first RCCX copy on each allele. These haplotypes have unique sequences from the unique region upstream of RCCX. This field can be used to infer the order of RCCX haplotypes on an allele.
 - `deletion_hap`: a deletion haplotype has the characteristics of both a starting haplotype and an ending haplotype, indicating that it's the only haplotype on an allele, indicating a deletion of an RCCX copy, leaving just one copy of RCCX.
 - `hap_variants`: Variant calls for common gene-pseudogene (CYP21A2-CYP21A1P) differentiating sites (P31L, IVS2-13A/C>G, G111Vfs, I173N, I237N, V238E, M240K, V282L, Q319X and R357W). This is used for allele annotation of CYP21A2. For comprehensive variant calls of the RCCX module please refer to the vcf file.
-- `phasing_success`: Indicates whether the different haplotypes could be phased into alleles. Note that this does not refer to haplotype phasing itself; haplotypes can still be resolved even if they cannot be connected into alleles.
+- `alleles_final`: haplotypes phased into two alleles.
+- `phasing_success`: Indicates whether the different haplotypes could be phased into alleles. Note that this does not refer to haplotype phasing itself; haplotypes (i.e.individual RCCX copies) can still be resolved even if they cannot be connected into alleles.
 - `annotated_alleles`: Provides per-allele annotations of CYP21A2 based on the `hap_variants` field. Possible values may include:
   - `WT`: one copy each of CYP21A2 and CYP21A1P (pseudogene) on this allele. 
   - `pseudogene_duplication`: additional copy of CYP21A1P on this allele.
@@ -27,6 +28,8 @@ Fields shared across all genes are defined in the general [json file](json.md). 
   - `deletion_P31L,G111Vfs`: Deletion of one RCCX copy on this allele, creating a CYP21A1P–CYP21A2 fusion gene carrying P31L and G111Vfs variants from the pseudogene.
   - `duplication_WT_plus_Q319X`: Two copies of CYP21A2 on this allele: one WT, the other carrying Q319X.
   - `Q319X`: Single CYP21A2 copy with variant Q319X, no CNV present (other variants like 282L are reported similarly).
+
+Notes regarding alleles: When possible, the order of haplotypes in each allele reported in `alleles_final` reflects the order of RCCX modules on an allele, i.e. starting with a starting copy (one of those in `starting_hap`) and ending with an ending copy (one of those in `ending_hap`). `alleles_final` and `raw_alleles` have identical values for the `RCCX` region and they are both updated to empty values when `phasing_success` is false. 
 
 ## Visualizing haplotypes
 

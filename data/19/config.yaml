@@ -147,14 +147,13 @@ opn1lw:
   genes: OPN1LW,OPN1MW,OPN1MW2,OPN1MW3,TEX28
   is_tandem: True
   use_r2k: True
-  realign_region: chrX:153405521-153447930
-  extract_regions: chrX:153405521-153522860
+  realign_region: chrX:153400475-153447930
+  extract_regions: chrX:153400475-153522860
   noisy_region: [[153430775, 153431273]]
-  left_boundary: 153409524
   right_boundary: 153447689
-  pivot_site: 153408884
+  pivot_site: 153421854
   clip_5p_positions: [153409522]
-  add_sites: ["153408884_G_A"]
+  add_sites: ["153421854_A_T", "153421877_A_G", "153447646_T_G", "153447655_A_C", "153447656_G_A", "153418460_C_A", "153418514_G_A", "153418516_G_T", "153418524_C_T", "153418535_A_G", "153418541_T_G"]
   pivot_vars: ["153421854_A_T", "153421877_A_G"]
   last_copy_vars: ["153447646_T_G", "153447655_A_C", "153447656_G_A"]
   exon3_variants: [[["153418460_C_A"], "M", "L"], [["153418514_G_A", "153418516_G_T"], "I", "V"], [["153418524_C_T"], "V", "A"], [["153418535_A_G"], "V", "I"], [["153418541_T_G"], "A", "S"]]

@@ -646,6 +646,9 @@ mod tests {
     fn get_start_end_matches_python_case() {
         let (start, end) = get_start_end(b"xx1211xxx");
         assert_eq!((start, end), (2, 5));
+
+        let (start, end) = get_start_end(b"1211");
+        assert_eq!((start, end), (0, 3));
     }
 
     #[test]
