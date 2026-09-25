@@ -592,7 +592,7 @@ def get_json_info(json_file: str, region_name: str) -> Optional[RegionInfo]:
                 "deletion_haplotypes"
             ]
             report_info = f"deletion_haplotypes: {gene_call["region_specific_info"]['deletion_haplotypes']}"
-        elif region_name in ["GBA", "CFHclust", "CLCNKB", "CYP2D6", "CYP11B1"]:
+        elif region_name in ["GBA", "CFHclust", "CLCNKB", "CYP2D6", "CYP11B1", "CATSPER2"]:
             fusion = gene_call["region_specific_info"]["fusions_called"]
             if fusion == {}:
                 report_info = f"fusions_called: {fusion}"
