@@ -52,31 +52,6 @@ impl std::default::Default for RealignSettings {
     }
 }
 
-/// From minimap2-rs
-/// Convert minimap2-rs cigar to a cigar string.
-fn cigar_to_cigarstr(cigar: &Vec<(u32, u8)>) -> CigarString {
-    let op_vec: Vec<Cigar> = cigar
-        .to_owned()
-        .iter()
-        .map(|(len, op)| match op {
-            0 => Cigar::Match(*len),
-            1 => Cigar::Ins(*len),
-            2 => Cigar::Del(*len),
-            3 => Cigar::RefSkip(*len),
-            4 => Cigar::SoftClip(*len),
-            5 => Cigar::HardClip(*len),
-            6 => Cigar::Pad(*len),
-            7 => Cigar::Equal(*len),
-            8 => Cigar::Diff(*len),
-            _ => {
-                log::warn!("Unexpected cigar operation code {op}; using soft-clip fallback.");
-                Cigar::SoftClip(*len)
-            }
-        })
-        .collect();
-    CigarString(op_vec)
-}
-
 /// Build a minimap2 aligner to remove runtime dependency.
 ///
 /// # Errors
@@ -239,17 +214,12 @@ fn preserve_modbase_aux_tags(input: &bam::Record, output: &mut bam::Record) -> D
 pub fn seq2seq(
     input_record: bam::Record,
     header_view: &bam::HeaderView,
-    header: &bam::Header,
+    _header: &bam::Header,
     opts: (i64, i32, RealignSettings),
-    // opts: (&[u8], &str, Option<i32>, i32, RealignSettings, i64),
     aligner: &minimap2::Aligner<Built>,
-    //writer: &Mutex<Vec<bam::Record>>,
 ) -> Result<Vec<bam::Record>, DError> {
     let (ref_offset, tid, settings) = opts;
 
-    //let (seq, seq_name, chain_bandwidth, tid, settings, ref_offset) = opts;
-    //let trimmed_seq_name = seq_name.split('_').next().unwrap();
-    //let aligner = make_aligner(seq, trimmed_seq_name.as_bytes(), chain_bandwidth)?;
     let mut seq = VString::from(input_record.seq().as_bytes());
     let seq_original = seq.clone();
     let qual_original = input_record.qual().to_vec();
@@ -261,8 +231,7 @@ pub fn seq2seq(
         .collect::<Vec<_>>();
     reverse_complement(&mut seq, &mut qual);
     let seq_rc = seq.clone();
-    // qual needs + 33 for use in map_to_sam, but it needs to be back to unshifted
-    // for use in bam::Record.
+    // map_to_sam accepts ASCII qualities; output records retain the original qualities.
     let is_reverse = input_record.is_reverse();
     if !is_reverse {
         seq = seq_original.clone();
@@ -273,114 +242,33 @@ pub fn seq2seq(
             .collect::<Vec<_>>();
     }
     let qname = VStr::from(input_record.qname());
-    let mut mappings = aligner.map(
-        &seq,
-        /* output_cigar= */ true,
-        /* output_md= */ true,
-        /* max_frag_len= */ None,
-        /* extra_flags= */ None, //Some(EXTRA_FLAGS_SLICE),
-        Some(&qname),
-    )?;
-
-    let sam_records = aligner.map_to_sam(
-        &seq,
-        Some(&qual),
-        Some(&qname),
-        header_view,
-        None,
-        None, //Some(EXTRA_FLAGS_SLICE),
-    )?;
-    qual.iter_mut().for_each(|x| *x -= 33);
-    //let qual = qual;
-    //let reverse_qual = qual.iter().rev().copied().collect::<Vec<u8>>();
-    //let rc_seq = seq.clone().rc0(); // rc0 is for reverse-complementing sequences of unbounded length.
-    let records = mappings
-        .iter_mut()
-        .zip(sam_records)
-        .map(|(mapping, sam_mapping)| {
-            let mut record = minimap2::htslib::mapping_to_record(
-                Some(mapping),
-                &seq,
-                header.clone(),
-                Some(&qual),
-                Some(&qname),
-            );
-            mapping.query_name = Some(qname.to_string().into());
-            record.set_tid(tid);
-            for aux in sam_mapping.aux_iter() {
-                match aux {
-                    Ok((aux_name, aux_field)) => {
-                        if let Err(e) = record.push_aux(aux_name, aux_field) {
-                            log::warn!("Failed to add aux tag for read {qname}: {e}");
-                        }
-                    }
-                    Err(e) => {
-                        log::warn!("Failed to read aux tag for read {qname}: {e}");
-                    }
-                }
-            }
-            (mapping, record)
-        })
-        .collect::<Vec<_>>();
-    let mut alignments = Vec::with_capacity(records.len());
+    if !aligner.has_index() {
+        return Err("No index".into());
+    }
+    if seq.is_empty() {
+        return Err("Sequence is empty".into());
+    }
+    let sam_records =
+        aligner.map_to_sam(&seq, Some(&qual), Some(&qname), header_view, None, None)?;
+    let mut alignments = Vec::with_capacity(sam_records.len());
     let original_orientation_tag = if is_reverse { b'R' } else { b'F' };
-    for (mapping, mut record) in records {
-        /*
-        let mut lock = writer.try_lock();
-        if let Ok(ref mut writer) = lock {
-            writer.push(record.clone());
-        } else {
-            panic!("try_lock failed");
-        }
-        */
-        if (mapping.strand == minimap2::Strand::Reverse) != record.is_reverse() {
-            return Err(Exception::new(format!(
-                "Strand/orientation mismatch for read {qname}: mapping reverse={}, record reverse={}",
-                mapping.strand == minimap2::Strand::Reverse,
-                record.is_reverse()
-            ))
-            .into());
-        }
-        record.unset_unmapped();
-        record.unset_secondary();
-        let Some(mut cigar) = mapping
-            .alignment
-            .as_ref()
-            .and_then(|alignment| alignment.cigar.as_ref())
-            .map(|x| x.to_owned())
-        else {
-            log::warn!("Skipping read {qname} because mapping had no CIGAR.");
+    for mut record in sam_records {
+        if record.is_unmapped() {
             continue;
-        };
-        let mapping_to_record_cig = record.cigar().to_string();
-        let map_to_sam_cig = cigar_to_cigarstr(&cigar).to_string();
-        if map_to_sam_cig != mapping_to_record_cig {
-            log::info!(
-                "CIGAR mismatch between mapping_to_record and map_to_sam: mapping_to_record={}, map_to_sam={}",
-                record.cigar(),
-                cigar_to_cigarstr(&cigar)
-            );
         }
-        // Now add softclips
-        let query_len = seq.len() as i32;
-        let overhang = query_len - mapping.query_end;
-        const SOFT_CLIP: u8 = 4;
-
-        if mapping.query_start > 0 {
-            if record.is_reverse() {
-                cigar.push((mapping.query_start as u32, SOFT_CLIP)); // soft-clip
-            } else {
-                cigar.insert(0, (mapping.query_start as u32, SOFT_CLIP)); // soft-clip
-            }
-        }
-        if overhang > 0 {
-            if record.is_reverse() {
-                cigar.insert(0, (overhang as u32, SOFT_CLIP));
-            } else {
-                cigar.push((overhang as u32, SOFT_CLIP)); // soft-clip
-            }
-        }
-        let cigar_str = cigar_to_cigarstr(&cigar);
+        record.set_tid(tid);
+        record.unset_secondary();
+        // Keep the full read sequence, including supplementary alignment clips.
+        let cigar_str = CigarString(
+            record
+                .cigar()
+                .iter()
+                .map(|op| match *op {
+                    Cigar::HardClip(len) => Cigar::SoftClip(len),
+                    other => other,
+                })
+                .collect(),
+        );
         if (is_reverse && !record.is_reverse()) || (!is_reverse && record.is_reverse()) {
             record.set(&qname, Some(&cigar_str), &seq_rc, &qual_reverse);
         } else {
@@ -393,7 +281,7 @@ pub fn seq2seq(
             let cigar_qlen = query_length_cigar(&cigar_str) as usize;
             if cigar_qlen != record.seq_len() {
                 return Err(Exception::new(format!(
-                    "CIGAR/query length mismatch for read {qname}: cigar_q_len={cigar_qlen}, seq_len={}, cigar={cigar_str}, mapping={mapping:?}",
+                    "CIGAR/query length mismatch for read {qname}: cigar_q_len={cigar_qlen}, seq_len={}, cigar={cigar_str}",
                     record.seq_len()
                 ))
                 .into());
