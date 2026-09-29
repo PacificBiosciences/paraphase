@@ -45,12 +45,10 @@ impl Phaser {
                 log::debug!("Regional depth sampling stride: step_by={step_by}, requested_intervals={num_intervals}");
                 let sampled_positions = (q.start..q.end)
                     .step_by(std::cmp::max(1usize, q.len() / num_intervals))
+                    .map(|pos| pos - one_based as i64)
                     .collect::<Vec<_>>();
                 log::debug!("Sampling regional depth at positions: {sampled_positions:?}");
-                let depths = (q.start..q.end)
-                    .step_by(std::cmp::max(1usize, q.len() / num_intervals))
-                    .map(|pos| count_pos(pos - one_based as i64, tid, bam, exclude_flag))
-                    .collect::<Vec<_>>();
+                let depths = sampled_depths(bam, tid, &sampled_positions, exclude_flag);
                 log::debug!("Sampled depth values: {depths:?}");
                 let median = compute_median(&depths);
                 let percentile = percentile_i32(&depths, percentile) as f32;
@@ -144,4 +142,48 @@ impl Phaser {
             || male_opn1lw_coverage_pass
             || self.settings.allow_low_coverage
     }
+}
+
+fn sampled_depths(
+    bam: &mut bam::IndexedReader,
+    tid: i32,
+    positions: &[i64],
+    exclude_flag: u16,
+) -> Vec<i32> {
+    let (Some(&first), Some(&last)) = (positions.first(), positions.last()) else {
+        return Vec::new();
+    };
+    let contig_len = bam.header().target_len(tid as u32).unwrap_or(0);
+    if first < 0 || last as u64 >= contig_len || bam.fetch((tid, first, last + 1)).is_err() {
+        return positions
+            .iter()
+            .map(|&pos| count_pos(pos, tid, bam, exclude_flag))
+            .collect();
+    }
+
+    // Count alignment spans at the same sampled positions with one BAM fetch.
+    let mut changes = vec![0i64; positions.len() + 1];
+    for record in bam.rc_records().flatten() {
+        if record.flags() & exclude_flag != 0 {
+            continue;
+        }
+        let start = record.pos();
+        let end = if record.is_unmapped() {
+            start + 1
+        } else {
+            record.cigar().end_pos().max(start + 1)
+        };
+        let left = positions.partition_point(|&pos| pos < start);
+        let right = positions.partition_point(|&pos| pos < end);
+        changes[left] += 1;
+        changes[right] -= 1;
+    }
+    let mut depth = 0i64;
+    changes[..positions.len()]
+        .iter()
+        .map(|change| {
+            depth += change;
+            depth.min(i64::from(i32::MAX)) as i32
+        })
+        .collect()
 }
